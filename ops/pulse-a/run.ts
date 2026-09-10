@@ -1,6 +1,6 @@
 /**
  * pulse-a — LaneCash text engine
- * Cloudflare AI → OpenRouter (low tokens) → local fallback → D1
+ * Prefers free models: Cloudflare AI + OpenRouter free cascade + local fallback
  */
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
@@ -38,7 +38,7 @@ const SYSTEM = `You are a practical Nigerian money editor for LaneCash.
 Write honest, useful, non-hype content.
 Return ONLY valid JSON with keys: title, summary, content, category, reading_minutes.
 category must be one of: money, opportunities, scams, guides, news.
-content must be HTML with <h2>, <p>, <ul><li> only. Keep content under 450 words.`;
+content must be HTML using only <h2>, <p>, <ul>, <li>. Keep under 450 words.`;
 
 function slugify(text: string): string {
   return text
@@ -64,10 +64,12 @@ function guessCategory(topic: string): Category {
 
 function parseDraft(raw: string): ArticleDraft | null {
   try {
-    let cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+    let cleaned = String(raw || "").replace(/```json/gi, "").replace(/```/g, "").trim();
     const first = cleaned.indexOf("{");
     const last = cleaned.lastIndexOf("}");
     if (first !== -1 && last !== -1) cleaned = cleaned.slice(first, last + 1);
+    // fix trailing commas sometimes returned by small models
+    cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
     const obj = JSON.parse(cleaned);
     if (!obj.title || !obj.content) return null;
     const category = CATEGORIES.includes(obj.category) ? obj.category : "money";
@@ -86,50 +88,42 @@ function parseDraft(raw: string): ArticleDraft | null {
 function localFallback(topic: string): ArticleDraft {
   const category = guessCategory(topic);
   const title = topic.charAt(0).toUpperCase() + topic.slice(1);
-  const summary = `A practical, no-hype breakdown of ${topic} for everyday people in Nigeria.`;
-  const content = `
-<h2>What this is about</h2>
-<p>${title} matters because many people waste time and money on advice that is too vague or unrealistic. This guide keeps things simple and practical.</p>
-
-<h2>Key points to remember</h2>
-<ul>
-<li>Start small and test before you commit serious money.</li>
-<li>Avoid anyone promising guaranteed returns.</li>
-<li>Track every naira that comes in and goes out.</li>
-<li>Use only tools and platforms you can verify.</li>
-<li>Focus on skills that people around you already pay for.</li>
-</ul>
-
-<h2>Practical next step</h2>
-<p>Pick one action you can finish this week. Keep it small, measurable, and tied to real demand. Consistency beats big promises.</p>
-
-<h2>Stay safe</h2>
-<p>If someone rushes you, asks for upfront fees with no clear service, or refuses basic questions, walk away. Protect your BVN, OTPs, and bank details at all times.</p>
-`.trim();
-
   return {
     title,
-    summary,
-    content,
+    summary: `A practical, no-hype breakdown of ${topic} for everyday people in Nigeria.`,
+    content: `
+<h2>What this is about</h2>
+<p>${title} matters because vague advice wastes time and money. This guide stays practical.</p>
+<h2>Key points</h2>
+<ul>
+<li>Start small and test before committing serious money.</li>
+<li>Avoid anyone promising guaranteed returns.</li>
+<li>Track every naira in and out.</li>
+<li>Use only tools and platforms you can verify.</li>
+<li>Focus on skills people around you already pay for.</li>
+</ul>
+<h2>Next step</h2>
+<p>Pick one action you can finish this week. Keep it small and measurable.</p>
+<h2>Stay safe</h2>
+<p>If someone rushes you or asks for unclear upfront fees, walk away. Protect BVN, OTPs, and bank details.</p>
+`.trim(),
     category,
     reading_minutes: 3,
   };
 }
 
 async function generateWithCloudflare(topic: string): Promise<ArticleDraft | null> {
-  if (!CF_ACCOUNT_ID || !CF_API_TOKEN) {
-    console.warn("[pulse-a] Cloudflare AI skipped (missing account/token)");
-    return null;
-  }
+  if (!CF_ACCOUNT_ID || !CF_API_TOKEN) return null;
 
   const models = [
     "@cf/meta/llama-3.1-8b-instruct",
     "@cf/meta/llama-3.2-3b-instruct",
-    "@cf/qwen/qwen1.5-7b-chat-awq",
+    "@cf/mistral/mistral-7b-instruct-v0.2",
   ];
 
   const user = `Topic: ${topic}
-Write a short practical article for Nigerians. Return ONLY JSON.`;
+Write a short practical article for Nigerians.
+Return ONLY a JSON object, no markdown.`;
 
   for (const model of models) {
     try {
@@ -145,31 +139,25 @@ Write a short practical article for Nigerians. Return ONLY JSON.`;
             { role: "system", content: SYSTEM },
             { role: "user", content: user },
           ],
-          max_tokens: 900,
+          max_tokens: 800,
+          temperature: 0.3,
         }),
       });
 
       const text = await res.text();
       if (!res.ok) {
-        console.warn(`[pulse-a] CF AI ${model} HTTP ${res.status}: ${text.slice(0, 200)}`);
+        console.warn(`[pulse-a] CF AI ${model} HTTP ${res.status}: ${text.slice(0, 180)}`);
         continue;
       }
 
-      let data: any;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        console.warn(`[pulse-a] CF AI ${model} non-JSON response`);
-        continue;
-      }
-
-      const raw = data?.result?.response || data?.result?.generated_text || data?.response || "";
+      const data = JSON.parse(text);
+      const raw = data?.result?.response || data?.result?.generated_text || "";
       const draft = parseDraft(String(raw));
       if (draft) {
-        console.log(`[pulse-a] used Cloudflare AI: ${model}`);
+        console.log(`[pulse-a] used Cloudflare AI (free): ${model}`);
         return draft;
       }
-      console.warn(`[pulse-a] CF AI ${model} returned unparseable content`);
+      console.warn(`[pulse-a] CF AI ${model} unparseable: ${String(raw).slice(0, 120)}`);
     } catch (err: any) {
       console.warn(`[pulse-a] CF AI ${model}:`, err.message);
     }
@@ -177,14 +165,17 @@ Write a short practical article for Nigerians. Return ONLY JSON.`;
   return null;
 }
 
-async function generateWithOpenRouter(topic: string): Promise<ArticleDraft | null> {
+async function generateWithOpenRouterFree(topic: string): Promise<ArticleDraft | null> {
   if (!OPENROUTER_API_KEY) return null;
 
-  // Keep max_tokens low because account has very low remaining credits
+  // Free / cheap open models cascade
   const models = [
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "microsoft/phi-3-mini-128k-instruct:free",
+    "google/gemma-2-9b-it:free",
+    "mistralai/mistral-7b-instruct:free",
+    "qwen/qwen-2-7b-instruct:free",
     "meta-llama/llama-3.1-8b-instruct",
-    "mistralai/mistral-7b-instruct",
-    "google/gemma-2-9b-it",
   ];
 
   const user = `Topic: ${topic}. Short practical Nigeria money article. JSON only.`;
@@ -205,14 +196,14 @@ async function generateWithOpenRouter(topic: string): Promise<ArticleDraft | nul
             { role: "system", content: SYSTEM },
             { role: "user", content: user },
           ],
-          temperature: 0.4,
-          max_tokens: 500,
+          temperature: 0.3,
+          max_tokens: 450,
         }),
       });
 
       const text = await res.text();
       if (!res.ok) {
-        console.warn(`[pulse-a] OpenRouter ${model} HTTP ${res.status}: ${text.slice(0, 180)}`);
+        console.warn(`[pulse-a] OpenRouter ${model} HTTP ${res.status}: ${text.slice(0, 140)}`);
         continue;
       }
 
@@ -220,7 +211,7 @@ async function generateWithOpenRouter(topic: string): Promise<ArticleDraft | nul
       const raw = data?.choices?.[0]?.message?.content || "";
       const draft = parseDraft(raw);
       if (draft) {
-        console.log(`[pulse-a] used OpenRouter: ${model}`);
+        console.log(`[pulse-a] used OpenRouter free/cascade: ${model}`);
         return draft;
       }
     } catch (err: any) {
@@ -231,13 +222,13 @@ async function generateWithOpenRouter(topic: string): Promise<ArticleDraft | nul
 }
 
 async function generateArticle(topic: string): Promise<ArticleDraft> {
-  const cfDraft = await generateWithCloudflare(topic);
-  if (cfDraft) return cfDraft;
+  const cf = await generateWithCloudflare(topic);
+  if (cf) return cf;
 
-  const orDraft = await generateWithOpenRouter(topic);
-  if (orDraft) return orDraft;
+  const or = await generateWithOpenRouterFree(topic);
+  if (or) return or;
 
-  console.warn("[pulse-a] AI unavailable — using local fallback writer");
+  console.warn("[pulse-a] AI unavailable — local fallback");
   return localFallback(topic);
 }
 
@@ -248,7 +239,6 @@ async function d1Query(sql: string, params: any[] = []): Promise<boolean> {
   }
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/d1/database/${CF_D1_DATABASE_ID}/query`;
-
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -267,26 +257,18 @@ async function d1Query(sql: string, params: any[] = []): Promise<boolean> {
 
 async function publishArticle(draft: ArticleDraft): Promise<void> {
   const id = "a_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  const slugBase = slugify(draft.title) || "article";
-  const slug = `${slugBase}-${id.slice(-5)}`;
+  const slug = `${slugify(draft.title) || "article"}-${id.slice(-5)}`;
 
   const sql = `INSERT INTO articles (
     id, slug, title, summary, content, category, reading_minutes, status, published_at, created_at, updated_at
   ) VALUES (?, ?, ?, ?, ?, ?, ?, 'published', datetime('now'), datetime('now'), datetime('now'))`;
 
   const ok = await d1Query(sql, [
-    id,
-    slug,
-    draft.title,
-    draft.summary,
-    draft.content,
-    draft.category,
-    draft.reading_minutes,
+    id, slug, draft.title, draft.summary, draft.content, draft.category, draft.reading_minutes,
   ]);
 
-  if (ok) {
-    console.log(`[pulse-a] published: ${draft.title} → /article/${slug}`);
-  } else {
+  if (ok) console.log(`[pulse-a] published: ${draft.title} → /article/${slug}`);
+  else {
     console.error("[pulse-a] publish failed");
     process.exit(1);
   }
@@ -296,10 +278,8 @@ async function main() {
   console.log("[pulse-a] start");
   const topic = pickTopic();
   console.log("[pulse-a] topic:", topic);
-
   const draft = await generateArticle(topic);
   console.log(`[pulse-a] draft ready: ${draft.title}`);
-
   await publishArticle(draft);
   console.log("[pulse-a] done");
 }

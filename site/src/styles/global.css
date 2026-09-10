@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.prose h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #f8fafc;
+}
+
+.prose p {
+  margin-bottom: 1rem;
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.prose ul {
+  margin: 1rem 0;
+  padding-left: 1.25rem;
+  color: #cbd5e1;
+}
+
+.prose li {
+  margin-bottom: 0.5rem;
+}
