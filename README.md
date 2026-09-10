@@ -1,2 +1,5 @@
 # kx7-moth-core
-internal processing unit
+
+Internal processing unit.
+
+Do not modify without authorization.

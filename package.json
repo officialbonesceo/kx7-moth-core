@@ -1,0 +1,13 @@
+{
+  "name": "kx7-moth-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pulse-a": "tsx ops/pulse-a/run.ts",
+    "pulse-b": "tsx ops/pulse-b/run.ts"
+  },
+  "dependencies": {
+    "tsx": "^4.19.0"
+  }
+}

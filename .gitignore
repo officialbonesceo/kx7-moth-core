@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+output/
+.tmp/
+*.log
+.DS_Store
+media/
+rendered/
