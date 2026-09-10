@@ -1,0 +1,25 @@
+---
+import Base from '../layouts/Base.astro';
+import { getArticles } from '../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const { results: articles } = await getArticles(db, 12);
+---
+<Base title="LaneCash — Practical Money & Side Hustles">
+  <section class="mb-10">
+    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">Practical money. No hype.</h1>
+    <p class="text-slate-400 max-w-2xl">Side hustles, opportunities, scam alerts and clear guides for everyday people.</p>
+  </section>
+
+  <section class="grid gap-4">
+    {articles?.length ? articles.map((a) => (
+      <a href={`/article/${a.slug}`} class="block p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-700/50 transition">
+        <div class="text-xs uppercase tracking-wide text-emerald-400 mb-2">{a.category}</div>
+        <h2 class="text-xl font-bold mb-2">{a.title}</h2>
+        <p class="text-slate-400 text-sm line-clamp-2">{a.summary}</p>
+      </a>
+    )) : (
+      <p class="text-slate-500">No articles yet. Run pulse-a to publish the first batch.</p>
+    )}
+  </section>
+</Base>

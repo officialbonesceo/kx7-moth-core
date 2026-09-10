@@ -1,14 +1,181 @@
 /**
- * pulse-a
- * Layer: signal harvest + text expansion
+ * pulse-a — LaneCash text engine
+ * Harvests topics → AI rewrite → D1 publish
  */
 
-console.log("[pulse-a] starting signal harvest...");
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
+const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || "";
+const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || "";
+const CF_D1_DATABASE_ID = process.env.CF_D1_DATABASE_ID || "";
 
-// TODO: news/blog pipeline
-// 1. pull sources
-// 2. rewrite
-// 3. categorize
-// 4. publish text unit
+const CATEGORIES = ["money", "opportunities", "scams", "guides", "news"] as const;
 
-console.log("[pulse-a] complete");
+type Category = (typeof CATEGORIES)[number];
+
+interface ArticleDraft {
+  title: string;
+  summary: string;
+  content: string;
+  category: Category;
+  reading_minutes: number;
+}
+
+const TOPIC_SEEDS = [
+  "realistic side hustles that work in Nigeria right now",
+  "how to avoid common online payment scams",
+  "simple ways to manage naira income better",
+  "beginner guide to freelancing from Nigeria",
+  "what to know before taking a small business loan",
+  "practical apps that help small hustles",
+  "how students can earn legitimately online",
+  "warning signs of fake investment platforms",
+  "how to price your freelance service",
+  "saving habits that actually work on low income",
+  "using POS business the smart way",
+  "grant and opportunity alerts people miss",
+];
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 70);
+}
+
+function pickTopic(): string {
+  return TOPIC_SEEDS[Math.floor(Math.random() * TOPIC_SEEDS.length)];
+}
+
+async function generateArticle(topic: string): Promise<ArticleDraft | null> {
+  if (!OPENROUTER_API_KEY) {
+    console.error("[pulse-a] missing OPENROUTER_API_KEY");
+    return null;
+  }
+
+  const system = `You are a practical Nigerian money editor for LaneCash.
+Write honest, useful, non-hype articles for everyday people.
+No get-rich-quick claims. Be clear and specific.
+Return ONLY valid JSON with keys: title, summary, content, category, reading_minutes.
+category must be one of: money, opportunities, scams, guides, news.
+content must be clean HTML using <h2>, <p>, <ul><li> only.`;
+
+  const user = `Write one strong article about: ${topic}
+Audience: Nigerians who want practical money advice.
+Length: 500-800 words equivalent in HTML.`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/officialbonesceo/kx7-moth-core",
+        "X-Title": "kx7-moth-core pulse-a",
+      },
+      body: JSON.stringify({
+        model: "meta-llama/llama-3.3-70b-instruct:free",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.5,
+        max_tokens: 2200,
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("[pulse-a] OpenRouter error", res.status, await res.text());
+      return null;
+    }
+
+    const data = (await res.json()) as any;
+    const raw = data?.choices?.[0]?.message?.content || "";
+    const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const obj = JSON.parse(cleaned);
+
+    const category = CATEGORIES.includes(obj.category) ? obj.category : "money";
+
+    return {
+      title: String(obj.title || "").trim(),
+      summary: String(obj.summary || "").trim(),
+      content: String(obj.content || "").trim(),
+      category,
+      reading_minutes: Number(obj.reading_minutes) || 5,
+    };
+  } catch (err: any) {
+    console.error("[pulse-a] generate failed", err.message);
+    return null;
+  }
+}
+
+async function d1Query(sql: string, params: any[] = []): Promise<boolean> {
+  if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
+    console.error("[pulse-a] missing Cloudflare D1 credentials");
+    return false;
+  }
+
+  const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/d1/database/${CF_D1_DATABASE_ID}/query`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${CF_API_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ sql, params }),
+  });
+
+  if (!res.ok) {
+    console.error("[pulse-a] D1 error", res.status, await res.text());
+    return false;
+  }
+  return true;
+}
+
+async function publishArticle(draft: ArticleDraft): Promise<void> {
+  const id = "a_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const slugBase = slugify(draft.title) || "article";
+  const slug = `${slugBase}-${id.slice(-5)}`;
+
+  const sql = `INSERT INTO articles (
+    id, slug, title, summary, content, category, reading_minutes, status, published_at, created_at, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, 'published', datetime('now'), datetime('now'), datetime('now'))`;
+
+  const ok = await d1Query(sql, [
+    id,
+    slug,
+    draft.title,
+    draft.summary,
+    draft.content,
+    draft.category,
+    draft.reading_minutes,
+  ]);
+
+  if (ok) {
+    console.log(`[pulse-a] published: ${draft.title} → /${draft.category}/${slug}`);
+  }
+}
+
+async function main() {
+  console.log("[pulse-a] start");
+  const topic = pickTopic();
+  console.log("[pulse-a] topic:", topic);
+
+  const draft = await generateArticle(topic);
+  if (!draft || !draft.title || !draft.content) {
+    console.error("[pulse-a] no usable draft");
+    process.exit(1);
+  }
+
+  await publishArticle(draft);
+  console.log("[pulse-a] done");
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

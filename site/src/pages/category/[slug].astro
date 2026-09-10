@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getArticles } from '../../lib/db';
+
+const { slug } = Astro.params;
+const db = Astro.locals.runtime.env.DB;
+const { results: articles } = await getArticles(db, 20, slug);
+const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Category';
+---
+<Base title={`${title} — LaneCash`}>
+  <h1 class="text-3xl font-extrabold mb-6">{title}</h1>
+  <section class="grid gap-4">
+    {articles?.length ? articles.map((a) => (
+      <a href={`/article/${a.slug}`} class="block p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-700/50 transition">
+        <h2 class="text-xl font-bold mb-2">{a.title}</h2>
+        <p class="text-slate-400 text-sm">{a.summary}</p>
+      </a>
+    )) : (
+      <p class="text-slate-500">No posts in this category yet.</p>
+    )}
+  </section>
+</Base>

@@ -2,4 +2,12 @@
 
 Internal processing unit.
 
-Do not modify without authorization.
+## Units
+- `pulse-a` — text harvest + publish (blog)
+- `pulse-b` — sequence render (video) [next]
+
+## Blog brand (public)
+**LaneCash** — Practical money, side hustles & opportunities.
+
+## Required secrets
+See `CREDS.md`
