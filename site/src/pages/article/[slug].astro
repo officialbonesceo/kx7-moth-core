@@ -6,19 +6,21 @@ const { slug } = Astro.params;
 const db = Astro.locals.runtime?.env?.DB;
 const article = (slug && db) ? await getArticleBySlug(db, slug) : null;
 
-if (!article) {
-  return Astro.redirect('/');
-}
+if (!article) return Astro.redirect('/');
+
+const cover = article.image_url
+  || `https://source.unsplash.com/1200x675/?${encodeURIComponent(article.category + ' finance money')}&sig=${encodeURIComponent(article.slug)}`;
 ---
 <Base title={`${article.title} — LaneCash`} description={article.summary}>
   <article>
+    <img class="article-cover" src={cover} alt={article.title} />
     <div class="article-head">
       <div class="eyebrow">{article.category}</div>
       <h1>{article.title}</h1>
       <p class="summary">{article.summary}</p>
       {article.source_url && (
         <a class="source-pill" href={article.source_url} target="_blank" rel="noopener noreferrer">
-          Source: {article.source_name || 'Original article'} ↗
+          Source: {article.source_name || 'Original'} ↗
         </a>
       )}
     </div>

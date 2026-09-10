@@ -10,21 +10,26 @@ if (db && slug) {
   articles = res.results || [];
 }
 const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Category';
+function cover(a: any) {
+  if (a.image_url) return a.image_url;
+  return `https://source.unsplash.com/1200x675/?${encodeURIComponent((a.category || 'money') + ' finance')}&sig=${encodeURIComponent(a.slug || 'x')}`;
+}
 ---
 <Base title={`${title} — LaneCash`}>
   <section class="hero">
     <h1>{title}</h1>
-    <p>Latest practical posts in this section.</p>
+    <p>Practical posts in this section.</p>
   </section>
   <section class="grid">
     {articles.length ? articles.map((a) => (
       <a class="card" href={`/article/${a.slug}`}>
-        <div class="eyebrow">{a.category}</div>
-        <h2>{a.title}</h2>
-        <p>{a.summary}</p>
+        <img class="card-img" src={cover(a)} alt={a.title} loading="lazy" />
+        <div class="card-body">
+          <div class="eyebrow">{a.category}</div>
+          <h2>{a.title}</h2>
+          <p>{a.summary}</p>
+        </div>
       </a>
-    )) : (
-      <div class="empty">No posts in this category yet.</div>
-    )}
+    )) : <div class="empty">No posts yet.</div>}
   </section>
 </Base>

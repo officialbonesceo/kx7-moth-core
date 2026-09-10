@@ -5,25 +5,34 @@ import { getArticles } from '../lib/db';
 const db = Astro.locals.runtime?.env?.DB;
 let articles: any[] = [];
 if (db) {
-  const res = await getArticles(db, 20);
+  const res = await getArticles(db, 24);
   articles = res.results || [];
 }
+
+function cover(a: any) {
+  if (a.image_url) return a.image_url;
+  const q = encodeURIComponent(`${a.category || 'finance'} nigeria money`);
+  return `https://source.unsplash.com/1200x675/?${q}&sig=${encodeURIComponent(a.slug || a.id || 'x')}`;
+}
 ---
-<Base title="LaneCash — Practical Money & Side Hustles">
+<Base title="LaneCash — Money, Crypto & Daily Hustles">
   <section class="hero">
-    <h1>Practical money. No hype.</h1>
-    <p>Real side hustles, opportunity alerts, scam warnings, and clear guides for everyday people.</p>
+    <h1>Make money sense.</h1>
+    <p>Crypto, side hustles, fintech, scam alerts, and practical ways to earn with little capital.</p>
   </section>
 
   <section class="grid">
     {articles.length ? articles.map((a) => (
       <a class="card" href={`/article/${a.slug}`}>
-        <div class="eyebrow">{a.category}</div>
-        <h2>{a.title}</h2>
-        <p>{a.summary}</p>
+        <img class="card-img" src={cover(a)} alt={a.title} loading="lazy" />
+        <div class="card-body">
+          <div class="eyebrow">{a.category}</div>
+          <h2>{a.title}</h2>
+          <p>{a.summary}</p>
+        </div>
       </a>
     )) : (
-      <div class="empty">No articles yet. Run pulse-a to publish.</div>
+      <div class="empty">No articles yet. Run pulse-a.</div>
     )}
   </section>
 </Base>
