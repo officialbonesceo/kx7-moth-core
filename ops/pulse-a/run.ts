@@ -1,6 +1,6 @@
 /**
  * pulse-a — LaneCash
- * Fetches real RSS/web leads → AI rewrite → keeps source URL → D1
+ * Real finance RSS only → AI rewrite → product links + source URL → D1
  */
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
@@ -29,20 +29,67 @@ interface ArticleDraft {
 }
 
 const FEEDS = [
-  { name: "TechCabal", url: "https://techcabal.com/feed/" },
   { name: "Nairametrics", url: "https://nairametrics.com/feed/" },
   { name: "BusinessDay", url: "https://businessday.ng/feed/" },
   { name: "Punch Business", url: "https://punchng.com/topics/business/feed/" },
+  { name: "TechCabal", url: "https://techcabal.com/feed/" },
 ];
 
-const SYSTEM = `You are a practical Nigerian money editor for LaneCash.
-Rewrite the source lead into a clear, useful article for everyday people.
-No hype. No fake claims.
-Keep any important facts. Add a short practical takeaway.
+// Only keep finance / money / business opportunity stories
+const FINANCE_KEYWORDS = [
+  "naira", "dollar", "usd", "fx", "forex", "bank", "cbn", "interest", "loan",
+  "credit", "fintech", "payment", "transfer", "wallet", "pos", "business",
+  "sme", "startup", "invest", "investment", "stock", "shares", "capital",
+  "revenue", "profit", "income", "salary", "wage", "hustle", "side hustle",
+  "freelance", "remote work", "grant", "funding", "fund", "budget",
+  "inflation", "price", "market", "trade", "export", "import", "oil",
+  "tax", "vat", "pension", "savings", "save", "money", "cash",
+  "scam", "fraud", "ponzi", "crypto", "bitcoin", "usdt", "blockchain",
+  "ecommerce", "shop", "sell", "customer", "invoice", "accounting",
+  "payroll", "app", "platform", "digital bank", "microfinance",
+];
+
+const BLOCK_KEYWORDS = [
+  "football", "super eagles", "afcon", "celebrity", "nollywood",
+  "music", "album", "movie", "wedding", "politics only", "election campaign",
+];
+
+// When tools are mentioned, force real links into the article
+const PRODUCT_LINKS: Record<string, string> = {
+  capcut: "https://www.capcut.com/",
+  canva: "https://www.canva.com/",
+  quickbooks: "https://quickbooks.intuit.com/",
+  wave: "https://www.waveapps.com/",
+  paystack: "https://paystack.com/",
+  flutterwave: "https://flutterwave.com/",
+  opay: "https://www.opayweb.com/",
+  palmPay: "https://www.palmpay.com/",
+  palmpay: "https://www.palmpay.com/",
+  kooli: "https://www.konga.com/",
+  jumia: "https://www.jumia.com.ng/",
+  jiji: "https://jiji.ng/",
+  fiverr: "https://www.fiverr.com/",
+  upwork: "https://www.upwork.com/",
+  "google docs": "https://docs.google.com/",
+  notion: "https://www.notion.so/",
+  trello: "https://trello.com/",
+  moniepoint: "https://moniepoint.com/",
+  koolatra: "https://www.kuda.com/",
+  kuda: "https://www.kuda.com/",
+};
+
+const SYSTEM = `You are a practical Nigerian MONEY editor for LaneCash.
+STRICT RULE: write only about money, business, fintech, hustles, scams, investments, banking, payments, or earning opportunities.
+If the source is not financial enough, still frame it strictly around money impact.
+No celebrity gossip, sports, pure politics entertainment.
+
+When you mention a tool/app/product (CapCut, Canva, Paystack, etc.), write it as a real HTML link using the official URL if known.
+Example: <a href="https://www.capcut.com/" target="_blank" rel="noopener noreferrer">CapCut</a>
+
 Return ONLY valid JSON with keys: title, summary, content, category, reading_minutes.
 category must be one of: money, opportunities, scams, guides, news.
-content must be HTML using <h2>, <p>, <ul>, <li> only.
-In the final paragraph, include a source link using the provided SOURCE_URL as an <a href> tag.`;
+content must be HTML using <h2>, <p>, <ul>, <li>, <a> only.
+Always include the SOURCE_URL as a clickable source link near the end.`;
 
 function slugify(text: string): string {
   return text
@@ -62,17 +109,48 @@ function decodeBasic(text: string): string {
   return text
     .replace(/<!\[CDATA\[/g, "")
     .replace(/\]\]>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
+    .replace(/&/g, "&")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+    .replace(/"/g, '"')
     .replace(/&#39;/g, "'");
+}
+
+function isFinanceItem(item: FeedItem): boolean {
+  const text = `${item.title} ${item.summary}`.toLowerCase();
+  if (BLOCK_KEYWORDS.some((k) => text.includes(k))) return false;
+  const hits = FINANCE_KEYWORDS.filter((k) => text.includes(k)).length;
+  return hits >= 1;
+}
+
+function injectProductLinks(content: string): string {
+  let out = content;
+  for (const [name, url] of Object.entries(PRODUCT_LINKS)) {
+    // skip if already linked
+    const already = new RegExp(`href=[\"']${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i");
+    if (already.test(out)) continue;
+
+    // link plain mentions of the product name
+    const re = new RegExp(`\\b(${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`, "ig");
+    out = out.replace(re, (match) => {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${match}</a>`;
+    });
+  }
+  return out;
+}
+
+function ensureSourceLink(content: string, sourceName: string, sourceUrl: string): string {
+  if (content.includes(sourceUrl)) return content;
+  return `${content}
+
+<h2>Source</h2>
+<p>Based on reporting from <a href="${sourceUrl}" target="_blank" rel="noopener noreferrer">${sourceName}</a>.</p>`;
 }
 
 function parseRss(xml: string, source: string): FeedItem[] {
   const items: FeedItem[] = [];
   const parts = xml.split(/<item[\s>]/i).slice(1);
-  for (const part of parts.slice(0, 8)) {
+  for (const part of parts.slice(0, 10)) {
     const title = decodeBasic((part.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "").trim());
     const link = decodeBasic((part.match(/<link[^>]*>([\s\S]*?)<\/link>/i)?.[1] || "").trim());
     const description = decodeBasic(
@@ -107,8 +185,8 @@ async function fetchFeeds(): Promise<FeedItem[]> {
         continue;
       }
       const xml = await res.text();
-      const items = parseRss(xml, feed.name);
-      console.log(`[pulse-a] feed ${feed.name}: ${items.length} items`);
+      const items = parseRss(xml, feed.name).filter(isFinanceItem);
+      console.log(`[pulse-a] feed ${feed.name}: ${items.length} finance items`);
       all.push(...items);
     } catch (err: any) {
       console.warn(`[pulse-a] feed ${feed.name}:`, err.message);
@@ -139,29 +217,32 @@ function parseDraft(raw: string): Omit<ArticleDraft, "source_name" | "source_url
   }
 }
 
-function ensureSourceLink(content: string, sourceName: string, sourceUrl: string): string {
-  if (content.includes(sourceUrl)) return content;
-  return `${content}
-
-<h2>Source</h2>
-<p>Based on reporting from <a href="${sourceUrl}" target="_blank" rel="noopener noreferrer">${sourceName}</a>.</p>`;
-}
-
 function localFromFeed(item: FeedItem): ArticleDraft {
-  const content = `
+  const content = injectProductLinks(`
 <h2>What happened</h2>
 <p>${item.summary || item.title}</p>
-<h2>Why it matters</h2>
-<p>This is relevant for people tracking practical money, business, and opportunity news in Nigeria.</p>
+<h2>Money angle</h2>
+<p>This matters for people tracking income, business tools, payments, or financial risk in Nigeria.</p>
 <h2>Source</h2>
 <p>Read the original report on <a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.source}</a>.</p>
-`.trim();
+`.trim());
   return {
     title: item.title,
     summary: item.summary.slice(0, 180) || item.title,
     content,
     category: "money",
     reading_minutes: 3,
+    source_name: item.source,
+    source_url: item.link,
+  };
+}
+
+function finalizeDraft(parsed: Omit<ArticleDraft, "source_name" | "source_url">, item: FeedItem): ArticleDraft {
+  let content = ensureSourceLink(parsed.content, item.source, item.link);
+  content = injectProductLinks(content);
+  return {
+    ...parsed,
+    content,
     source_name: item.source,
     source_url: item.link,
   };
@@ -178,7 +259,7 @@ async function generateWithCloudflare(item: FeedItem): Promise<ArticleDraft | nu
 SOURCE_URL: ${item.link}
 TITLE: ${item.title}
 SUMMARY: ${item.summary}
-Rewrite into LaneCash JSON article. Include source link in content.`;
+Write a STRICTLY financial LaneCash article. If tools like CapCut/Canva/Paystack appear, link them.`;
 
   for (const model of models) {
     try {
@@ -195,21 +276,15 @@ Rewrite into LaneCash JSON article. Include source link in content.`;
             { role: "user", content: user },
           ],
           max_tokens: 900,
-          temperature: 0.3,
+          temperature: 0.25,
         }),
       });
-      const text = await res.text();
-      if (!res.ok) {
-        console.warn(`[pulse-a] CF AI ${model} HTTP ${res.status}`);
-        continue;
-      }
-      const data = JSON.parse(text);
-      const raw = data?.result?.response || "";
-      const parsed = parseDraft(raw);
+      if (!res.ok) continue;
+      const data = await res.json() as any;
+      const parsed = parseDraft(data?.result?.response || "");
       if (!parsed) continue;
-      parsed.content = ensureSourceLink(parsed.content, item.source, item.link);
       console.log(`[pulse-a] used Cloudflare AI: ${model}`);
-      return { ...parsed, source_name: item.source, source_url: item.link };
+      return finalizeDraft(parsed, item);
     } catch (err: any) {
       console.warn(`[pulse-a] CF AI ${model}:`, err.message);
     }
@@ -223,14 +298,13 @@ async function generateWithOpenRouterFree(item: FeedItem): Promise<ArticleDraft 
     "meta-llama/llama-3.1-8b-instruct:free",
     "google/gemma-2-9b-it:free",
     "mistralai/mistral-7b-instruct:free",
-    "microsoft/phi-3-mini-128k-instruct:free",
     "meta-llama/llama-3.1-8b-instruct",
   ];
   const user = `SOURCE_NAME: ${item.source}
 SOURCE_URL: ${item.link}
 TITLE: ${item.title}
 SUMMARY: ${item.summary}
-Rewrite into LaneCash JSON article. Include source link.`;
+Strict finance article only. Link tools if mentioned.`;
 
   for (const model of models) {
     try {
@@ -248,22 +322,16 @@ Rewrite into LaneCash JSON article. Include source link.`;
             { role: "system", content: SYSTEM },
             { role: "user", content: user },
           ],
-          temperature: 0.3,
+          temperature: 0.25,
           max_tokens: 500,
         }),
       });
-      const text = await res.text();
-      if (!res.ok) {
-        console.warn(`[pulse-a] OpenRouter ${model} HTTP ${res.status}`);
-        continue;
-      }
-      const data = JSON.parse(text);
-      const raw = data?.choices?.[0]?.message?.content || "";
-      const parsed = parseDraft(raw);
+      if (!res.ok) continue;
+      const data = await res.json() as any;
+      const parsed = parseDraft(data?.choices?.[0]?.message?.content || "");
       if (!parsed) continue;
-      parsed.content = ensureSourceLink(parsed.content, item.source, item.link);
       console.log(`[pulse-a] used OpenRouter: ${model}`);
-      return { ...parsed, source_name: item.source, source_url: item.link };
+      return finalizeDraft(parsed, item);
     } catch (err: any) {
       console.warn(`[pulse-a] OpenRouter ${model}:`, err.message);
     }
@@ -326,7 +394,7 @@ async function publishArticle(draft: ArticleDraft): Promise<void> {
 }
 
 async function main() {
-  console.log("[pulse-a] start");
+  console.log("[pulse-a] start (finance-only)");
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error("[pulse-a] missing Cloudflare credentials");
     process.exit(1);
@@ -334,38 +402,34 @@ async function main() {
 
   const items = await fetchFeeds();
   if (!items.length) {
-    console.error("[pulse-a] no feed items found");
+    console.error("[pulse-a] no finance feed items found");
     process.exit(1);
   }
 
-  // shuffle a bit
   for (let i = items.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [items[i], items[j]] = [items[j], items[i]];
   }
 
   let published = false;
-  for (const item of items.slice(0, 10)) {
-    const exists = await alreadyExists(item.link, item.title);
-    if (exists) {
+  for (const item of items.slice(0, 12)) {
+    if (await alreadyExists(item.link, item.title)) {
       console.log(`[pulse-a] skip duplicate: ${item.title.slice(0, 60)}`);
       continue;
     }
 
     console.log(`[pulse-a] processing: ${item.title.slice(0, 70)}`);
-    let draft =
+    const draft =
       (await generateWithCloudflare(item)) ||
       (await generateWithOpenRouterFree(item)) ||
       localFromFeed(item);
 
     await publishArticle(draft);
     published = true;
-    break; // one solid article per run
+    break;
   }
 
-  if (!published) {
-    console.log("[pulse-a] nothing new to publish");
-  }
+  if (!published) console.log("[pulse-a] nothing new to publish");
   console.log("[pulse-a] done");
 }
 
