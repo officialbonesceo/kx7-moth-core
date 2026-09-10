@@ -1,6 +1,6 @@
 /**
  * pulse-a — LaneCash text engine
- * Harvests topics → AI rewrite → D1 publish
+ * Cloudflare Workers AI first → OpenRouter fallback → D1 publish
  */
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
@@ -9,7 +9,6 @@ const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || "";
 const CF_D1_DATABASE_ID = process.env.CF_D1_DATABASE_ID || "";
 
 const CATEGORIES = ["money", "opportunities", "scams", "guides", "news"] as const;
-
 type Category = (typeof CATEGORIES)[number];
 
 interface ArticleDraft {
@@ -35,6 +34,13 @@ const TOPIC_SEEDS = [
   "grant and opportunity alerts people miss",
 ];
 
+const SYSTEM = `You are a practical Nigerian money editor for LaneCash.
+Write honest, useful, non-hype articles for everyday people.
+No get-rich-quick claims. Be clear and specific.
+Return ONLY valid JSON with keys: title, summary, content, category, reading_minutes.
+category must be one of: money, opportunities, scams, guides, news.
+content must be clean HTML using <h2>, <p>, <ul><li> only.`;
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -49,67 +55,142 @@ function pickTopic(): string {
   return TOPIC_SEEDS[Math.floor(Math.random() * TOPIC_SEEDS.length)];
 }
 
-async function generateArticle(topic: string): Promise<ArticleDraft | null> {
-  if (!OPENROUTER_API_KEY) {
-    console.error("[pulse-a] missing OPENROUTER_API_KEY");
+function parseDraft(raw: string): ArticleDraft | null {
+  try {
+    let cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const first = cleaned.indexOf("{");
+    const last = cleaned.lastIndexOf("}");
+    if (first !== -1 && last !== -1) cleaned = cleaned.slice(first, last + 1);
+    const obj = JSON.parse(cleaned);
+    if (!obj.title || !obj.content) return null;
+    const category = CATEGORIES.includes(obj.category) ? obj.category : "money";
+    return {
+      title: String(obj.title).trim(),
+      summary: String(obj.summary || "").trim(),
+      content: String(obj.content).trim(),
+      category,
+      reading_minutes: Number(obj.reading_minutes) || 5,
+    };
+  } catch {
     return null;
   }
+}
 
-  const system = `You are a practical Nigerian money editor for LaneCash.
-Write honest, useful, non-hype articles for everyday people.
-No get-rich-quick claims. Be clear and specific.
-Return ONLY valid JSON with keys: title, summary, content, category, reading_minutes.
-category must be one of: money, opportunities, scams, guides, news.
-content must be clean HTML using <h2>, <p>, <ul><li> only.`;
+async function generateWithCloudflare(topic: string): Promise<ArticleDraft | null> {
+  if (!CF_ACCOUNT_ID || !CF_API_TOKEN) return null;
+
+  const models = [
+    "@cf/meta/llama-3.1-8b-instruct",
+    "@cf/meta/llama-3.1-70b-instruct",
+    "@cf/mistral/mistral-7b-instruct-v0.2",
+  ];
+
+  const user = `Write one strong article about: ${topic}
+Audience: Nigerians who want practical money advice.
+Length: 500-800 words equivalent in HTML.
+Return ONLY JSON.`;
+
+  for (const model of models) {
+    try {
+      const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${model}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${CF_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: SYSTEM },
+            { role: "user", content: user },
+          ],
+        }),
+      });
+
+      if (!res.ok) {
+        console.warn(`[pulse-a] CF AI ${model} HTTP ${res.status}`);
+        continue;
+      }
+
+      const data = (await res.json()) as any;
+      const raw = data?.result?.response || data?.response || "";
+      const draft = parseDraft(raw);
+      if (draft) {
+        console.log(`[pulse-a] used Cloudflare AI: ${model}`);
+        return draft;
+      }
+    } catch (err: any) {
+      console.warn(`[pulse-a] CF AI ${model}:`, err.message);
+    }
+  }
+  return null;
+}
+
+async function generateWithOpenRouter(topic: string): Promise<ArticleDraft | null> {
+  if (!OPENROUTER_API_KEY) return null;
+
+  const models = [
+    "meta-llama/llama-3.3-70b-instruct",
+    "google/gemini-2.0-flash-001",
+    "openai/gpt-4o-mini",
+    "mistralai/mistral-7b-instruct",
+  ];
 
   const user = `Write one strong article about: ${topic}
 Audience: Nigerians who want practical money advice.
 Length: 500-800 words equivalent in HTML.`;
 
-  try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/officialbonesceo/kx7-moth-core",
-        "X-Title": "kx7-moth-core pulse-a",
-      },
-      body: JSON.stringify({
-        model: "meta-llama/llama-3.3-70b-instruct:free",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        temperature: 0.5,
-        max_tokens: 2200,
-        response_format: { type: "json_object" },
-      }),
-    });
+  for (const model of models) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://github.com/officialbonesceo/kx7-moth-core",
+          "X-Title": "kx7-moth-core pulse-a",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: SYSTEM },
+            { role: "user", content: user },
+          ],
+          temperature: 0.5,
+          max_tokens: 2200,
+        }),
+      });
 
-    if (!res.ok) {
-      console.error("[pulse-a] OpenRouter error", res.status, await res.text());
-      return null;
+      if (!res.ok) {
+        console.warn(`[pulse-a] OpenRouter ${model} HTTP ${res.status}:`, await res.text());
+        continue;
+      }
+
+      const data = (await res.json()) as any;
+      const raw = data?.choices?.[0]?.message?.content || "";
+      const draft = parseDraft(raw);
+      if (draft) {
+        console.log(`[pulse-a] used OpenRouter: ${model}`);
+        return draft;
+      }
+    } catch (err: any) {
+      console.warn(`[pulse-a] OpenRouter ${model}:`, err.message);
     }
-
-    const data = (await res.json()) as any;
-    const raw = data?.choices?.[0]?.message?.content || "";
-    const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
-    const obj = JSON.parse(cleaned);
-
-    const category = CATEGORIES.includes(obj.category) ? obj.category : "money";
-
-    return {
-      title: String(obj.title || "").trim(),
-      summary: String(obj.summary || "").trim(),
-      content: String(obj.content || "").trim(),
-      category,
-      reading_minutes: Number(obj.reading_minutes) || 5,
-    };
-  } catch (err: any) {
-    console.error("[pulse-a] generate failed", err.message);
-    return null;
   }
+  return null;
+}
+
+async function generateArticle(topic: string): Promise<ArticleDraft | null> {
+  // 1) Cloudflare Workers AI first
+  const cfDraft = await generateWithCloudflare(topic);
+  if (cfDraft) return cfDraft;
+
+  // 2) OpenRouter fallback
+  const orDraft = await generateWithOpenRouter(topic);
+  if (orDraft) return orDraft;
+
+  console.error("[pulse-a] all AI providers failed");
+  return null;
 }
 
 async function d1Query(sql: string, params: any[] = []): Promise<boolean> {
@@ -156,7 +237,9 @@ async function publishArticle(draft: ArticleDraft): Promise<void> {
   ]);
 
   if (ok) {
-    console.log(`[pulse-a] published: ${draft.title} → /${draft.category}/${slug}`);
+    console.log(`[pulse-a] published: ${draft.title} → /article/${slug}`);
+  } else {
+    console.error("[pulse-a] publish failed");
   }
 }
 
