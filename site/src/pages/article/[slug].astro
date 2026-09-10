@@ -1,29 +1,65 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { getArticleBySlug } from '../../lib/db';
+import { getArticleBySlug, getArticles } from '../../lib/db';
 
 const { slug } = Astro.params;
 const db = Astro.locals.runtime?.env?.DB;
 const article = (slug && db) ? await getArticleBySlug(db, slug) : null;
-
 if (!article) return Astro.redirect('/');
 
-const cover = article.image_url
-  || `https://source.unsplash.com/1200x675/?${encodeURIComponent(article.category + ' finance money')}&sig=${encodeURIComponent(article.slug)}`;
+let related: any[] = [];
+if (db) {
+  const res = await getArticles(db, 6, article.category);
+  related = (res.results || []).filter((x: any) => x.slug !== article.slug).slice(0, 3);
+}
+
+const cover = article.image_url || `https://image.pollinations.ai/prompt/${encodeURIComponent(article.category + ' finance dark editorial')}?width=1400&height=700&nologo=true&seed=${encodeURIComponent(article.slug)}`;
 ---
 <Base title={`${article.title} — LaneCash`} description={article.summary}>
-  <article>
-    <img class="article-cover" src={cover} alt={article.title} />
-    <div class="article-head">
-      <div class="eyebrow">{article.category}</div>
-      <h1>{article.title}</h1>
-      <p class="summary">{article.summary}</p>
-      {article.source_url && (
-        <a class="source-pill" href={article.source_url} target="_blank" rel="noopener noreferrer">
-          Source: {article.source_name || 'Original'} ↗
-        </a>
+  <div class="article-layout">
+    <article>
+      <img class="article-cover" src={cover} alt={article.title} />
+      <div class="article-head">
+        <span class={`pill ${article.category}`}>{article.category}</span>
+        <h1>{article.title}</h1>
+        <p class="summary">{article.summary}</p>
+        {article.source_url && (
+          <a class="source-pill" href={article.source_url} target="_blank" rel="noopener noreferrer">
+            Source: {article.source_name || 'Original'} ↗
+          </a>
+        )}
+      </div>
+      <div class="prose" set:html={article.content} />
+
+      {related.length > 0 && (
+        <div class="related">
+          <h3>Related posts</h3>
+          <div class="grid">
+            {related.map((a) => (
+              <a class="card" href={`/article/${a.slug}`}>
+                <div class="card-body">
+                  <span class={`pill ${a.category}`}>{a.category}</span>
+                  <h3>{a.title}</h3>
+                  <p>{a.summary}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
-    </div>
-    <div class="prose" set:html={article.content} />
-  </article>
+    </article>
+
+    <aside class="side-card">
+      <h3>Stay Ahead.</h3>
+      <p>Finance tips, side hustle ideas, and crypto insights — practical, no hype.</p>
+      <a class="side-btn" href="/category/guides">Browse Guides →</a>
+      <ul class="topic-list">
+        <li>Side Hustles</li>
+        <li>Make Money Online</li>
+        <li>Crypto in Nigeria</li>
+        <li>Scam Alerts</li>
+        <li>Personal Finance</li>
+      </ul>
+    </aside>
+  </div>
 </Base>

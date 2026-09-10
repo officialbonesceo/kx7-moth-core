@@ -1,11 +1,8 @@
 ---
 import '../styles/global.css';
-
-interface Props {
-  title?: string;
-  description?: string;
-}
-const { title = 'LaneCash', description = 'Practical money tips, side hustles and opportunities.' } = Astro.props;
+interface Props { title?: string; description?: string }
+const { title = 'LaneCash', description = 'Finance, crypto & practical side hustles.' } = Astro.props;
+const path = Astro.url.pathname;
 ---
 <!doctype html>
 <html lang="en">
@@ -16,18 +13,24 @@ const { title = 'LaneCash', description = 'Practical money tips, side hustles an
     <meta name="description" content={description} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div class="page-bg"></div>
     <header class="topbar">
       <div class="wrap topbar-inner">
-        <a href="/" class="logo">Lane<span>Cash</span></a>
+        <a class="brand" href="/">
+          <span class="brand-mark">L</span>
+          <span>
+            Lane<b>Cash</b>
+            <small>FINANCE · INVEST · GROW</small>
+          </span>
+        </a>
         <nav class="nav">
+          <a class={path === '/' ? 'active' : ''} href="/">Home</a>
           <a href="/category/money">Money</a>
-          <a href="/category/opportunities">Opps</a>
-          <a href="/category/scams">Scams</a>
+          <a href="/category/opportunities">Crypto</a>
           <a href="/category/guides">Guides</a>
+          <a href="/category/scams">Scams</a>
         </nav>
       </div>
     </header>
@@ -35,7 +38,7 @@ const { title = 'LaneCash', description = 'Practical money tips, side hustles an
       <slot />
     </main>
     <footer class="footer">
-      <div class="wrap">LaneCash — practical money, honestly explained.</div>
+      <div class="wrap">LaneCash — practical money, crypto & hustles. No hype.</div>
     </footer>
   </body>
 </html>
