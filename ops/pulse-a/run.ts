@@ -1,6 +1,6 @@
 /**
  * pulse-a — LaneCash text engine
- * Cloudflare Workers AI first → OpenRouter fallback → D1 publish
+ * Cloudflare AI → OpenRouter (low tokens) → local fallback → D1
  */
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
@@ -35,11 +35,10 @@ const TOPIC_SEEDS = [
 ];
 
 const SYSTEM = `You are a practical Nigerian money editor for LaneCash.
-Write honest, useful, non-hype articles for everyday people.
-No get-rich-quick claims. Be clear and specific.
+Write honest, useful, non-hype content.
 Return ONLY valid JSON with keys: title, summary, content, category, reading_minutes.
 category must be one of: money, opportunities, scams, guides, news.
-content must be clean HTML using <h2>, <p>, <ul><li> only.`;
+content must be HTML with <h2>, <p>, <ul><li> only. Keep content under 450 words.`;
 
 function slugify(text: string): string {
   return text
@@ -53,6 +52,14 @@ function slugify(text: string): string {
 
 function pickTopic(): string {
   return TOPIC_SEEDS[Math.floor(Math.random() * TOPIC_SEEDS.length)];
+}
+
+function guessCategory(topic: string): Category {
+  const t = topic.toLowerCase();
+  if (t.includes("scam") || t.includes("fake") || t.includes("warning")) return "scams";
+  if (t.includes("grant") || t.includes("opportunity") || t.includes("job")) return "opportunities";
+  if (t.includes("guide") || t.includes("beginner") || t.includes("how to")) return "guides";
+  return "money";
 }
 
 function parseDraft(raw: string): ArticleDraft | null {
@@ -69,26 +76,60 @@ function parseDraft(raw: string): ArticleDraft | null {
       summary: String(obj.summary || "").trim(),
       content: String(obj.content).trim(),
       category,
-      reading_minutes: Number(obj.reading_minutes) || 5,
+      reading_minutes: Number(obj.reading_minutes) || 4,
     };
   } catch {
     return null;
   }
 }
 
+function localFallback(topic: string): ArticleDraft {
+  const category = guessCategory(topic);
+  const title = topic.charAt(0).toUpperCase() + topic.slice(1);
+  const summary = `A practical, no-hype breakdown of ${topic} for everyday people in Nigeria.`;
+  const content = `
+<h2>What this is about</h2>
+<p>${title} matters because many people waste time and money on advice that is too vague or unrealistic. This guide keeps things simple and practical.</p>
+
+<h2>Key points to remember</h2>
+<ul>
+<li>Start small and test before you commit serious money.</li>
+<li>Avoid anyone promising guaranteed returns.</li>
+<li>Track every naira that comes in and goes out.</li>
+<li>Use only tools and platforms you can verify.</li>
+<li>Focus on skills that people around you already pay for.</li>
+</ul>
+
+<h2>Practical next step</h2>
+<p>Pick one action you can finish this week. Keep it small, measurable, and tied to real demand. Consistency beats big promises.</p>
+
+<h2>Stay safe</h2>
+<p>If someone rushes you, asks for upfront fees with no clear service, or refuses basic questions, walk away. Protect your BVN, OTPs, and bank details at all times.</p>
+`.trim();
+
+  return {
+    title,
+    summary,
+    content,
+    category,
+    reading_minutes: 3,
+  };
+}
+
 async function generateWithCloudflare(topic: string): Promise<ArticleDraft | null> {
-  if (!CF_ACCOUNT_ID || !CF_API_TOKEN) return null;
+  if (!CF_ACCOUNT_ID || !CF_API_TOKEN) {
+    console.warn("[pulse-a] Cloudflare AI skipped (missing account/token)");
+    return null;
+  }
 
   const models = [
     "@cf/meta/llama-3.1-8b-instruct",
-    "@cf/meta/llama-3.1-70b-instruct",
-    "@cf/mistral/mistral-7b-instruct-v0.2",
+    "@cf/meta/llama-3.2-3b-instruct",
+    "@cf/qwen/qwen1.5-7b-chat-awq",
   ];
 
-  const user = `Write one strong article about: ${topic}
-Audience: Nigerians who want practical money advice.
-Length: 500-800 words equivalent in HTML.
-Return ONLY JSON.`;
+  const user = `Topic: ${topic}
+Write a short practical article for Nigerians. Return ONLY JSON.`;
 
   for (const model of models) {
     try {
@@ -104,21 +145,31 @@ Return ONLY JSON.`;
             { role: "system", content: SYSTEM },
             { role: "user", content: user },
           ],
+          max_tokens: 900,
         }),
       });
 
+      const text = await res.text();
       if (!res.ok) {
-        console.warn(`[pulse-a] CF AI ${model} HTTP ${res.status}`);
+        console.warn(`[pulse-a] CF AI ${model} HTTP ${res.status}: ${text.slice(0, 200)}`);
         continue;
       }
 
-      const data = (await res.json()) as any;
-      const raw = data?.result?.response || data?.response || "";
-      const draft = parseDraft(raw);
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.warn(`[pulse-a] CF AI ${model} non-JSON response`);
+        continue;
+      }
+
+      const raw = data?.result?.response || data?.result?.generated_text || data?.response || "";
+      const draft = parseDraft(String(raw));
       if (draft) {
         console.log(`[pulse-a] used Cloudflare AI: ${model}`);
         return draft;
       }
+      console.warn(`[pulse-a] CF AI ${model} returned unparseable content`);
     } catch (err: any) {
       console.warn(`[pulse-a] CF AI ${model}:`, err.message);
     }
@@ -129,16 +180,14 @@ Return ONLY JSON.`;
 async function generateWithOpenRouter(topic: string): Promise<ArticleDraft | null> {
   if (!OPENROUTER_API_KEY) return null;
 
+  // Keep max_tokens low because account has very low remaining credits
   const models = [
-    "meta-llama/llama-3.3-70b-instruct",
-    "google/gemini-2.0-flash-001",
-    "openai/gpt-4o-mini",
+    "meta-llama/llama-3.1-8b-instruct",
     "mistralai/mistral-7b-instruct",
+    "google/gemma-2-9b-it",
   ];
 
-  const user = `Write one strong article about: ${topic}
-Audience: Nigerians who want practical money advice.
-Length: 500-800 words equivalent in HTML.`;
+  const user = `Topic: ${topic}. Short practical Nigeria money article. JSON only.`;
 
   for (const model of models) {
     try {
@@ -156,17 +205,18 @@ Length: 500-800 words equivalent in HTML.`;
             { role: "system", content: SYSTEM },
             { role: "user", content: user },
           ],
-          temperature: 0.5,
-          max_tokens: 2200,
+          temperature: 0.4,
+          max_tokens: 500,
         }),
       });
 
+      const text = await res.text();
       if (!res.ok) {
-        console.warn(`[pulse-a] OpenRouter ${model} HTTP ${res.status}:`, await res.text());
+        console.warn(`[pulse-a] OpenRouter ${model} HTTP ${res.status}: ${text.slice(0, 180)}`);
         continue;
       }
 
-      const data = (await res.json()) as any;
+      const data = JSON.parse(text);
       const raw = data?.choices?.[0]?.message?.content || "";
       const draft = parseDraft(raw);
       if (draft) {
@@ -180,17 +230,15 @@ Length: 500-800 words equivalent in HTML.`;
   return null;
 }
 
-async function generateArticle(topic: string): Promise<ArticleDraft | null> {
-  // 1) Cloudflare Workers AI first
+async function generateArticle(topic: string): Promise<ArticleDraft> {
   const cfDraft = await generateWithCloudflare(topic);
   if (cfDraft) return cfDraft;
 
-  // 2) OpenRouter fallback
   const orDraft = await generateWithOpenRouter(topic);
   if (orDraft) return orDraft;
 
-  console.error("[pulse-a] all AI providers failed");
-  return null;
+  console.warn("[pulse-a] AI unavailable — using local fallback writer");
+  return localFallback(topic);
 }
 
 async function d1Query(sql: string, params: any[] = []): Promise<boolean> {
@@ -240,6 +288,7 @@ async function publishArticle(draft: ArticleDraft): Promise<void> {
     console.log(`[pulse-a] published: ${draft.title} → /article/${slug}`);
   } else {
     console.error("[pulse-a] publish failed");
+    process.exit(1);
   }
 }
 
@@ -249,10 +298,7 @@ async function main() {
   console.log("[pulse-a] topic:", topic);
 
   const draft = await generateArticle(topic);
-  if (!draft || !draft.title || !draft.content) {
-    console.error("[pulse-a] no usable draft");
-    process.exit(1);
-  }
+  console.log(`[pulse-a] draft ready: ${draft.title}`);
 
   await publishArticle(draft);
   console.log("[pulse-a] done");
