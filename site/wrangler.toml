@@ -4,4 +4,4 @@ compatibility_date = "2025-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "lanecash-db"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "f54a94b8-7473-4d25-8031-595f1d3da73e"
