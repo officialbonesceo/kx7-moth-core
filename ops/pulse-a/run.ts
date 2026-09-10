@@ -1,6 +1,6 @@
 /**
- * pulse-a — LaneCash text engine
- * Prefers free models: Cloudflare AI + OpenRouter free cascade + local fallback
+ * pulse-a — LaneCash
+ * Fetches real RSS/web leads → AI rewrite → keeps source URL → D1
  */
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
@@ -11,34 +11,38 @@ const CF_D1_DATABASE_ID = process.env.CF_D1_DATABASE_ID || "";
 const CATEGORIES = ["money", "opportunities", "scams", "guides", "news"] as const;
 type Category = (typeof CATEGORIES)[number];
 
+interface FeedItem {
+  title: string;
+  link: string;
+  summary: string;
+  source: string;
+}
+
 interface ArticleDraft {
   title: string;
   summary: string;
   content: string;
   category: Category;
   reading_minutes: number;
+  source_name?: string;
+  source_url?: string;
 }
 
-const TOPIC_SEEDS = [
-  "realistic side hustles that work in Nigeria right now",
-  "how to avoid common online payment scams",
-  "simple ways to manage naira income better",
-  "beginner guide to freelancing from Nigeria",
-  "what to know before taking a small business loan",
-  "practical apps that help small hustles",
-  "how students can earn legitimately online",
-  "warning signs of fake investment platforms",
-  "how to price your freelance service",
-  "saving habits that actually work on low income",
-  "using POS business the smart way",
-  "grant and opportunity alerts people miss",
+const FEEDS = [
+  { name: "TechCabal", url: "https://techcabal.com/feed/" },
+  { name: "Nairametrics", url: "https://nairametrics.com/feed/" },
+  { name: "BusinessDay", url: "https://businessday.ng/feed/" },
+  { name: "Punch Business", url: "https://punchng.com/topics/business/feed/" },
 ];
 
 const SYSTEM = `You are a practical Nigerian money editor for LaneCash.
-Write honest, useful, non-hype content.
+Rewrite the source lead into a clear, useful article for everyday people.
+No hype. No fake claims.
+Keep any important facts. Add a short practical takeaway.
 Return ONLY valid JSON with keys: title, summary, content, category, reading_minutes.
 category must be one of: money, opportunities, scams, guides, news.
-content must be HTML using only <h2>, <p>, <ul>, <li>. Keep under 450 words.`;
+content must be HTML using <h2>, <p>, <ul>, <li> only.
+In the final paragraph, include a source link using the provided SOURCE_URL as an <a href> tag.`;
 
 function slugify(text: string): string {
   return text
@@ -50,25 +54,75 @@ function slugify(text: string): string {
     .slice(0, 70);
 }
 
-function pickTopic(): string {
-  return TOPIC_SEEDS[Math.floor(Math.random() * TOPIC_SEEDS.length)];
+function stripTags(html: string): string {
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function guessCategory(topic: string): Category {
-  const t = topic.toLowerCase();
-  if (t.includes("scam") || t.includes("fake") || t.includes("warning")) return "scams";
-  if (t.includes("grant") || t.includes("opportunity") || t.includes("job")) return "opportunities";
-  if (t.includes("guide") || t.includes("beginner") || t.includes("how to")) return "guides";
-  return "money";
+function decodeBasic(text: string): string {
+  return text
+    .replace(/<!\[CDATA\[/g, "")
+    .replace(/\]\]>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }
 
-function parseDraft(raw: string): ArticleDraft | null {
+function parseRss(xml: string, source: string): FeedItem[] {
+  const items: FeedItem[] = [];
+  const parts = xml.split(/<item[\s>]/i).slice(1);
+  for (const part of parts.slice(0, 8)) {
+    const title = decodeBasic((part.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "").trim());
+    const link = decodeBasic((part.match(/<link[^>]*>([\s\S]*?)<\/link>/i)?.[1] || "").trim());
+    const description = decodeBasic(
+      (part.match(/<description[^>]*>([\s\S]*?)<\/description>/i)?.[1] ||
+        part.match(/<content:encoded[^>]*>([\s\S]*?)<\/content:encoded>/i)?.[1] ||
+        "").trim()
+    );
+    if (!title || !link) continue;
+    items.push({
+      title: stripTags(title),
+      link: stripTags(link),
+      summary: stripTags(description).slice(0, 500),
+      source,
+    });
+  }
+  return items;
+}
+
+async function fetchFeeds(): Promise<FeedItem[]> {
+  const all: FeedItem[] = [];
+  for (const feed of FEEDS) {
+    try {
+      const res = await fetch(feed.url, {
+        headers: {
+          "User-Agent": "LaneCashBot/1.0 (+https://moth-core.pages.dev)",
+          Accept: "application/rss+xml, application/xml, text/xml, */*",
+        },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!res.ok) {
+        console.warn(`[pulse-a] feed fail ${feed.name}: HTTP ${res.status}`);
+        continue;
+      }
+      const xml = await res.text();
+      const items = parseRss(xml, feed.name);
+      console.log(`[pulse-a] feed ${feed.name}: ${items.length} items`);
+      all.push(...items);
+    } catch (err: any) {
+      console.warn(`[pulse-a] feed ${feed.name}:`, err.message);
+    }
+  }
+  return all;
+}
+
+function parseDraft(raw: string): Omit<ArticleDraft, "source_name" | "source_url"> | null {
   try {
     let cleaned = String(raw || "").replace(/```json/gi, "").replace(/```/g, "").trim();
     const first = cleaned.indexOf("{");
     const last = cleaned.lastIndexOf("}");
     if (first !== -1 && last !== -1) cleaned = cleaned.slice(first, last + 1);
-    // fix trailing commas sometimes returned by small models
     cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
     const obj = JSON.parse(cleaned);
     if (!obj.title || !obj.content) return null;
@@ -85,45 +139,46 @@ function parseDraft(raw: string): ArticleDraft | null {
   }
 }
 
-function localFallback(topic: string): ArticleDraft {
-  const category = guessCategory(topic);
-  const title = topic.charAt(0).toUpperCase() + topic.slice(1);
+function ensureSourceLink(content: string, sourceName: string, sourceUrl: string): string {
+  if (content.includes(sourceUrl)) return content;
+  return `${content}
+
+<h2>Source</h2>
+<p>Based on reporting from <a href="${sourceUrl}" target="_blank" rel="noopener noreferrer">${sourceName}</a>.</p>`;
+}
+
+function localFromFeed(item: FeedItem): ArticleDraft {
+  const content = `
+<h2>What happened</h2>
+<p>${item.summary || item.title}</p>
+<h2>Why it matters</h2>
+<p>This is relevant for people tracking practical money, business, and opportunity news in Nigeria.</p>
+<h2>Source</h2>
+<p>Read the original report on <a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.source}</a>.</p>
+`.trim();
   return {
-    title,
-    summary: `A practical, no-hype breakdown of ${topic} for everyday people in Nigeria.`,
-    content: `
-<h2>What this is about</h2>
-<p>${title} matters because vague advice wastes time and money. This guide stays practical.</p>
-<h2>Key points</h2>
-<ul>
-<li>Start small and test before committing serious money.</li>
-<li>Avoid anyone promising guaranteed returns.</li>
-<li>Track every naira in and out.</li>
-<li>Use only tools and platforms you can verify.</li>
-<li>Focus on skills people around you already pay for.</li>
-</ul>
-<h2>Next step</h2>
-<p>Pick one action you can finish this week. Keep it small and measurable.</p>
-<h2>Stay safe</h2>
-<p>If someone rushes you or asks for unclear upfront fees, walk away. Protect BVN, OTPs, and bank details.</p>
-`.trim(),
-    category,
+    title: item.title,
+    summary: item.summary.slice(0, 180) || item.title,
+    content,
+    category: "money",
     reading_minutes: 3,
+    source_name: item.source,
+    source_url: item.link,
   };
 }
 
-async function generateWithCloudflare(topic: string): Promise<ArticleDraft | null> {
+async function generateWithCloudflare(item: FeedItem): Promise<ArticleDraft | null> {
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN) return null;
-
   const models = [
     "@cf/meta/llama-3.1-8b-instruct",
     "@cf/meta/llama-3.2-3b-instruct",
     "@cf/mistral/mistral-7b-instruct-v0.2",
   ];
-
-  const user = `Topic: ${topic}
-Write a short practical article for Nigerians.
-Return ONLY a JSON object, no markdown.`;
+  const user = `SOURCE_NAME: ${item.source}
+SOURCE_URL: ${item.link}
+TITLE: ${item.title}
+SUMMARY: ${item.summary}
+Rewrite into LaneCash JSON article. Include source link in content.`;
 
   for (const model of models) {
     try {
@@ -139,25 +194,22 @@ Return ONLY a JSON object, no markdown.`;
             { role: "system", content: SYSTEM },
             { role: "user", content: user },
           ],
-          max_tokens: 800,
+          max_tokens: 900,
           temperature: 0.3,
         }),
       });
-
       const text = await res.text();
       if (!res.ok) {
-        console.warn(`[pulse-a] CF AI ${model} HTTP ${res.status}: ${text.slice(0, 180)}`);
+        console.warn(`[pulse-a] CF AI ${model} HTTP ${res.status}`);
         continue;
       }
-
       const data = JSON.parse(text);
-      const raw = data?.result?.response || data?.result?.generated_text || "";
-      const draft = parseDraft(String(raw));
-      if (draft) {
-        console.log(`[pulse-a] used Cloudflare AI (free): ${model}`);
-        return draft;
-      }
-      console.warn(`[pulse-a] CF AI ${model} unparseable: ${String(raw).slice(0, 120)}`);
+      const raw = data?.result?.response || "";
+      const parsed = parseDraft(raw);
+      if (!parsed) continue;
+      parsed.content = ensureSourceLink(parsed.content, item.source, item.link);
+      console.log(`[pulse-a] used Cloudflare AI: ${model}`);
+      return { ...parsed, source_name: item.source, source_url: item.link };
     } catch (err: any) {
       console.warn(`[pulse-a] CF AI ${model}:`, err.message);
     }
@@ -165,20 +217,20 @@ Return ONLY a JSON object, no markdown.`;
   return null;
 }
 
-async function generateWithOpenRouterFree(topic: string): Promise<ArticleDraft | null> {
+async function generateWithOpenRouterFree(item: FeedItem): Promise<ArticleDraft | null> {
   if (!OPENROUTER_API_KEY) return null;
-
-  // Free / cheap open models cascade
   const models = [
     "meta-llama/llama-3.1-8b-instruct:free",
-    "microsoft/phi-3-mini-128k-instruct:free",
     "google/gemma-2-9b-it:free",
     "mistralai/mistral-7b-instruct:free",
-    "qwen/qwen-2-7b-instruct:free",
+    "microsoft/phi-3-mini-128k-instruct:free",
     "meta-llama/llama-3.1-8b-instruct",
   ];
-
-  const user = `Topic: ${topic}. Short practical Nigeria money article. JSON only.`;
+  const user = `SOURCE_NAME: ${item.source}
+SOURCE_URL: ${item.link}
+TITLE: ${item.title}
+SUMMARY: ${item.summary}
+Rewrite into LaneCash JSON article. Include source link.`;
 
   for (const model of models) {
     try {
@@ -197,23 +249,21 @@ async function generateWithOpenRouterFree(topic: string): Promise<ArticleDraft |
             { role: "user", content: user },
           ],
           temperature: 0.3,
-          max_tokens: 450,
+          max_tokens: 500,
         }),
       });
-
       const text = await res.text();
       if (!res.ok) {
-        console.warn(`[pulse-a] OpenRouter ${model} HTTP ${res.status}: ${text.slice(0, 140)}`);
+        console.warn(`[pulse-a] OpenRouter ${model} HTTP ${res.status}`);
         continue;
       }
-
       const data = JSON.parse(text);
       const raw = data?.choices?.[0]?.message?.content || "";
-      const draft = parseDraft(raw);
-      if (draft) {
-        console.log(`[pulse-a] used OpenRouter free/cascade: ${model}`);
-        return draft;
-      }
+      const parsed = parseDraft(raw);
+      if (!parsed) continue;
+      parsed.content = ensureSourceLink(parsed.content, item.source, item.link);
+      console.log(`[pulse-a] used OpenRouter: ${model}`);
+      return { ...parsed, source_name: item.source, source_url: item.link };
     } catch (err: any) {
       console.warn(`[pulse-a] OpenRouter ${model}:`, err.message);
     }
@@ -221,23 +271,7 @@ async function generateWithOpenRouterFree(topic: string): Promise<ArticleDraft |
   return null;
 }
 
-async function generateArticle(topic: string): Promise<ArticleDraft> {
-  const cf = await generateWithCloudflare(topic);
-  if (cf) return cf;
-
-  const or = await generateWithOpenRouterFree(topic);
-  if (or) return or;
-
-  console.warn("[pulse-a] AI unavailable — local fallback");
-  return localFallback(topic);
-}
-
-async function d1Query(sql: string, params: any[] = []): Promise<boolean> {
-  if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
-    console.error("[pulse-a] missing Cloudflare D1 credentials");
-    return false;
-  }
-
+async function d1Query(sql: string, params: any[] = []): Promise<any> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/d1/database/${CF_D1_DATABASE_ID}/query`;
   const res = await fetch(url, {
     method: "POST",
@@ -247,40 +281,91 @@ async function d1Query(sql: string, params: any[] = []): Promise<boolean> {
     },
     body: JSON.stringify({ sql, params }),
   });
-
+  const text = await res.text();
   if (!res.ok) {
-    console.error("[pulse-a] D1 error", res.status, await res.text());
-    return false;
+    console.error("[pulse-a] D1 error", res.status, text);
+    return null;
   }
-  return true;
+  try { return JSON.parse(text); } catch { return { ok: true }; }
+}
+
+async function alreadyExists(link: string, title: string): Promise<boolean> {
+  const data = await d1Query(
+    `SELECT id FROM articles WHERE source_url = ? OR title = ? LIMIT 1`,
+    [link, title]
+  );
+  const rows = data?.result?.[0]?.results || data?.results || [];
+  return Array.isArray(rows) && rows.length > 0;
 }
 
 async function publishArticle(draft: ArticleDraft): Promise<void> {
   const id = "a_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const slug = `${slugify(draft.title) || "article"}-${id.slice(-5)}`;
-
   const sql = `INSERT INTO articles (
-    id, slug, title, summary, content, category, reading_minutes, status, published_at, created_at, updated_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, 'published', datetime('now'), datetime('now'), datetime('now'))`;
+    id, slug, title, summary, content, category, reading_minutes, status,
+    source_name, source_url, published_at, created_at, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, datetime('now'), datetime('now'), datetime('now'))`;
 
-  const ok = await d1Query(sql, [
-    id, slug, draft.title, draft.summary, draft.content, draft.category, draft.reading_minutes,
+  const data = await d1Query(sql, [
+    id,
+    slug,
+    draft.title,
+    draft.summary,
+    draft.content,
+    draft.category,
+    draft.reading_minutes,
+    draft.source_name || null,
+    draft.source_url || null,
   ]);
 
-  if (ok) console.log(`[pulse-a] published: ${draft.title} → /article/${slug}`);
-  else {
+  if (!data) {
     console.error("[pulse-a] publish failed");
     process.exit(1);
   }
+  console.log(`[pulse-a] published: ${draft.title} → /article/${slug}`);
 }
 
 async function main() {
   console.log("[pulse-a] start");
-  const topic = pickTopic();
-  console.log("[pulse-a] topic:", topic);
-  const draft = await generateArticle(topic);
-  console.log(`[pulse-a] draft ready: ${draft.title}`);
-  await publishArticle(draft);
+  if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
+    console.error("[pulse-a] missing Cloudflare credentials");
+    process.exit(1);
+  }
+
+  const items = await fetchFeeds();
+  if (!items.length) {
+    console.error("[pulse-a] no feed items found");
+    process.exit(1);
+  }
+
+  // shuffle a bit
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+
+  let published = false;
+  for (const item of items.slice(0, 10)) {
+    const exists = await alreadyExists(item.link, item.title);
+    if (exists) {
+      console.log(`[pulse-a] skip duplicate: ${item.title.slice(0, 60)}`);
+      continue;
+    }
+
+    console.log(`[pulse-a] processing: ${item.title.slice(0, 70)}`);
+    let draft =
+      (await generateWithCloudflare(item)) ||
+      (await generateWithOpenRouterFree(item)) ||
+      localFromFeed(item);
+
+    await publishArticle(draft);
+    published = true;
+    break; // one solid article per run
+  }
+
+  if (!published) {
+    console.log("[pulse-a] nothing new to publish");
+  }
   console.log("[pulse-a] done");
 }
 

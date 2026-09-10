@@ -3,18 +3,25 @@ import Base from '../../layouts/Base.astro';
 import { getArticleBySlug } from '../../lib/db';
 
 const { slug } = Astro.params;
-const db = Astro.locals.runtime.env.DB;
-const article = slug ? await getArticleBySlug(db, slug) : null;
+const db = Astro.locals.runtime?.env?.DB;
+const article = (slug && db) ? await getArticleBySlug(db, slug) : null;
 
 if (!article) {
   return Astro.redirect('/');
 }
 ---
 <Base title={`${article.title} — LaneCash`} description={article.summary}>
-  <article class="max-w-3xl">
-    <div class="text-xs uppercase tracking-wide text-emerald-400 mb-3">{article.category}</div>
-    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">{article.title}</h1>
-    <p class="text-slate-400 mb-8">{article.summary}</p>
-    <div class="prose prose-invert max-w-none space-y-4" set:html={article.content} />
+  <article>
+    <div class="article-head">
+      <div class="eyebrow">{article.category}</div>
+      <h1>{article.title}</h1>
+      <p class="summary">{article.summary}</p>
+      {article.source_url && (
+        <a class="source-pill" href={article.source_url} target="_blank" rel="noopener noreferrer">
+          Source: {article.source_name || 'Original article'} ↗
+        </a>
+      )}
+    </div>
+    <div class="prose" set:html={article.content} />
   </article>
 </Base>

@@ -16,25 +16,26 @@ const { title = 'LaneCash', description = 'Practical money tips, side hustles an
     <meta name="description" content={description} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap" rel="stylesheet" />
   </head>
-  <body class="min-h-screen bg-slate-950 text-slate-100" style="font-family: 'DM Sans', system-ui, sans-serif;">
-    <header class="border-b border-slate-800 bg-slate-950/95 sticky top-0 z-40">
-      <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-        <a href="/" class="font-extrabold tracking-tight text-emerald-400 text-lg">LaneCash</a>
-        <nav class="flex gap-4 text-sm text-slate-300">
-          <a href="/category/money" class="hover:text-white">Money</a>
-          <a href="/category/opportunities" class="hover:text-white">Opportunities</a>
-          <a href="/category/scams" class="hover:text-white">Scams</a>
-          <a href="/category/guides" class="hover:text-white">Guides</a>
+  <body>
+    <div class="page-bg"></div>
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <a href="/" class="logo">Lane<span>Cash</span></a>
+        <nav class="nav">
+          <a href="/category/money">Money</a>
+          <a href="/category/opportunities">Opps</a>
+          <a href="/category/scams">Scams</a>
+          <a href="/category/guides">Guides</a>
         </nav>
       </div>
     </header>
-    <main class="max-w-5xl mx-auto px-4 py-8">
+    <main class="wrap main">
       <slot />
     </main>
-    <footer class="border-t border-slate-800 mt-16 py-8 text-center text-slate-500 text-sm">
-      LaneCash — Practical money, honestly explained.
+    <footer class="footer">
+      <div class="wrap">LaneCash — practical money, honestly explained.</div>
     </footer>
   </body>
 </html>
