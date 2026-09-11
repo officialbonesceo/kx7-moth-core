@@ -1,60 +1,63 @@
 ---
 import Base from '../layouts/Base.astro';
 import { getArticles } from '../lib/db';
+import { coverFor } from '../lib/images';
 
 const db = Astro.locals.runtime?.env?.DB;
 let articles: any[] = [];
 if (db) {
-  const res = await getArticles(db, 24);
+  const res = await getArticles(db, 30);
   articles = res.results || [];
 }
-const featured = articles[0];
-const rest = articles.slice(1);
 
-function cover(a: any) {
-  if (a?.image_url) return a.image_url;
-  const seed = encodeURIComponent(a?.slug || a?.id || 'finance');
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent((a?.category || 'finance') + ' money crypto editorial dark green')}?width=1200&height=675&nologo=true&seed=${seed}`;
-}
+const q = Astro.url.searchParams.get('tab') || 'all';
+const filtered = q === 'all'
+  ? articles
+  : articles.filter((a) => {
+      const c = (a.category || '').toLowerCase();
+      const t = `${a.title} ${a.summary}`.toLowerCase();
+      if (q === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token/.test(t);
+      if (q === 'hustles') return c === 'guides' || /hustle|earn|freelance|side/.test(t);
+      if (q === 'scams') return c === 'scams' || /scam|fraud|ponzi/.test(t);
+      if (q === 'investing') return c === 'money' || /invest|bank|naira|loan/.test(t);
+      return true;
+    });
 ---
-<Base title="LaneCash — Finance, Crypto & Side Hustles">
-  {featured ? (
-    <section class="hero-card">
-      <div class="hero-copy">
-        <span class="pill">{featured.category || 'money'}</span>
-        <h1>{featured.title}</h1>
-        <p>{featured.summary}</p>
-        <div class="hero-meta">
-          <span>LaneCash Desk</span>
-          <span>•</span>
-          <span>{featured.reading_minutes || 5} min read</span>
-        </div>
-        <a class="btn" href={`/article/${featured.slug}`}>Read Article →</a>
-      </div>
-      <div class="hero-media">
-        <img src={cover(featured)} alt={featured.title} />
-      </div>
-    </section>
-  ) : (
-    <div class="empty">No articles yet. Run pulse-a to publish.</div>
-  )}
+<Base title="LaneCash — Stay Sharp. Get Ahead.">
+  <section class="hero">
+    <h1>Stay Sharp. Get Ahead.</h1>
+    <p>Finance, crypto & side-hustle insights that pay off.</p>
+  </section>
 
-  <div class="section-head">
-    <h2>Latest Articles</h2>
-    <a href="/category/money">View all →</a>
+  <div class="chips">
+    <a class={`chip ${q === 'all' ? 'active' : ''}`} href="/">★ For You</a>
+    <a class={`chip ${q === 'crypto' ? 'active' : ''}`} href="/?tab=crypto">Crypto</a>
+    <a class={`chip ${q === 'hustles' ? 'active' : ''}`} href="/?tab=hustles">Daily Hustles</a>
+    <a class={`chip ${q === 'scams' ? 'active' : ''}`} href="/?tab=scams">Scam Alerts</a>
+    <a class={`chip ${q === 'investing' ? 'active' : ''}`} href="/?tab=investing">Investing</a>
   </div>
 
-  <section class="grid">
-    {rest.map((a) => (
+  <div class="section-head">
+    <h2>Top Picks</h2>
+    <a href="/category/money">View all ›</a>
+  </div>
+
+  <section class="feed">
+    {filtered.length ? filtered.map((a) => (
       <a class="card" href={`/article/${a.slug}`}>
-        <img class="card-img" src={cover(a)} alt={a.title} loading="lazy" />
-        <div class="card-body">
+        <div class="card-main">
           <span class={`pill ${a.category}`}>{a.category}</span>
           <h3>{a.title}</h3>
           <p>{a.summary}</p>
-          <div class="card-foot">Read More →</div>
+          <div class="card-meta">
+            <span>LaneCash Desk · {a.reading_minutes || 8} min</span>
+            <span>Bookmark</span>
+          </div>
         </div>
+        <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
       </a>
-    ))}
+    )) : (
+      <div class="empty">No articles in this tab yet.</div>
+    )}
   </section>
 </Base>

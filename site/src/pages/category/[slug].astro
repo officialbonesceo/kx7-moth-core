@@ -1,6 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { getArticles } from '../../lib/db';
+import { coverFor } from '../../lib/images';
+
 const { slug } = Astro.params;
 const db = Astro.locals.runtime?.env?.DB;
 let articles: any[] = [];
@@ -8,26 +10,26 @@ if (db && slug) {
   const res = await getArticles(db, 40, slug);
   articles = res.results || [];
 }
-const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Category';
-function cover(a: any) {
-  return a.image_url || `https://image.pollinations.ai/prompt/${encodeURIComponent((a.category||'money')+' finance')}?width=1200&height=675&nologo=true&seed=${encodeURIComponent(a.slug||'x')}`;
-}
+const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Explore';
 ---
 <Base title={`${title} — LaneCash`}>
-  <div class="section-head" style="margin-bottom:1.2rem">
-    <h2>{title}</h2>
-  </div>
-  <section class="grid">
+  <section class="hero">
+    <h1>{title}</h1>
+    <p>Practical picks in this section.</p>
+  </section>
+  <section class="feed">
     {articles.length ? articles.map((a) => (
       <a class="card" href={`/article/${a.slug}`}>
-        <img class="card-img" src={cover(a)} alt={a.title} loading="lazy" />
-        <div class="card-body">
+        <div class="card-main">
           <span class={`pill ${a.category}`}>{a.category}</span>
           <h3>{a.title}</h3>
           <p>{a.summary}</p>
-          <div class="card-foot">Read More →</div>
+          <div class="card-meta">
+            <span>LaneCash Desk · {a.reading_minutes || 8} min</span>
+          </div>
         </div>
+        <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
       </a>
-    )) : <div class="empty">No posts in this category yet.</div>}
+    )) : <div class="empty">No posts yet.</div>}
   </section>
 </Base>

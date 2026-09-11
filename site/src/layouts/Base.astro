@@ -1,44 +1,55 @@
 ---
 import '../styles/global.css';
 interface Props { title?: string; description?: string }
-const { title = 'LaneCash', description = 'Finance, crypto & practical side hustles.' } = Astro.props;
+const { title = 'LaneCash', description = 'Finance, crypto & side-hustle insights that pay off.' } = Astro.props;
 const path = Astro.url.pathname;
 ---
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="theme-color" content="#000000" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
   </head>
   <body>
     <header class="topbar">
-      <div class="wrap topbar-inner">
+      <div class="topbar-inner">
         <a class="brand" href="/">
           <span class="brand-mark">L</span>
-          <span>
-            Lane<b>Cash</b>
-            <small>FINANCE · INVEST · GROW</small>
-          </span>
+          <span>Lane<b>Cash</b></span>
         </a>
-        <nav class="nav">
-          <a class={path === '/' ? 'active' : ''} href="/">Home</a>
-          <a href="/category/money">Money</a>
-          <a href="/category/opportunities">Crypto</a>
-          <a href="/category/guides">Guides</a>
-          <a href="/category/scams">Scams</a>
-        </nav>
+        <div class="top-actions">
+          <span aria-hidden="true">⌕</span>
+          <span aria-hidden="true">⌁</span>
+        </div>
       </div>
     </header>
-    <main class="wrap main">
+
+    <main class="wrap">
       <slot />
+      <div class="footer-note">LaneCash — practical money, crypto & hustles</div>
     </main>
-    <footer class="footer">
-      <div class="wrap">LaneCash — practical money, crypto & hustles. No hype.</div>
-    </footer>
+
+    <nav class="bottom-nav" aria-label="Primary">
+      <div class="bottom-nav-inner">
+        <a class={`bnav ${path === '/' ? 'active' : ''}`} href="/">
+          <i>⌂</i><span>Home</span>
+        </a>
+        <a class={`bnav ${path.startsWith('/category') ? 'active' : ''}`} href="/category/money">
+          <i>◎</i><span>Explore</span>
+        </a>
+        <a class="bnav" href="/category/guides">
+          <i>Bookmark</i><span>Saved</span>
+        </a>
+        <a class="bnav" href="/category/scams">
+          <i>☺</i><span>Profile</span>
+        </a>
+      </div>
+    </nav>
   </body>
 </html>
