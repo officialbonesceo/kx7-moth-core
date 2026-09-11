@@ -5,26 +5,71 @@ export const prerender = false;
 const env = Astro.locals.runtime?.env || {};
 const ADMIN_EMAIL = String(env.ADMIN_EMAIL || 'officialbonesceo@gmail.com').toLowerCase();
 const ADMIN_PASSWORD = String(env.ADMIN_PASSWORD || '');
+const db = Astro.locals.runtime?.env?.DB;
 
 let authed = false;
 let error = '';
+let notice = '';
 let stats: any = null;
 let recent: any[] = [];
+let socials = {
+  social_youtube: 'https://youtube.com/@LaneCash',
+  social_tiktok: 'https://www.tiktok.com/@lanecash',
+  social_instagram: 'https://instagram.com/lanecash',
+  social_facebook: 'https://facebook.com/lanecash',
+};
+
+async function loadSocials() {
+  if (!db) return;
+  try {
+    for (const key of Object.keys(socials)) {
+      const row = await db.prepare(`SELECT value FROM settings WHERE key = ?`).bind(key).first();
+      if (row?.value) (socials as any)[key] = String(row.value);
+    }
+  } catch {}
+}
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
-  const email = String(form.get('email') || '').toLowerCase().trim();
-  const password = String(form.get('password') || '');
-  if (email === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+  const action = String(form.get('action') || 'login');
+
+  if (action === 'login') {
+    const email = String(form.get('email') || '').toLowerCase().trim();
+    const password = String(form.get('password') || '');
+    if (email === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+      authed = true;
+      Astro.cookies.set('lc_admin', '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 12 });
+    } else error = 'Invalid login';
+  } else if (action === 'socials' && Astro.cookies.get('lc_admin')?.value === '1') {
     authed = true;
-    Astro.cookies.set('lc_admin', '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 12 });
-  } else error = 'Invalid login';
+    if (db) {
+      const map: Record<string, string> = {
+        social_youtube: String(form.get('social_youtube') || '').trim(),
+        social_tiktok: String(form.get('social_tiktok') || '').trim(),
+        social_instagram: String(form.get('social_instagram') || '').trim(),
+        social_facebook: String(form.get('social_facebook') || '').trim(),
+      };
+      for (const [key, value] of Object.entries(map)) {
+        if (!value) continue;
+        await db
+          .prepare(
+            `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+          )
+          .bind(key, value)
+          .run();
+        (socials as any)[key] = value;
+      }
+      notice = 'Social links saved. Public pages will use them immediately.';
+    } else {
+      error = 'Database unavailable';
+    }
+  }
 } else if (Astro.cookies.get('lc_admin')?.value === '1') {
   authed = true;
 }
 
-if (authed && Astro.locals.runtime?.env?.DB) {
-  const db = Astro.locals.runtime.env.DB;
+if (authed && db) {
+  await loadSocials();
   stats = await adminStats(db);
   const res = await getArticles(db, 20);
   recent = res.results || [];
@@ -41,36 +86,40 @@ if (authed && Astro.locals.runtime?.env?.DB) {
     :root{--bg:#070707;--card:#111;--line:rgba(255,255,255,.08);--brand:#22c55e;--muted:#9ca3af}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}
     .w{width:min(1040px,100%);margin:0 auto;padding:20px 16px 60px}
-    h1{margin:0 0 4px;font-size:1.4rem} .sub{color:var(--muted);margin:0 0 16px;font-size:.85rem}
+    h1{margin:0 0 4px;font-size:1.4rem}.sub{color:var(--muted);margin:0 0 16px;font-size:.85rem}
     .grid{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}@media(min-width:800px){.grid{grid-template-columns:repeat(4,1fr)}}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
     .label{color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
     .stat{font-size:1.5rem;font-weight:800;margin-top:6px}
     table{width:100%;border-collapse:collapse;font-size:.82rem}th{color:var(--muted);font-weight:600;text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top}a{color:var(--brand);text-decoration:none}
     input{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:10px;color:#fff;padding:11px;margin:6px 0}
-    button{background:var(--brand);color:#04140a;border:0;border-radius:10px;padding:11px 14px;font-weight:800;cursor:pointer;width:100%}
-    .note{color:var(--muted);font-size:.78rem;margin-top:8px}
-    .row{display:grid;gap:12px}@media(min-width:900px){.row{grid-template-columns:1fr 1fr}}
+    button{background:var(--brand);color:#04140a;border:0;border-radius:10px;padding:11px 14px;font-weight:800;cursor:pointer}
+    .note{color:var(--muted);font-size:.78rem;margin-top:8px}.ok{color:#86efac}.row{display:grid;gap:12px}@media(min-width:900px){.row{grid-template-columns:1fr 1fr}}
+    label.field{display:block;color:var(--muted);font-size:.78rem;margin-top:8px}
   </style>
 </head>
 <body>
   <div class="w">
     <h1>LaneCash Admin</h1>
-    <p class="sub">Analytics · push · content</p>
+    <p class="sub">Analytics · socials · content</p>
 
     {!authed ? (
       <div class="card" style="max-width:420px">
-        <div class="label">Restricted access</div>
+        <div class="label">Restricted</div>
         {error && <p style="color:#f87171">{error}</p>}
         {!ADMIN_PASSWORD && <p style="color:#fbbf24">Set ADMIN_PASSWORD in Cloudflare env.</p>}
         <form method="POST">
+          <input type="hidden" name="action" value="login" />
           <input name="email" type="email" placeholder="Email" required />
           <input name="password" type="password" placeholder="Password" required />
-          <button type="submit">Unlock</button>
+          <button type="submit" style="width:100%;margin-top:8px">Unlock</button>
         </form>
       </div>
     ) : (
       <>
+        {notice && <div class="card ok">{notice}</div>}
+        {error && <div class="card" style="color:#f87171">{error}</div>}
+
         <div class="grid">
           <div class="card"><div class="label">Published</div><div class="stat">{stats?.published ?? 0}</div></div>
           <div class="card"><div class="label">Article views</div><div class="stat">{stats?.views ?? 0}</div></div>
@@ -81,15 +130,36 @@ if (authed && Astro.locals.runtime?.env?.DB) {
           <div class="card"><div class="label">Pushes today</div><div class="stat">{stats?.today?.pushes ?? 0}</div></div>
           <div class="card"><div class="label">All articles</div><div class="stat">{stats?.total ?? 0}</div></div>
         </div>
-        <p class="note">* Sampled estimates to keep D1 writes low.</p>
+        <p class="note">* Sampled estimates (low DB writes).</p>
 
-        <div class="card" style="margin-top:12px">
-          <div class="label">Broadcast</div>
-          <p class="note">GitHub Actions → notify → Run workflow. Push subscribers must be &gt; 0 first (Profile → Enable push).</p>
-          <p><a href="https://github.com/officialbonesceo/kx7-moth-core/actions/workflows/notify.yml" target="_blank">Open notify workflow ↗</a></p>
+        <div class="card">
+          <div class="label">Public social links</div>
+          <p class="note">These appear on articles, profile, and about. Paste full https URLs.</p>
+          <form method="POST">
+            <input type="hidden" name="action" value="socials" />
+            <label class="field">YouTube</label>
+            <input name="social_youtube" value={socials.social_youtube} placeholder="https://youtube.com/@yourchannel" />
+            <label class="field">TikTok</label>
+            <input name="social_tiktok" value={socials.social_tiktok} placeholder="https://www.tiktok.com/@yourhandle" />
+            <label class="field">Instagram</label>
+            <input name="social_instagram" value={socials.social_instagram} placeholder="https://instagram.com/yourhandle" />
+            <label class="field">Facebook</label>
+            <input name="social_facebook" value={socials.social_facebook} placeholder="https://facebook.com/yourpage" />
+            <button type="submit" style="margin-top:10px">Save social links</button>
+          </form>
         </div>
 
-        <div class="row" style="margin-top:12px">
+        <div class="card">
+          <div class="label">Launch checklist</div>
+          <ul class="note">
+            <li>Set real social URLs above</li>
+            <li>Public pages: <a href="/about">/about</a> · <a href="/disclaimer">/disclaimer</a></li>
+            <li>Push works when subscribers &gt; 0</li>
+            <li>Prefer custom domain before paid ads</li>
+          </ul>
+        </div>
+
+        <div class="row">
           <div class="card">
             <div class="label">Last 7 days</div>
             <table>
@@ -106,15 +176,7 @@ if (authed && Astro.locals.runtime?.env?.DB) {
           </div>
         </div>
 
-        <div class="card" style="margin-top:12px">
-          <div class="label">Top viewed</div>
-          <table>
-            <tr><th>Title</th><th>Views</th><th>Cat</th></tr>
-            {(stats?.top || []).map((r: any) => <tr><td><a href={`/article/${r.slug}`}>{r.title}</a></td><td>{r.views}</td><td>{r.category}</td></tr>)}
-          </table>
-        </div>
-
-        <div class="card" style="margin-top:12px">
+        <div class="card">
           <div class="label">Recent posts</div>
           <table>
             <tr><th>Title</th><th>Category</th><th>Views</th></tr>
