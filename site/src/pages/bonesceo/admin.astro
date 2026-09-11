@@ -1,24 +1,29 @@
 ---
 import { adminStats, getArticles } from '../../lib/db';
 
-const env = Astro.locals.runtime?.env || {};
-const ADMIN_EMAIL = (env.ADMIN_EMAIL || 'officialbonesceo@gmail.com').toLowerCase();
-const ADMIN_PASSWORD = env.ADMIN_PASSWORD || '';
+export const prerender = false;
 
-const method = Astro.request.method;
+const env = Astro.locals.runtime?.env || {};
+const ADMIN_EMAIL = String(env.ADMIN_EMAIL || 'officialbonesceo@gmail.com').toLowerCase();
+const ADMIN_PASSWORD = String(env.ADMIN_PASSWORD || '');
+
 let authed = false;
 let error = '';
 let stats: any = null;
 let recent: any[] = [];
+let notice = '';
 
-if (method === 'POST') {
+if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
-  const email = String(form.get('email') || '').toLowerCase().trim();
-  const password = String(form.get('password') || '');
-  if (email === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
-    authed = true;
-    Astro.cookies.set('lc_admin', '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 12 });
-  } else error = 'Invalid login';
+  const action = String(form.get('action') || 'login');
+  if (action === 'login') {
+    const email = String(form.get('email') || '').toLowerCase().trim();
+    const password = String(form.get('password') || '');
+    if (email === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+      authed = true;
+      Astro.cookies.set('lc_admin', '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 12 });
+    } else error = 'Invalid login';
+  }
 } else if (Astro.cookies.get('lc_admin')?.value === '1') {
   authed = true;
 }
@@ -26,7 +31,7 @@ if (method === 'POST') {
 if (authed && Astro.locals.runtime?.env?.DB) {
   const db = Astro.locals.runtime.env.DB;
   stats = await adminStats(db);
-  const res = await getArticles(db, 12);
+  const res = await getArticles(db, 15);
   recent = res.results || [];
 }
 ---
@@ -36,61 +41,97 @@ if (authed && Astro.locals.runtime?.env?.DB) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>Admin</title>
-  <link rel="stylesheet" href="/" disabled />
+  <title>LaneCash Admin</title>
   <style>
     body{margin:0;background:#000;color:#fff;font-family:Inter,system-ui,sans-serif}
-    .admin-wrap{width:min(980px,100%);margin:0 auto;padding:20px 16px 40px}
-    .admin-card{background:#121212;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:12px}
-    .admin-grid{display:grid;gap:12px}@media(min-width:800px){.admin-grid{grid-template-columns:repeat(3,1fr)}}
-    .stat{font-size:1.4rem;font-weight:800}.muted{color:#9ca3af}
-    input{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;padding:10px;margin:6px 0}
-    button{background:#22c55e;color:#04140a;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
-    table{width:100%;border-collapse:collapse;font-size:.85rem}td,th{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}
+    .w{width:min(1000px,100%);margin:0 auto;padding:20px 16px 50px}
+    .card{background:#121212;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:12px}
+    .grid{display:grid;gap:12px}@media(min-width:800px){.grid{grid-template-columns:repeat(4,1fr)}.grid-2{grid-template-columns:1fr 1fr}}
+    .stat{font-size:1.45rem;font-weight:800}.muted{color:#9ca3af;font-size:.85rem}
+    input,textarea{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;padding:10px;margin:6px 0}
+    button,.btn{background:#22c55e;color:#04140a;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;display:inline-block}
+    table{width:100%;border-collapse:collapse;font-size:.84rem}td,th{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}
+    a{color:#22c55e}
   </style>
 </head>
 <body>
-  <div class="admin-wrap">
+  <div class="w">
     <h1>LaneCash Admin</h1>
+    <p class="muted">Low-read analytics · push control · content overview</p>
+
     {!authed ? (
-      <div class="admin-card">
-        <p class="muted">Restricted access</p>
+      <div class="card">
+        <p class="muted">Restricted · officialbonesceo only</p>
         {error && <p style="color:#f87171">{error}</p>}
         {!ADMIN_PASSWORD && <p style="color:#fbbf24">Set ADMIN_PASSWORD in Cloudflare Pages secrets.</p>}
         <form method="POST">
-          <label class="muted">Email</label>
-          <input name="email" type="email" placeholder="email" required />
-          <label class="muted">Password</label>
-          <input name="password" type="password" placeholder="password" required />
+          <input type="hidden" name="action" value="login" />
+          <input name="email" type="email" placeholder="Email" required />
+          <input name="password" type="password" placeholder="Password" required />
           <button type="submit">Unlock</button>
         </form>
       </div>
     ) : (
       <>
-        <div class="admin-grid">
-          <div class="admin-card"><div class="muted">Articles</div><div class="stat">{stats?.total ?? 0}</div></div>
-          <div class="admin-card"><div class="muted">Published</div><div class="stat">{stats?.published ?? 0}</div></div>
-          <div class="admin-card"><div class="muted">Total views</div><div class="stat">{stats?.views ?? 0}</div></div>
+        {notice && <div class="card">{notice}</div>}
+        <div class="grid">
+          <div class="card"><div class="muted">Published</div><div class="stat">{stats?.published ?? 0}</div></div>
+          <div class="card"><div class="muted">Article views</div><div class="stat">{stats?.views ?? 0}</div></div>
+          <div class="card"><div class="muted">Today visitors*</div><div class="stat">{stats?.today?.visitors ?? 0}</div></div>
+          <div class="card"><div class="muted">Today pageviews*</div><div class="stat">{stats?.today?.pageviews ?? 0}</div></div>
+          <div class="card"><div class="muted">Push subscribers</div><div class="stat">{stats?.subscribers ?? 0}</div></div>
+          <div class="card"><div class="muted">Today saves*</div><div class="stat">{stats?.today?.saves ?? 0}</div></div>
+          <div class="card"><div class="muted">Pushes sent today</div><div class="stat">{stats?.today?.pushes ?? 0}</div></div>
+          <div class="card"><div class="muted">All articles</div><div class="stat">{stats?.total ?? 0}</div></div>
         </div>
-        <div class="admin-card">
-          <h3>By category</h3>
-          <table>
-            <tr><th>Category</th><th>Count</th></tr>
-            {(stats?.byCat || []).map((r: any) => <tr><td>{r.category}</td><td>{r.c}</td></tr>)}
-          </table>
+        <p class="muted">* Visitor/pageview counts are sampled to keep D1 writes low (scaled estimates).</p>
+
+        <div class="card">
+          <h3>Broadcast device notification</h3>
+          <p class="muted">Uses GitHub Action <code>notify</code> with VAPID keys. Run workflow manually after compose:</p>
+          <p class="muted">Actions → notify → Run workflow → title / body / url</p>
+          <p><a href="https://github.com/officialbonesceo/kx7-moth-core/actions/workflows/notify.yml" target="_blank">Open notify workflow ↗</a></p>
         </div>
-        <div class="admin-card">
+
+        <div class="grid grid-2">
+          <div class="card">
+            <h3>Last 7 days</h3>
+            <table>
+              <tr><th>Day</th><th>Visitors</th><th>Views</th><th>Saves</th></tr>
+              {(stats?.last7 || []).map((r: any) => (
+                <tr><td>{r.day}</td><td>{r.visitors}</td><td>{r.pageviews}</td><td>{r.saves}</td></tr>
+              ))}
+            </table>
+          </div>
+          <div class="card">
+            <h3>By category</h3>
+            <table>
+              <tr><th>Category</th><th>Count</th></tr>
+              {(stats?.byCat || []).map((r: any) => <tr><td>{r.category}</td><td>{r.c}</td></tr>)}
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
           <h3>Top viewed</h3>
           <table>
             <tr><th>Title</th><th>Views</th><th>Cat</th></tr>
-            {(stats?.top || []).map((r: any) => <tr><td>{r.title}</td><td>{r.views}</td><td>{r.category}</td></tr>)}
+            {(stats?.top || []).map((r: any) => <tr><td><a href={`/article/${r.slug}`}>{r.title}</a></td><td>{r.views}</td><td>{r.category}</td></tr>)}
           </table>
         </div>
-        <div class="admin-card">
-          <h3>Recent</h3>
+
+        <div class="card">
+          <h3>Recent posts</h3>
           <table>
-            <tr><th>Title</th><th>Category</th><th>Views</th></tr>
-            {recent.map((r) => <tr><td>{r.title}</td><td>{r.category}</td><td>{r.views}</td></tr>)}
+            <tr><th>Title</th><th>Category</th><th>Views</th><th>Team</th></tr>
+            {recent.map((r) => (
+              <tr>
+                <td><a href={`/article/${r.slug}`}>{r.title}</a></td>
+                <td>{r.category}</td>
+                <td>{r.views}</td>
+                <td>{r.author_team || '—'}</td>
+              </tr>
+            ))}
           </table>
         </div>
       </>

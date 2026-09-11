@@ -1,4 +1,4 @@
--- LaneCash D1 schema (run once / migrate)
+-- LaneCash D1 schema
 CREATE TABLE IF NOT EXISTS articles (
   id TEXT PRIMARY KEY,
   slug TEXT UNIQUE NOT NULL,
@@ -32,28 +32,33 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS page_events (
+-- One row per day only (low writes)
+CREATE TABLE IF NOT EXISTS daily_stats (
+  day TEXT PRIMARY KEY,
+  visitors INTEGER DEFAULT 0,
+  pageviews INTEGER DEFAULT 0,
+  saves INTEGER DEFAULT 0,
+  pushes INTEGER DEFAULT 0
+);
+
+-- Push subscriptions (write only on enable/disable)
+CREATE TABLE IF NOT EXISTS push_subscriptions (
   id TEXT PRIMARY KEY,
-  path TEXT NOT NULL,
-  event TEXT NOT NULL,
-  meta TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  endpoint TEXT UNIQUE NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  topics TEXT DEFAULT 'all',
+  created_at TEXT DEFAULT (datetime('now')),
+  last_seen TEXT DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category);
 CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(status);
-CREATE INDEX IF NOT EXISTS idx_articles_title ON articles(title);
 
 INSERT OR IGNORE INTO categories (id, slug, name, description) VALUES
-  ('cat_money', 'money', 'Money & Hustle', 'Side hustles, income tips, practical finance'),
-  ('cat_opps', 'opportunities', 'Crypto', 'Crypto, USDT, small-capital plays'),
-  ('cat_scams', 'scams', 'Scam Alerts', 'Warnings and how to stay safe'),
-  ('cat_guides', 'guides', 'Guides', 'Step-by-step how-to articles'),
-  ('cat_news', 'news', 'Quick Updates', 'Short practical money news');
-
-INSERT OR IGNORE INTO settings (key, value) VALUES
-  ('social_youtube', 'https://youtube.com/@LaneCash'),
-  ('social_tiktok', 'https://www.tiktok.com/@lanecash'),
-  ('social_instagram', 'https://instagram.com/lanecash'),
-  ('social_facebook', 'https://facebook.com/lanecash');
+  ('cat_money', 'money', 'Money & Hustle', 'Side hustles and practical finance'),
+  ('cat_opps', 'opportunities', 'Crypto', 'Crypto and USDT'),
+  ('cat_scams', 'scams', 'Scam Alerts', 'Warnings'),
+  ('cat_guides', 'guides', 'Guides', 'How-to guides'),
+  ('cat_news', 'news', 'Quick Updates', 'Short money news');

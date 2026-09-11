@@ -3,33 +3,67 @@ import Base from '../layouts/Base.astro';
 import SocialBar from '../components/SocialBar.astro';
 ---
 <Base title="Profile — LaneCash">
-  <section class="hero"><h1>Profile</h1><p>Local preferences, reads and personalization from this device cache.</p></section>
+  <section class="hero"><h1>Profile</h1><p>Device cache, personalization, and real push notifications.</p></section>
+
   <div class="calc-card" style="margin-bottom:12px">
     <h3>Your activity (this device)</h3>
     <p class="muted" id="statsLine">Loading…</p>
     <p class="muted" id="interestLine"></p>
   </div>
+
   <div class="calc-card" style="margin-bottom:12px">
-    <h3>Notifications</h3>
-    <p class="muted">Get alerts for topics you interact with most.</p>
-    <button class="save-btn" id="notifBtn" type="button">Enable alerts</button>
+    <h3>Real device notifications</h3>
+    <p class="muted">Enable to get LaneCash alerts on this phone/browser (Web Push).</p>
+    <button class="save-btn" id="pushBtn" type="button">Enable push alerts</button>
+    <p class="muted" id="pushStatus" style="margin-top:8px"></p>
   </div>
+
   <SocialBar />
+
   <script is:inline>
     const saved=(window.LC.get('lc_saved',[])||[]).length;
     const events=(window.LC.get('lc_events',[])||[]).length;
     const interest=window.LC.get('lc_interest',{})||{};
     const top=Object.entries(interest).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>k.replace('/article/','')+' ('+v+')').join(', ') || 'No reads yet';
-    document.getElementById('statsLine').textContent=`Saved: ${saved} · Events tracked: ${events}`;
+    document.getElementById('statsLine').textContent=`Saved: ${saved} · Events: ${events}`;
     document.getElementById('interestLine').textContent=`Most opened: ${top}`;
-    document.getElementById('notifBtn')?.addEventListener('click', async ()=>{
-      if(!('Notification' in window)) return window.LC.toast('Not supported');
-      const perm=await Notification.requestPermission();
-      window.LC.set('lc_notif', perm==='granted');
-      if(perm==='granted'){
-        new Notification('LaneCash', { body: 'Alerts enabled for your top topics.' });
-        window.LC.toast('Notifications on');
-      } else window.LC.toast('Permission denied');
-    });
+
+    function urlBase64ToUint8Array(base64String){
+      const padding='='.repeat((4-base64String.length%4)%4);
+      const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+      const raw=atob(base64); const out=new Uint8Array(raw.length);
+      for(let i=0;i<raw.length;++i) out[i]=raw.charCodeAt(i);
+      return out;
+    }
+
+    async function enablePush(){
+      const status=document.getElementById('pushStatus');
+      try{
+        if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+          status.textContent='Push not supported on this browser.'; return;
+        }
+        status.textContent='Registering…';
+        const reg=await navigator.serviceWorker.register('/sw.js');
+        const perm=await Notification.requestPermission();
+        if(perm!=='granted'){ status.textContent='Permission denied'; return; }
+        const vapidRes=await fetch('/api/push/vapid-public'); const { publicKey }=await vapidRes.json();
+        if(!publicKey){ status.textContent='VAPID_PUBLIC_KEY not set on server.'; return; }
+        const sub=await reg.pushManager.subscribe({
+          userVisibleOnly:true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+        const res=await fetch('/api/push/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(sub.toJSON())});
+        const j=await res.json();
+        if(!j.ok) throw new Error(j.error||'subscribe failed');
+        window.LC.set('lc_push', true);
+        status.textContent='Push enabled on this device.';
+        window.LC.toast('Push enabled');
+        new Notification('LaneCash',{body:'Notifications are on.'});
+      }catch(e){
+        status.textContent='Failed: '+(e.message||e);
+      }
+    }
+    document.getElementById('pushBtn')?.addEventListener('click', enablePush);
+    if(window.LC.get('lc_push', false)) document.getElementById('pushStatus').textContent='Push was enabled on this device before.';
   </script>
 </Base>

@@ -18,6 +18,7 @@ const origin = Astro.url.origin;
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
@@ -53,8 +54,27 @@ const origin = Astro.url.origin;
         track(path, event){
           const key='lc_events'; const ev=this.get(key,[]); ev.push({path,event,ts:Date.now()}); this.set(key, ev.slice(-200));
           const counts=this.get('lc_interest',{}); counts[path]=(counts[path]||0)+1; this.set('lc_interest', counts);
+        },
+        beacon(type){
+          try{
+            const body=JSON.stringify({type});
+            if(navigator.sendBeacon) navigator.sendBeacon('/api/beacon', new Blob([body],{type:'application/json'}));
+            else fetch('/api/beacon',{method:'POST',headers:{'content-type':'application/json'},body,keepalive:true});
+          }catch{}
         }
       };
+      // low-write visitor: once per day per device
+      (function(){
+        const day=new Date().toISOString().slice(0,10);
+        if(window.LC.get('lc_visit_day','')!==day){
+          window.LC.set('lc_visit_day', day);
+          window.LC.beacon('visit');
+        }
+        window.LC.beacon('pageview');
+        if('serviceWorker' in navigator){
+          navigator.serviceWorker.register('/sw.js').catch(()=>{});
+        }
+      })();
     </script>
   </body>
 </html>
