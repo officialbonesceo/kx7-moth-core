@@ -1,28 +1,30 @@
 ---
 import Base from '../layouts/Base.astro';
 ---
-<Base title="Tools — LaneCash" description="Currency, crypto and money calculators with live-style estimates.">
-  <section class="hero"><h1>Tools</h1><p>Quick calculators for currency, crypto and hustle math.</p></section>
+<Base title="Tools — LaneCash" description="Currency, crypto and money calculators.">
+  <section class="hero"><h1>Tools</h1><p>Quick calculators. Live APIs when available; clear estimates otherwise.</p></section>
   <div class="calc-grid">
     <div class="calc-card">
       <h3>Currency converter</h3>
       <label>Amount</label>
       <input id="fxAmount" type="number" value="1000" />
       <label>From</label>
-      <select id="fxFrom"><option>NGN</option><option selected>USD</option><option>EUR</option><option>GBP</option></select>
+      <select id="fxFrom"><option>USD</option><option selected>NGN</option><option>EUR</option><option>GBP</option></select>
       <label>To</label>
-      <select id="fxTo"><option selected>NGN</option><option>USD</option><option>EUR</option><option>GBP</option></select>
+      <select id="fxTo"><option selected>USD</option><option>NGN</option><option>EUR</option><option>GBP</option></select>
       <button class="save-btn" id="fxBtn" type="button" style="margin-top:10px">Convert</button>
       <div class="calc-result" id="fxOut">—</div>
+      <p class="muted" id="fxNote" style="margin-top:8px;font-size:.75rem"></p>
     </div>
     <div class="calc-card">
-      <h3>Crypto value (USD)</h3>
+      <h3>Crypto price</h3>
       <label>Coin</label>
-      <select id="coin"><option value="bitcoin">Bitcoin</option><option value="ethereum">Ethereum</option><option value="tether">USDT</option></select>
+      <select id="coin"><option value="bitcoin">Bitcoin (BTC)</option><option value="ethereum">Ethereum (ETH)</option><option value="tether">USDT</option></select>
       <label>Quantity</label>
       <input id="coinQty" type="number" value="1" step="0.0001" />
-      <button class="save-btn" id="coinBtn" type="button" style="margin-top:10px">Price</button>
+      <button class="save-btn" id="coinBtn" type="button" style="margin-top:10px">Get live price</button>
       <div class="calc-result" id="coinOut">—</div>
+      <p class="muted" id="coinNote" style="margin-top:8px;font-size:.75rem"></p>
     </div>
     <div class="calc-card">
       <h3>Hustle weekly target</h3>
@@ -30,7 +32,7 @@ import Base from '../layouts/Base.astro';
       <input id="target" type="number" value="10000" />
       <label>Work days / week</label>
       <input id="days" type="number" value="5" />
-      <label>Jobs needed if each job pays (₦)</label>
+      <label>Pay per job (₦)</label>
       <input id="perJob" type="number" value="2000" />
       <button class="save-btn" id="hustleBtn" type="button" style="margin-top:10px">Calculate</button>
       <div class="calc-result" id="hustleOut">—</div>
@@ -46,44 +48,77 @@ import Base from '../layouts/Base.astro';
     </div>
   </div>
   <script is:inline>
+    // Fallback rates only labeled as estimates (approx market-ish defaults)
+    var FALLBACK = {
+      USD: { NGN: 1600, EUR: 0.92, GBP: 0.78, USD: 1 },
+      NGN: { USD: 1/1600, EUR: 1/1750, GBP: 1/2050, NGN: 1 },
+      EUR: { USD: 1.09, NGN: 1750, GBP: 0.85, EUR: 1 },
+      GBP: { USD: 1.28, NGN: 2050, EUR: 1.17, GBP: 1 }
+    };
+    var CRYPTO_FALLBACK = { bitcoin: {usd: 95000, ngn: 95000*1600}, ethereum: {usd: 3500, ngn: 3500*1600}, tether: {usd: 1, ngn: 1600} };
+
     async function fx(){
-      const amount=+document.getElementById('fxAmount').value||0;
-      const from=document.getElementById('fxFrom').value;
-      const to=document.getElementById('fxTo').value;
-      document.getElementById('fxOut').textContent='Loading…';
-      try{
-        const r=await fetch(`https://api.exchangerate.host/convert?from=${from}&to=${to}&amount=${amount}`);
-        const j=await r.json();
-        if(j?.result!=null) document.getElementById('fxOut').textContent=`${amount} ${from} ≈ ${Number(j.result).toLocaleString(undefined,{maximumFractionDigits:2})} ${to}`;
-        else throw 0;
-      }catch{
-        // fallback approx
-        const approx={USD:{NGN:1600,EUR:0.92,GBP:0.78,USD:1},NGN:{USD:1/1600,EUR:1/1700,GBP:1/2000,NGN:1},EUR:{USD:1.09,NGN:1700,GBP:0.85,EUR:1},GBP:{USD:1.28,NGN:2000,EUR:1.17,GBP:1}};
-        const v=amount*((approx[from]&&approx[from][to])||1);
-        document.getElementById('fxOut').textContent=`${amount} ${from} ≈ ${v.toLocaleString(undefined,{maximumFractionDigits:2})} ${to} (estimate)`;
+      var amount = +document.getElementById('fxAmount').value || 0;
+      var from = document.getElementById('fxFrom').value;
+      var to = document.getElementById('fxTo').value;
+      var out = document.getElementById('fxOut');
+      var note = document.getElementById('fxNote');
+      out.textContent = 'Loading…'; note.textContent = '';
+      try {
+        var r = await fetch('https://open.er-api.com/v6/latest/' + from);
+        var j = await r.json();
+        if (j && j.result === 'success' && j.rates && j.rates[to] != null) {
+          var v = amount * j.rates[to];
+          out.textContent = amount + ' ' + from + ' ≈ ' + v.toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + to;
+          note.textContent = 'Live rate via open.er-api.com · ' + (j.time_last_update_utc || '');
+          return;
+        }
+        throw new Error('no rate');
+      } catch (e) {
+        var rate = (FALLBACK[from] && FALLBACK[from][to]) || 1;
+        var v2 = amount * rate;
+        out.textContent = amount + ' ' + from + ' ≈ ' + v2.toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + to;
+        note.textContent = 'Estimate only (live FX blocked). Not a bank rate.';
       }
     }
+
     async function coin(){
-      const id=document.getElementById('coin').value; const qty=+document.getElementById('coinQty').value||0;
-      document.getElementById('coinOut').textContent='Loading…';
-      try{
-        const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd,ngn`);
-        const j=await r.json(); const p=j[id];
-        document.getElementById('coinOut').textContent=`${qty} ${id} ≈ $${(p.usd*qty).toLocaleString()} / ₦${(p.ngn*qty).toLocaleString()}`;
-      }catch{ document.getElementById('coinOut').textContent='Could not load live price. Try again.'; }
+      var id = document.getElementById('coin').value;
+      var qty = +document.getElementById('coinQty').value || 0;
+      var out = document.getElementById('coinOut');
+      var note = document.getElementById('coinNote');
+      out.textContent = 'Loading…'; note.textContent = '';
+      try {
+        var r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + id + '&vs_currencies=usd,ngn');
+        var j = await r.json();
+        if (!j[id] || j[id].usd == null) throw new Error('empty');
+        var p = j[id];
+        out.textContent = qty + ' ' + id + ' ≈ $' + (p.usd*qty).toLocaleString(undefined,{maximumFractionDigits:2}) + ' / ₦' + (p.ngn*qty).toLocaleString(undefined,{maximumFractionDigits:0});
+        note.textContent = 'Live via CoinGecko';
+      } catch (e) {
+        var f = CRYPTO_FALLBACK[id] || CRYPTO_FALLBACK.tether;
+        out.textContent = qty + ' ' + id + ' ≈ $' + (f.usd*qty).toLocaleString() + ' / ₦' + (f.ngn*qty).toLocaleString();
+        note.textContent = 'Estimate only (live crypto API blocked). Check CoinGecko/Binance for trading prices.';
+      }
     }
+
     function hustle(){
-      const target=+document.getElementById('target').value||0; const days=+document.getElementById('days').value||1; const per=+document.getElementById('perJob').value||1;
-      const jobs=Math.ceil(target/Math.max(per,1)); const perDay=(target/Math.max(days,1));
-      document.getElementById('hustleOut').textContent=`Need ~${jobs} jobs/week · ~₦${Math.round(perDay).toLocaleString()}/day`;
+      var target = +document.getElementById('target').value || 0;
+      var days = +document.getElementById('days').value || 1;
+      var per = +document.getElementById('perJob').value || 1;
+      var jobs = Math.ceil(target / Math.max(per,1));
+      var perDay = target / Math.max(days,1);
+      document.getElementById('hustleOut').textContent = 'Need ~' + jobs + ' jobs/week · ~₦' + Math.round(perDay).toLocaleString() + '/day';
     }
     function fee(){
-      const amt=+document.getElementById('feeAmt').value||0; const pct=+document.getElementById('feePct').value||0;
-      const fee=amt*(pct/100); document.getElementById('feeOut').textContent=`Fee ₦${fee.toLocaleString()} · You keep ₦${(amt-fee).toLocaleString()}`;
+      var amt = +document.getElementById('feeAmt').value || 0;
+      var pct = +document.getElementById('feePct').value || 0;
+      var f = amt * (pct/100);
+      document.getElementById('feeOut').textContent = 'Fee ₦' + f.toLocaleString() + ' · You keep ₦' + (amt-f).toLocaleString();
     }
-    document.getElementById('fxBtn').onclick=fx;
-    document.getElementById('coinBtn').onclick=coin;
-    document.getElementById('hustleBtn').onclick=hustle;
-    document.getElementById('feeBtn').onclick=fee;
+    document.getElementById('fxBtn').onclick = fx;
+    document.getElementById('coinBtn').onclick = coin;
+    document.getElementById('hustleBtn').onclick = hustle;
+    document.getElementById('feeBtn').onclick = fee;
   </script>
 </Base>

@@ -3,17 +3,17 @@ import Base from '../layouts/Base.astro';
 import SocialBar from '../components/SocialBar.astro';
 ---
 <Base title="Profile — LaneCash">
-  <section class="hero"><h1>Profile</h1><p>Device cache, personalization, and real push notifications.</p></section>
+  <section class="hero"><h1>Profile</h1><p>Device cache, personalization, and push notifications.</p></section>
 
   <div class="calc-card" style="margin-bottom:12px">
     <h3>Your activity (this device)</h3>
-    <p class="muted" id="statsLine">Loading…</p>
-    <p class="muted" id="interestLine"></p>
+    <p class="muted" id="statsLine">—</p>
+    <p class="muted" id="interestLine">—</p>
   </div>
 
   <div class="calc-card" style="margin-bottom:12px">
     <h3>Real device notifications</h3>
-    <p class="muted">Works best on Chrome Android. Allow permission when asked.</p>
+    <p class="muted">Chrome on Android works best. You must allow permission.</p>
     <button class="save-btn" id="pushBtn" type="button">Enable push alerts</button>
     <p class="muted" id="pushStatus" style="margin-top:10px;line-height:1.5"></p>
   </div>
@@ -21,83 +21,87 @@ import SocialBar from '../components/SocialBar.astro';
   <SocialBar />
 
   <script is:inline>
-    const saved=(window.LC.get('lc_saved',[])||[]).length;
-    const events=(window.LC.get('lc_events',[])||[]).length;
-    const interest=window.LC.get('lc_interest',{})||{};
-    const top=Object.entries(interest).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>k.replace('/article/','')+' ('+v+')').join(', ') || 'No reads yet';
-    document.getElementById('statsLine').textContent=`Saved: ${saved} · Events: ${events}`;
-    document.getElementById('interestLine').textContent=`Most opened: ${top}`;
-
-    function urlBase64ToUint8Array(base64String){
-      const padding='='.repeat((4 - (base64String.length % 4)) % 4);
-      const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
-      const raw=atob(base64);
-      const out=new Uint8Array(raw.length);
-      for(let i=0;i<raw.length;++i) out[i]=raw.charCodeAt(i);
-      return out;
-    }
-
-    async function enablePush(){
-      const status=document.getElementById('pushStatus');
-      const btn=document.getElementById('pushBtn');
-      btn.disabled=true;
-      try{
-        if(!window.isSecureContext){
-          status.textContent='Push needs HTTPS. Open the pages.dev site directly.';
-          return;
-        }
-        if(!('serviceWorker' in navigator) || !('PushManager' in window)){
-          status.textContent='This browser does not support Web Push. Use Chrome on Android.';
-          return;
-        }
-        status.textContent='1/4 Registering service worker…';
-        const reg=await navigator.serviceWorker.register('/sw.js');
-        await navigator.serviceWorker.ready;
-
-        status.textContent='2/4 Asking permission…';
-        const perm=await Notification.requestPermission();
-        if(perm!=='granted'){
-          status.textContent='Permission denied. In Chrome: site settings → Notifications → Allow, then try again.';
-          return;
-        }
-
-        status.textContent='3/4 Loading VAPID key…';
-        const vapidRes=await fetch('/api/push/vapid-public');
-        const vapid=await vapidRes.json();
-        if(!vapid.publicKey){
-          status.textContent='Server missing VAPID_PUBLIC_KEY. Add it in Cloudflare Pages → Environment variables, then redeploy.';
-          return;
-        }
-
-        status.textContent='4/4 Saving subscription…';
-        let sub=await reg.pushManager.getSubscription();
-        if(!sub){
-          sub=await reg.pushManager.subscribe({
-            userVisibleOnly:true,
-            applicationServerKey: urlBase64ToUint8Array(vapid.publicKey)
-          });
-        }
-        const res=await fetch('/api/push/subscribe',{
-          method:'POST',
-          headers:{'content-type':'application/json'},
-          body:JSON.stringify(sub.toJSON())
-        });
-        const j=await res.json();
-        if(!j.ok){
-          status.textContent='Subscribe failed: '+(j.error||res.status)+'. Create push_subscriptions table in D1 if missing.';
-          return;
-        }
-        window.LC.set('lc_push', true);
-        status.textContent='✅ Push enabled on this device. You can receive LaneCash alerts.';
-        window.LC.toast('Push enabled');
-        try{ new Notification('LaneCash',{ body:'Notifications are on.' }); }catch{}
-      }catch(e){
-        status.textContent='Failed: '+(e && e.message ? e.message : e);
-      }finally{
-        btn.disabled=false;
+    (function(){
+      function refresh(){
+        var saved = (window.LC.get('lc_saved', []) || []).length;
+        var events = (window.LC.get('lc_events', []) || []).length;
+        var interest = window.LC.get('lc_interest', {}) || {};
+        var top = Object.entries(interest).sort(function(a,b){return b[1]-a[1]}).slice(0,3)
+          .map(function(x){return x[0].replace('/article/','') + ' (' + x[1] + ')'}).join(', ') || 'No reads yet';
+        var s = document.getElementById('statsLine');
+        var i = document.getElementById('interestLine');
+        if (s) s.textContent = 'Saved: ' + saved + ' · Events: ' + events;
+        if (i) i.textContent = 'Most opened: ' + top;
       }
-    }
-    document.getElementById('pushBtn')?.addEventListener('click', enablePush);
-    if(window.LC.get('lc_push', false)) document.getElementById('pushStatus').textContent='Push was enabled earlier on this device.';
+      refresh();
+
+      function urlBase64ToUint8Array(base64String){
+        var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        var base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+        var raw = atob(base64);
+        var out = new Uint8Array(raw.length);
+        for (var i=0;i<raw.length;++i) out[i] = raw.charCodeAt(i);
+        return out;
+      }
+
+      document.getElementById('pushBtn').addEventListener('click', async function(){
+        var status = document.getElementById('pushStatus');
+        var btn = document.getElementById('pushBtn');
+        btn.disabled = true;
+        try {
+          if (!window.isSecureContext) { status.textContent = 'Need HTTPS (open pages.dev site).'; return; }
+          if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            status.textContent = 'Web Push not supported here. Use Chrome Android.'; return;
+          }
+          status.textContent = '1/4 Service worker…';
+          var reg = await navigator.serviceWorker.register('/sw.js');
+          await navigator.serviceWorker.ready;
+
+          status.textContent = '2/4 Permission…';
+          var perm = await Notification.requestPermission();
+          if (perm !== 'granted') {
+            status.textContent = 'Blocked. Chrome → site lock icon → Notifications → Allow.'; return;
+          }
+
+          status.textContent = '3/4 VAPID key…';
+          var vapidRes = await fetch('/api/push/vapid-public');
+          var vapid = await vapidRes.json();
+          if (!vapid.publicKey) {
+            status.textContent = 'Missing VAPID_PUBLIC_KEY on Cloudflare Pages env. Add it, redeploy, retry.'; return;
+          }
+
+          status.textContent = '4/4 Subscribe…';
+          var sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(vapid.publicKey)
+            });
+          }
+          var res = await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(sub.toJSON())
+          });
+          var j = await res.json();
+          if (!j.ok) {
+            status.textContent = 'DB subscribe failed: ' + (j.error || res.status) + '. Create push_subscriptions table in D1.'; return;
+          }
+          window.LC.set('lc_push', true);
+          status.textContent = '✅ Push enabled. Admin subscribers should increase after this.';
+          window.LC.toast('Push enabled');
+          try { new Notification('LaneCash', { body: 'Notifications are on.' }); } catch(e) {}
+          refresh();
+        } catch (e) {
+          status.textContent = 'Failed: ' + (e && e.message ? e.message : e);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      if (window.LC.get('lc_push', false)) {
+        document.getElementById('pushStatus').textContent = 'Push was enabled earlier on this device.';
+      }
+    })();
   </script>
 </Base>

@@ -16,11 +16,33 @@ const origin = Astro.url.origin;
     <link rel="canonical" href={canonical || `${origin}${path}`} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <script is:inline>
+      window.LC = {
+        toast(msg){
+          const t=document.getElementById('toast');
+          if(!t) return;
+          t.textContent=msg; t.style.display='block';
+          setTimeout(()=>t.style.display='none',1800);
+        },
+        get(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?d:v;}catch{return d}},
+        set(k,v){try{localStorage.setItem(k, JSON.stringify(v))}catch{}},
+        track(path, event){
+          const ev=this.get('lc_events',[]); ev.push({path,event,ts:Date.now()}); this.set('lc_events', ev.slice(-200));
+          const counts=this.get('lc_interest',{}); counts[path]=(counts[path]||0)+1; this.set('lc_interest', counts);
+        },
+        beacon(type){
+          try{
+            const body=JSON.stringify({type});
+            if(navigator.sendBeacon) navigator.sendBeacon('/api/beacon', new Blob([body],{type:'application/json'}));
+            else fetch('/api/beacon',{method:'POST',headers:{'content-type':'application/json'},body,keepalive:true});
+          }catch{}
+        }
+      };
+    </script>
   </head>
   <body>
     <header class="topbar">
@@ -68,27 +90,11 @@ const origin = Astro.url.origin;
 
     <div class="toast" id="toast"></div>
     <script is:inline>
-      window.LC = {
-        toast(msg){const t=document.getElementById('toast'); if(!t) return; t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',1800);},
-        get(k,d){try{return JSON.parse(localStorage.getItem(k)||'null') ?? d}catch{return d}},
-        set(k,v){localStorage.setItem(k, JSON.stringify(v))},
-        track(path, event){
-          const key='lc_events'; const ev=this.get(key,[]); ev.push({path,event,ts:Date.now()}); this.set(key, ev.slice(-200));
-          const counts=this.get('lc_interest',{}); counts[path]=(counts[path]||0)+1; this.set('lc_interest', counts);
-        },
-        beacon(type){
-          try{
-            const body=JSON.stringify({type});
-            if(navigator.sendBeacon) navigator.sendBeacon('/api/beacon', new Blob([body],{type:'application/json'}));
-            else fetch('/api/beacon',{method:'POST',headers:{'content-type':'application/json'},body,keepalive:true});
-          }catch{}
-        }
-      };
       (function(){
         const day=new Date().toISOString().slice(0,10);
         if(window.LC.get('lc_visit_day','')!==day){ window.LC.set('lc_visit_day', day); window.LC.beacon('visit'); }
         window.LC.beacon('pageview');
-        if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+        if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function(){});
       })();
     </script>
   </body>

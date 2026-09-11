@@ -1,6 +1,5 @@
 ---
 import { adminStats, getArticles } from '../../lib/db';
-
 export const prerender = false;
 
 const env = Astro.locals.runtime?.env || {};
@@ -11,19 +10,15 @@ let authed = false;
 let error = '';
 let stats: any = null;
 let recent: any[] = [];
-let notice = '';
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
-  const action = String(form.get('action') || 'login');
-  if (action === 'login') {
-    const email = String(form.get('email') || '').toLowerCase().trim();
-    const password = String(form.get('password') || '');
-    if (email === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
-      authed = true;
-      Astro.cookies.set('lc_admin', '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 12 });
-    } else error = 'Invalid login';
-  }
+  const email = String(form.get('email') || '').toLowerCase().trim();
+  const password = String(form.get('password') || '');
+  if (email === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+    authed = true;
+    Astro.cookies.set('lc_admin', '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 12 });
+  } else error = 'Invalid login';
 } else if (Astro.cookies.get('lc_admin')?.value === '1') {
   authed = true;
 }
@@ -31,7 +26,7 @@ if (Astro.request.method === 'POST') {
 if (authed && Astro.locals.runtime?.env?.DB) {
   const db = Astro.locals.runtime.env.DB;
   stats = await adminStats(db);
-  const res = await getArticles(db, 15);
+  const res = await getArticles(db, 20);
   recent = res.results || [];
 }
 ---
@@ -43,29 +38,32 @@ if (authed && Astro.locals.runtime?.env?.DB) {
   <meta name="robots" content="noindex,nofollow" />
   <title>LaneCash Admin</title>
   <style>
-    body{margin:0;background:#000;color:#fff;font-family:Inter,system-ui,sans-serif}
-    .w{width:min(1000px,100%);margin:0 auto;padding:20px 16px 50px}
-    .card{background:#121212;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:12px}
-    .grid{display:grid;gap:12px}@media(min-width:800px){.grid{grid-template-columns:repeat(4,1fr)}.grid-2{grid-template-columns:1fr 1fr}}
-    .stat{font-size:1.45rem;font-weight:800}.muted{color:#9ca3af;font-size:.85rem}
-    input,textarea{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;padding:10px;margin:6px 0}
-    button,.btn{background:#22c55e;color:#04140a;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;display:inline-block}
-    table{width:100%;border-collapse:collapse;font-size:.84rem}td,th{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}
-    a{color:#22c55e}
+    :root{--bg:#070707;--card:#111;--line:rgba(255,255,255,.08);--brand:#22c55e;--muted:#9ca3af}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}
+    .w{width:min(1040px,100%);margin:0 auto;padding:20px 16px 60px}
+    h1{margin:0 0 4px;font-size:1.4rem} .sub{color:var(--muted);margin:0 0 16px;font-size:.85rem}
+    .grid{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}@media(min-width:800px){.grid{grid-template-columns:repeat(4,1fr)}}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+    .label{color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+    .stat{font-size:1.5rem;font-weight:800;margin-top:6px}
+    table{width:100%;border-collapse:collapse;font-size:.82rem}th{color:var(--muted);font-weight:600;text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top}a{color:var(--brand);text-decoration:none}
+    input{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:10px;color:#fff;padding:11px;margin:6px 0}
+    button{background:var(--brand);color:#04140a;border:0;border-radius:10px;padding:11px 14px;font-weight:800;cursor:pointer;width:100%}
+    .note{color:var(--muted);font-size:.78rem;margin-top:8px}
+    .row{display:grid;gap:12px}@media(min-width:900px){.row{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body>
   <div class="w">
     <h1>LaneCash Admin</h1>
-    <p class="muted">Low-read analytics · push control · content overview</p>
+    <p class="sub">Analytics · push · content</p>
 
     {!authed ? (
-      <div class="card">
-        <p class="muted">Restricted · officialbonesceo only</p>
+      <div class="card" style="max-width:420px">
+        <div class="label">Restricted access</div>
         {error && <p style="color:#f87171">{error}</p>}
-        {!ADMIN_PASSWORD && <p style="color:#fbbf24">Set ADMIN_PASSWORD in Cloudflare Pages secrets.</p>}
+        {!ADMIN_PASSWORD && <p style="color:#fbbf24">Set ADMIN_PASSWORD in Cloudflare env.</p>}
         <form method="POST">
-          <input type="hidden" name="action" value="login" />
           <input name="email" type="email" placeholder="Email" required />
           <input name="password" type="password" placeholder="Password" required />
           <button type="submit">Unlock</button>
@@ -73,38 +71,34 @@ if (authed && Astro.locals.runtime?.env?.DB) {
       </div>
     ) : (
       <>
-        {notice && <div class="card">{notice}</div>}
         <div class="grid">
-          <div class="card"><div class="muted">Published</div><div class="stat">{stats?.published ?? 0}</div></div>
-          <div class="card"><div class="muted">Article views</div><div class="stat">{stats?.views ?? 0}</div></div>
-          <div class="card"><div class="muted">Today visitors*</div><div class="stat">{stats?.today?.visitors ?? 0}</div></div>
-          <div class="card"><div class="muted">Today pageviews*</div><div class="stat">{stats?.today?.pageviews ?? 0}</div></div>
-          <div class="card"><div class="muted">Push subscribers</div><div class="stat">{stats?.subscribers ?? 0}</div></div>
-          <div class="card"><div class="muted">Today saves*</div><div class="stat">{stats?.today?.saves ?? 0}</div></div>
-          <div class="card"><div class="muted">Pushes sent today</div><div class="stat">{stats?.today?.pushes ?? 0}</div></div>
-          <div class="card"><div class="muted">All articles</div><div class="stat">{stats?.total ?? 0}</div></div>
+          <div class="card"><div class="label">Published</div><div class="stat">{stats?.published ?? 0}</div></div>
+          <div class="card"><div class="label">Article views</div><div class="stat">{stats?.views ?? 0}</div></div>
+          <div class="card"><div class="label">Today visitors*</div><div class="stat">{stats?.today?.visitors ?? 0}</div></div>
+          <div class="card"><div class="label">Today pageviews*</div><div class="stat">{stats?.today?.pageviews ?? 0}</div></div>
+          <div class="card"><div class="label">Push subscribers</div><div class="stat">{stats?.subscribers ?? 0}</div></div>
+          <div class="card"><div class="label">Today saves*</div><div class="stat">{stats?.today?.saves ?? 0}</div></div>
+          <div class="card"><div class="label">Pushes today</div><div class="stat">{stats?.today?.pushes ?? 0}</div></div>
+          <div class="card"><div class="label">All articles</div><div class="stat">{stats?.total ?? 0}</div></div>
         </div>
-        <p class="muted">* Visitor/pageview counts are sampled to keep D1 writes low (scaled estimates).</p>
+        <p class="note">* Sampled estimates to keep D1 writes low.</p>
 
-        <div class="card">
-          <h3>Broadcast device notification</h3>
-          <p class="muted">Uses GitHub Action <code>notify</code> with VAPID keys. Run workflow manually after compose:</p>
-          <p class="muted">Actions → notify → Run workflow → title / body / url</p>
+        <div class="card" style="margin-top:12px">
+          <div class="label">Broadcast</div>
+          <p class="note">GitHub Actions → notify → Run workflow. Push subscribers must be &gt; 0 first (Profile → Enable push).</p>
           <p><a href="https://github.com/officialbonesceo/kx7-moth-core/actions/workflows/notify.yml" target="_blank">Open notify workflow ↗</a></p>
         </div>
 
-        <div class="grid grid-2">
+        <div class="row" style="margin-top:12px">
           <div class="card">
-            <h3>Last 7 days</h3>
+            <div class="label">Last 7 days</div>
             <table>
               <tr><th>Day</th><th>Visitors</th><th>Views</th><th>Saves</th></tr>
-              {(stats?.last7 || []).map((r: any) => (
-                <tr><td>{r.day}</td><td>{r.visitors}</td><td>{r.pageviews}</td><td>{r.saves}</td></tr>
-              ))}
+              {(stats?.last7 || []).map((r: any) => <tr><td>{r.day}</td><td>{r.visitors}</td><td>{r.pageviews}</td><td>{r.saves}</td></tr>)}
             </table>
           </div>
           <div class="card">
-            <h3>By category</h3>
+            <div class="label">By category</div>
             <table>
               <tr><th>Category</th><th>Count</th></tr>
               {(stats?.byCat || []).map((r: any) => <tr><td>{r.category}</td><td>{r.c}</td></tr>)}
@@ -112,26 +106,19 @@ if (authed && Astro.locals.runtime?.env?.DB) {
           </div>
         </div>
 
-        <div class="card">
-          <h3>Top viewed</h3>
+        <div class="card" style="margin-top:12px">
+          <div class="label">Top viewed</div>
           <table>
             <tr><th>Title</th><th>Views</th><th>Cat</th></tr>
             {(stats?.top || []).map((r: any) => <tr><td><a href={`/article/${r.slug}`}>{r.title}</a></td><td>{r.views}</td><td>{r.category}</td></tr>)}
           </table>
         </div>
 
-        <div class="card">
-          <h3>Recent posts</h3>
+        <div class="card" style="margin-top:12px">
+          <div class="label">Recent posts</div>
           <table>
-            <tr><th>Title</th><th>Category</th><th>Views</th><th>Team</th></tr>
-            {recent.map((r) => (
-              <tr>
-                <td><a href={`/article/${r.slug}`}>{r.title}</a></td>
-                <td>{r.category}</td>
-                <td>{r.views}</td>
-                <td>{r.author_team || '—'}</td>
-              </tr>
-            ))}
+            <tr><th>Title</th><th>Category</th><th>Views</th></tr>
+            {recent.map((r) => <tr><td><a href={`/article/${r.slug}`}>{r.title}</a></td><td>{r.category}</td><td>{r.views}</td></tr>)}
           </table>
         </div>
       </>
