@@ -25,25 +25,47 @@ const origin = Astro.url.origin;
   <body>
     <header class="topbar">
       <div class="topbar-inner">
-        <a class="brand" href="/"><span class="brand-mark">L</span><span>Lane<b>Cash</b></span></a>
+        <a class="brand" href="/">
+          <span class="brand-mark">L</span>
+          <span>Lane<b>Cash</b></span>
+        </a>
         <div class="top-actions">
-          <a href="/search" aria-label="Search">⌕</a>
-          <a href="/notifications" aria-label="Alerts">🔔</a>
+          <a href="/search" aria-label="Search" class="icon-link">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          </a>
+          <a href="/notifications" aria-label="Alerts" class="icon-link">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+          </a>
         </div>
       </div>
     </header>
+
     <main class="wrap">
       <slot />
       <div class="footer-note">LaneCash — practical money, crypto & hustles</div>
     </main>
+
     <nav class="bottom-nav" aria-label="Primary">
       <div class="bottom-nav-inner">
-        <a class={`bnav ${path === '/' ? 'active' : ''}`} href="/"><span class="ico">⌂</span>Home</a>
-        <a class={`bnav ${path.startsWith('/tools') || path.startsWith('/category') ? 'active' : ''}`} href="/tools"><span class="ico">◎</span>Explore</a>
-        <a class={`bnav ${path.startsWith('/saved') ? 'active' : ''}`} href="/saved"><span class="ico">Bookmark</span>Saved</a>
-        <a class={`bnav ${path.startsWith('/profile') ? 'active' : ''}`} href="/profile"><span class="ico">☺</span>Profile</a>
+        <a class={`bnav ${path === '/' ? 'active' : ''}`} href="/">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/></svg>
+          <span>Home</span>
+        </a>
+        <a class={`bnav ${path.startsWith('/tools') || path.startsWith('/category') ? 'active' : ''}`} href="/tools">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+          <span>Explore</span>
+        </a>
+        <a class={`bnav ${path.startsWith('/saved') ? 'active' : ''}`} href="/saved">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10a1 1 0 0 1 1 1v17l-6-3.5L6 21V4a1 1 0 0 1 1-1z"/></svg>
+          <span>Saved</span>
+        </a>
+        <a class={`bnav ${path.startsWith('/profile') ? 'active' : ''}`} href="/profile">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/></svg>
+          <span>Profile</span>
+        </a>
       </div>
     </nav>
+
     <div class="toast" id="toast"></div>
     <script is:inline>
       window.LC = {
