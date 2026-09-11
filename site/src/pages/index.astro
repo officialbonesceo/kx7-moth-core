@@ -28,7 +28,7 @@ try {
         if (tab === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token/.test(t);
         if (tab === 'hustles') return c === 'guides' || /hustle|earn|freelance|side/.test(t);
         if (tab === 'scams') return c === 'scams' || /scam|fraud|ponzi/.test(t);
-        if (tab === 'investing') return c === 'money' || /invest|bank|naira|loan/.test(t);
+        if (tab === 'investing') return c === 'money' || /invest|bank|naira|loan|wallet|payment/.test(t);
         return true;
       });
     }
@@ -39,7 +39,6 @@ try {
   }
 } catch (e: any) {
   dbError = e?.message || 'Database error';
-  console.error('[index]', e);
 }
 const totalPages = Math.max(1, Math.ceil(total / perPage));
 ---
@@ -66,7 +65,10 @@ const totalPages = Math.max(1, Math.ceil(total / perPage));
           <p>{a.summary}</p>
           <div class="card-meta">
             <span>{a.author_team || teamFor(a.category, a.title)} · {a.reading_minutes || 8} min</span>
-            <span class="save-inline" data-slug={a.slug}>Save</span>
+            <span class="save-inline" data-slug={a.slug}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h10a1 1 0 0 1 1 1v17l-6-3.5L6 21V4a1 1 0 0 1 1-1z"/></svg>
+              Save
+            </span>
           </div>
         </div>
         <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
