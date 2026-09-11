@@ -1,0 +1,35 @@
+---
+import Base from '../layouts/Base.astro';
+import SocialBar from '../components/SocialBar.astro';
+---
+<Base title="Profile — LaneCash">
+  <section class="hero"><h1>Profile</h1><p>Local preferences, reads and personalization from this device cache.</p></section>
+  <div class="calc-card" style="margin-bottom:12px">
+    <h3>Your activity (this device)</h3>
+    <p class="muted" id="statsLine">Loading…</p>
+    <p class="muted" id="interestLine"></p>
+  </div>
+  <div class="calc-card" style="margin-bottom:12px">
+    <h3>Notifications</h3>
+    <p class="muted">Get alerts for topics you interact with most.</p>
+    <button class="save-btn" id="notifBtn" type="button">Enable alerts</button>
+  </div>
+  <SocialBar />
+  <script is:inline>
+    const saved=(window.LC.get('lc_saved',[])||[]).length;
+    const events=(window.LC.get('lc_events',[])||[]).length;
+    const interest=window.LC.get('lc_interest',{})||{};
+    const top=Object.entries(interest).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>k.replace('/article/','')+' ('+v+')').join(', ') || 'No reads yet';
+    document.getElementById('statsLine').textContent=`Saved: ${saved} · Events tracked: ${events}`;
+    document.getElementById('interestLine').textContent=`Most opened: ${top}`;
+    document.getElementById('notifBtn')?.addEventListener('click', async ()=>{
+      if(!('Notification' in window)) return window.LC.toast('Not supported');
+      const perm=await Notification.requestPermission();
+      window.LC.set('lc_notif', perm==='granted');
+      if(perm==='granted'){
+        new Notification('LaneCash', { body: 'Alerts enabled for your top topics.' });
+        window.LC.toast('Notifications on');
+      } else window.LC.toast('Permission denied');
+    });
+  </script>
+</Base>

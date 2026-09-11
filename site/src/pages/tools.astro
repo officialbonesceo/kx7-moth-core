@@ -1,0 +1,89 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Tools — LaneCash" description="Currency, crypto and money calculators with live-style estimates.">
+  <section class="hero"><h1>Tools</h1><p>Quick calculators for currency, crypto and hustle math.</p></section>
+  <div class="calc-grid">
+    <div class="calc-card">
+      <h3>Currency converter</h3>
+      <label>Amount</label>
+      <input id="fxAmount" type="number" value="1000" />
+      <label>From</label>
+      <select id="fxFrom"><option>NGN</option><option selected>USD</option><option>EUR</option><option>GBP</option></select>
+      <label>To</label>
+      <select id="fxTo"><option selected>NGN</option><option>USD</option><option>EUR</option><option>GBP</option></select>
+      <button class="save-btn" id="fxBtn" type="button" style="margin-top:10px">Convert</button>
+      <div class="calc-result" id="fxOut">—</div>
+    </div>
+    <div class="calc-card">
+      <h3>Crypto value (USD)</h3>
+      <label>Coin</label>
+      <select id="coin"><option value="bitcoin">Bitcoin</option><option value="ethereum">Ethereum</option><option value="tether">USDT</option></select>
+      <label>Quantity</label>
+      <input id="coinQty" type="number" value="1" step="0.0001" />
+      <button class="save-btn" id="coinBtn" type="button" style="margin-top:10px">Price</button>
+      <div class="calc-result" id="coinOut">—</div>
+    </div>
+    <div class="calc-card">
+      <h3>Hustle weekly target</h3>
+      <label>Desired weekly income (₦)</label>
+      <input id="target" type="number" value="10000" />
+      <label>Work days / week</label>
+      <input id="days" type="number" value="5" />
+      <label>Jobs needed if each job pays (₦)</label>
+      <input id="perJob" type="number" value="2000" />
+      <button class="save-btn" id="hustleBtn" type="button" style="margin-top:10px">Calculate</button>
+      <div class="calc-result" id="hustleOut">—</div>
+    </div>
+    <div class="calc-card">
+      <h3>Fee impact</h3>
+      <label>Amount (₦)</label>
+      <input id="feeAmt" type="number" value="50000" />
+      <label>Fee %</label>
+      <input id="feePct" type="number" value="1.5" step="0.1" />
+      <button class="save-btn" id="feeBtn" type="button" style="margin-top:10px">Compute</button>
+      <div class="calc-result" id="feeOut">—</div>
+    </div>
+  </div>
+  <script is:inline>
+    async function fx(){
+      const amount=+document.getElementById('fxAmount').value||0;
+      const from=document.getElementById('fxFrom').value;
+      const to=document.getElementById('fxTo').value;
+      document.getElementById('fxOut').textContent='Loading…';
+      try{
+        const r=await fetch(`https://api.exchangerate.host/convert?from=${from}&to=${to}&amount=${amount}`);
+        const j=await r.json();
+        if(j?.result!=null) document.getElementById('fxOut').textContent=`${amount} ${from} ≈ ${Number(j.result).toLocaleString(undefined,{maximumFractionDigits:2})} ${to}`;
+        else throw 0;
+      }catch{
+        // fallback approx
+        const approx={USD:{NGN:1600,EUR:0.92,GBP:0.78,USD:1},NGN:{USD:1/1600,EUR:1/1700,GBP:1/2000,NGN:1},EUR:{USD:1.09,NGN:1700,GBP:0.85,EUR:1},GBP:{USD:1.28,NGN:2000,EUR:1.17,GBP:1}};
+        const v=amount*((approx[from]&&approx[from][to])||1);
+        document.getElementById('fxOut').textContent=`${amount} ${from} ≈ ${v.toLocaleString(undefined,{maximumFractionDigits:2})} ${to} (estimate)`;
+      }
+    }
+    async function coin(){
+      const id=document.getElementById('coin').value; const qty=+document.getElementById('coinQty').value||0;
+      document.getElementById('coinOut').textContent='Loading…';
+      try{
+        const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd,ngn`);
+        const j=await r.json(); const p=j[id];
+        document.getElementById('coinOut').textContent=`${qty} ${id} ≈ $${(p.usd*qty).toLocaleString()} / ₦${(p.ngn*qty).toLocaleString()}`;
+      }catch{ document.getElementById('coinOut').textContent='Could not load live price. Try again.'; }
+    }
+    function hustle(){
+      const target=+document.getElementById('target').value||0; const days=+document.getElementById('days').value||1; const per=+document.getElementById('perJob').value||1;
+      const jobs=Math.ceil(target/Math.max(per,1)); const perDay=(target/Math.max(days,1));
+      document.getElementById('hustleOut').textContent=`Need ~${jobs} jobs/week · ~₦${Math.round(perDay).toLocaleString()}/day`;
+    }
+    function fee(){
+      const amt=+document.getElementById('feeAmt').value||0; const pct=+document.getElementById('feePct').value||0;
+      const fee=amt*(pct/100); document.getElementById('feeOut').textContent=`Fee ₦${fee.toLocaleString()} · You keep ₦${(amt-fee).toLocaleString()}`;
+    }
+    document.getElementById('fxBtn').onclick=fx;
+    document.getElementById('coinBtn').onclick=coin;
+    document.getElementById('hustleBtn').onclick=hustle;
+    document.getElementById('feeBtn').onclick=fee;
+  </script>
+</Base>

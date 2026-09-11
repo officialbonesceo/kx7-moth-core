@@ -1,8 +1,9 @@
 ---
 import '../styles/global.css';
-interface Props { title?: string; description?: string }
-const { title = 'LaneCash', description = 'Finance, crypto & side-hustle insights that pay off.' } = Astro.props;
+interface Props { title?: string; description?: string; canonical?: string }
+const { title = 'LaneCash', description = 'Finance, crypto & side-hustle insights that pay off.', canonical } = Astro.props;
 const path = Astro.url.pathname;
+const origin = Astro.url.origin;
 ---
 <!doctype html>
 <html lang="en">
@@ -12,6 +13,11 @@ const path = Astro.url.pathname;
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#000000" />
+    <link rel="canonical" href={canonical || `${origin}${path}`} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
@@ -19,37 +25,36 @@ const path = Astro.url.pathname;
   <body>
     <header class="topbar">
       <div class="topbar-inner">
-        <a class="brand" href="/">
-          <span class="brand-mark">L</span>
-          <span>Lane<b>Cash</b></span>
-        </a>
+        <a class="brand" href="/"><span class="brand-mark">L</span><span>Lane<b>Cash</b></span></a>
         <div class="top-actions">
-          <span aria-hidden="true">⌕</span>
-          <span aria-hidden="true">⌁</span>
+          <a href="/search" aria-label="Search">Search</a>
+          <a href="/notifications" aria-label="Notifications">Alerts</a>
         </div>
       </div>
     </header>
-
     <main class="wrap">
       <slot />
       <div class="footer-note">LaneCash — practical money, crypto & hustles</div>
     </main>
-
     <nav class="bottom-nav" aria-label="Primary">
       <div class="bottom-nav-inner">
-        <a class={`bnav ${path === '/' ? 'active' : ''}`} href="/">
-          <i>⌂</i><span>Home</span>
-        </a>
-        <a class={`bnav ${path.startsWith('/category') ? 'active' : ''}`} href="/category/money">
-          <i>◎</i><span>Explore</span>
-        </a>
-        <a class="bnav" href="/category/guides">
-          <i>Bookmark</i><span>Saved</span>
-        </a>
-        <a class="bnav" href="/category/scams">
-          <i>☺</i><span>Profile</span>
-        </a>
+        <a class={`bnav ${path === '/' ? 'active' : ''}`} href="/">Home</a>
+        <a class={`bnav ${path.startsWith('/category') || path.startsWith('/tools') ? 'active' : ''}`} href="/tools">Explore</a>
+        <a class={`bnav ${path.startsWith('/saved') ? 'active' : ''}`} href="/saved">Saved</a>
+        <a class={`bnav ${path.startsWith('/profile') ? 'active' : ''}`} href="/profile">Profile</a>
       </div>
     </nav>
+    <div class="toast" id="toast"></div>
+    <script is:inline>
+      window.LC = {
+        toast(msg){const t=document.getElementById('toast'); if(!t) return; t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',1800);},
+        get(k,d){try{return JSON.parse(localStorage.getItem(k)||'null') ?? d}catch{return d}},
+        set(k,v){localStorage.setItem(k, JSON.stringify(v))},
+        track(path, event){
+          const key='lc_events'; const ev=this.get(key,[]); ev.push({path,event,ts:Date.now()}); this.set(key, ev.slice(-200));
+          const counts=this.get('lc_interest',{}); counts[path]=(counts[path]||0)+1; this.set('lc_interest', counts);
+        }
+      };
+    </script>
   </body>
 </html>

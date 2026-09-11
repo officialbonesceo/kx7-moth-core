@@ -1,22 +1,26 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { getArticles } from '../../lib/db';
+import Pagination from '../../components/Pagination.astro';
+import { getArticles, countArticles } from '../../lib/db';
 import { coverFor } from '../../lib/images';
-
+import { teamFor } from '../../lib/socials';
 const { slug } = Astro.params;
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
+const perPage = 10;
+const offset = (page - 1) * perPage;
 const db = Astro.locals.runtime?.env?.DB;
 let articles: any[] = [];
+let total = 0;
 if (db && slug) {
-  const res = await getArticles(db, 40, slug);
+  total = await countArticles(db, slug);
+  const res = await getArticles(db, perPage, slug, offset);
   articles = res.results || [];
 }
+const totalPages = Math.max(1, Math.ceil(total / perPage));
 const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Explore';
 ---
 <Base title={`${title} — LaneCash`}>
-  <section class="hero">
-    <h1>{title}</h1>
-    <p>Practical picks in this section.</p>
-  </section>
+  <section class="hero"><h1>{title}</h1><p>Practical picks in this section.</p></section>
   <section class="feed">
     {articles.length ? articles.map((a) => (
       <a class="card" href={`/article/${a.slug}`}>
@@ -24,12 +28,11 @@ const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Explore';
           <span class={`pill ${a.category}`}>{a.category}</span>
           <h3>{a.title}</h3>
           <p>{a.summary}</p>
-          <div class="card-meta">
-            <span>LaneCash Desk · {a.reading_minutes || 8} min</span>
-          </div>
+          <div class="card-meta"><span>{a.author_team || teamFor(a.category, a.title)}</span></div>
         </div>
         <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
       </a>
     )) : <div class="empty">No posts yet.</div>}
   </section>
+  <Pagination page={page} totalPages={totalPages} base={`/category/${slug}`} />
 </Base>

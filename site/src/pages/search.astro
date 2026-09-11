@@ -1,0 +1,32 @@
+---
+import Base from '../layouts/Base.astro';
+import { searchArticles } from '../lib/db';
+import { coverFor } from '../lib/images';
+const q = (Astro.url.searchParams.get('q') || '').trim();
+const db = Astro.locals.runtime?.env?.DB;
+let results: any[] = [];
+if (db && q.length > 1) {
+  const res = await searchArticles(db, q, 30);
+  results = res.results || [];
+}
+---
+<Base title={`Search${q ? `: ${q}` : ''} — LaneCash`}>
+  <section class="hero"><h1>Search</h1><p>Find guides, crypto explainers, hustles and scam alerts.</p></section>
+  <form class="search-box" method="get" action="/search">
+    <input name="q" value={q} placeholder="Search money, USDT, POS, scams..." />
+    <button type="submit">Go</button>
+  </form>
+  <section class="feed">
+    {q && !results.length && <div class="empty">No results for “{q}”.</div>}
+    {results.map((a) => (
+      <a class="card" href={`/article/${a.slug}`}>
+        <div class="card-main">
+          <span class={`pill ${a.category}`}>{a.category}</span>
+          <h3>{a.title}</h3>
+          <p>{a.summary}</p>
+        </div>
+        <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
+      </a>
+    ))}
+  </section>
+</Base>

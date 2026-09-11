@@ -1,0 +1,100 @@
+---
+import { adminStats, getArticles } from '../../lib/db';
+
+const env = Astro.locals.runtime?.env || {};
+const ADMIN_EMAIL = (env.ADMIN_EMAIL || 'officialbonesceo@gmail.com').toLowerCase();
+const ADMIN_PASSWORD = env.ADMIN_PASSWORD || '';
+
+const method = Astro.request.method;
+let authed = false;
+let error = '';
+let stats: any = null;
+let recent: any[] = [];
+
+if (method === 'POST') {
+  const form = await Astro.request.formData();
+  const email = String(form.get('email') || '').toLowerCase().trim();
+  const password = String(form.get('password') || '');
+  if (email === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+    authed = true;
+    Astro.cookies.set('lc_admin', '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 12 });
+  } else error = 'Invalid login';
+} else if (Astro.cookies.get('lc_admin')?.value === '1') {
+  authed = true;
+}
+
+if (authed && Astro.locals.runtime?.env?.DB) {
+  const db = Astro.locals.runtime.env.DB;
+  stats = await adminStats(db);
+  const res = await getArticles(db, 12);
+  recent = res.results || [];
+}
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Admin</title>
+  <link rel="stylesheet" href="/" disabled />
+  <style>
+    body{margin:0;background:#000;color:#fff;font-family:Inter,system-ui,sans-serif}
+    .admin-wrap{width:min(980px,100%);margin:0 auto;padding:20px 16px 40px}
+    .admin-card{background:#121212;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:12px}
+    .admin-grid{display:grid;gap:12px}@media(min-width:800px){.admin-grid{grid-template-columns:repeat(3,1fr)}}
+    .stat{font-size:1.4rem;font-weight:800}.muted{color:#9ca3af}
+    input{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;padding:10px;margin:6px 0}
+    button{background:#22c55e;color:#04140a;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
+    table{width:100%;border-collapse:collapse;font-size:.85rem}td,th{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}
+  </style>
+</head>
+<body>
+  <div class="admin-wrap">
+    <h1>LaneCash Admin</h1>
+    {!authed ? (
+      <div class="admin-card">
+        <p class="muted">Restricted access</p>
+        {error && <p style="color:#f87171">{error}</p>}
+        {!ADMIN_PASSWORD && <p style="color:#fbbf24">Set ADMIN_PASSWORD in Cloudflare Pages secrets.</p>}
+        <form method="POST">
+          <label class="muted">Email</label>
+          <input name="email" type="email" placeholder="email" required />
+          <label class="muted">Password</label>
+          <input name="password" type="password" placeholder="password" required />
+          <button type="submit">Unlock</button>
+        </form>
+      </div>
+    ) : (
+      <>
+        <div class="admin-grid">
+          <div class="admin-card"><div class="muted">Articles</div><div class="stat">{stats?.total ?? 0}</div></div>
+          <div class="admin-card"><div class="muted">Published</div><div class="stat">{stats?.published ?? 0}</div></div>
+          <div class="admin-card"><div class="muted">Total views</div><div class="stat">{stats?.views ?? 0}</div></div>
+        </div>
+        <div class="admin-card">
+          <h3>By category</h3>
+          <table>
+            <tr><th>Category</th><th>Count</th></tr>
+            {(stats?.byCat || []).map((r: any) => <tr><td>{r.category}</td><td>{r.c}</td></tr>)}
+          </table>
+        </div>
+        <div class="admin-card">
+          <h3>Top viewed</h3>
+          <table>
+            <tr><th>Title</th><th>Views</th><th>Cat</th></tr>
+            {(stats?.top || []).map((r: any) => <tr><td>{r.title}</td><td>{r.views}</td><td>{r.category}</td></tr>)}
+          </table>
+        </div>
+        <div class="admin-card">
+          <h3>Recent</h3>
+          <table>
+            <tr><th>Title</th><th>Category</th><th>Views</th></tr>
+            {recent.map((r) => <tr><td>{r.title}</td><td>{r.category}</td><td>{r.views}</td></tr>)}
+          </table>
+        </div>
+      </>
+    )}
+  </div>
+</body>
+</html>

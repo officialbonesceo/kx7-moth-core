@@ -1,28 +1,44 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { getArticleBySlug } from '../../lib/db';
+import SocialBar from '../../components/SocialBar.astro';
+import { getArticleBySlug, bumpViews } from '../../lib/db';
 import { coverFor } from '../../lib/images';
+import { teamFor } from '../../lib/socials';
 
 const { slug } = Astro.params;
 const db = Astro.locals.runtime?.env?.DB;
 const article = (slug && db) ? await getArticleBySlug(db, slug) : null;
 if (!article) return Astro.redirect('/');
+if (db) try { await bumpViews(db, article.id); } catch {}
 const cover = coverFor(article);
+const team = article.author_team || teamFor(article.category, article.title);
 ---
 <Base title={`${article.title} — LaneCash`} description={article.summary}>
-  <div class="article-top">
-    <a class="back" href="/">← Back</a>
-    <img class="article-cover" src={cover} alt="" />
-    <div class="article-head">
-      <span class={`pill ${article.category}`}>{article.category}</span>
-      <h1>{article.title}</h1>
-      <p class="summary">{article.summary}</p>
-      {article.source_url && (
-        <a class="source-pill" href={article.source_url} target="_blank" rel="noopener noreferrer">
-          Source: {article.source_name || 'Original'} ↗
-        </a>
-      )}
+  <a class="chip" href="/" style="margin:8px 0 12px;display:inline-flex">← Back</a>
+  <img class="article-cover" src={cover} alt="" />
+  <div class="article-head">
+    <span class={`pill ${article.category}`}>{article.category}</span>
+    <h1>{article.title}</h1>
+    <p class="summary">{article.summary}</p>
+    <div class="author-row">
+      <span>{team} · {article.reading_minutes || 8} min read</span>
+      <button class="save-btn" id="saveBtn" type="button">Save</button>
     </div>
-    <div class="prose" set:html={article.content} />
+    {article.source_url && <a class="source-pill" href={article.source_url} target="_blank" rel="noopener noreferrer">Source: {article.source_name || 'Original'} ↗</a>}
   </div>
+  <div class="prose" set:html={article.content} />
+  <SocialBar />
+  <script is:inline define:vars={{ slug: article.slug, path: `/article/${article.slug}` }}>
+    window.LC?.track(path, 'read');
+    const btn=document.getElementById('saveBtn');
+    const saved=window.LC.get('lc_saved',[]);
+    if(saved.includes(slug)) btn.textContent='Saved';
+    btn?.addEventListener('click',()=>{
+      let s=window.LC.get('lc_saved',[]);
+      if(s.includes(slug)){ s=s.filter(x=>x!==slug); btn.textContent='Save'; window.LC.toast('Removed'); }
+      else { s.unshift(slug); btn.textContent='Saved'; window.LC.toast('Saved to device'); }
+      window.LC.set('lc_saved', s.slice(0,100));
+      window.LC.track(path, 'save');
+    });
+  </script>
 </Base>

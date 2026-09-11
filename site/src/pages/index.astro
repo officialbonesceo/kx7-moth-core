@@ -1,63 +1,74 @@
 ---
 import Base from '../layouts/Base.astro';
-import { getArticles } from '../lib/db';
+import Pagination from '../components/Pagination.astro';
+import { getArticles, countArticles } from '../lib/db';
 import { coverFor } from '../lib/images';
+import { teamFor } from '../lib/socials';
 
 const db = Astro.locals.runtime?.env?.DB;
-let articles: any[] = [];
-if (db) {
-  const res = await getArticles(db, 30);
-  articles = res.results || [];
-}
+const tab = Astro.url.searchParams.get('tab') || 'all';
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
+const perPage = 10;
+const offset = (page - 1) * perPage;
 
-const q = Astro.url.searchParams.get('tab') || 'all';
-const filtered = q === 'all'
-  ? articles
-  : articles.filter((a) => {
+let articles: any[] = [];
+let total = 0;
+if (db) {
+  const res = await getArticles(db, 80);
+  let all = res.results || [];
+  if (tab !== 'all') {
+    all = all.filter((a) => {
       const c = (a.category || '').toLowerCase();
       const t = `${a.title} ${a.summary}`.toLowerCase();
-      if (q === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token/.test(t);
-      if (q === 'hustles') return c === 'guides' || /hustle|earn|freelance|side/.test(t);
-      if (q === 'scams') return c === 'scams' || /scam|fraud|ponzi/.test(t);
-      if (q === 'investing') return c === 'money' || /invest|bank|naira|loan/.test(t);
+      if (tab === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token/.test(t);
+      if (tab === 'hustles') return c === 'guides' || /hustle|earn|freelance|side/.test(t);
+      if (tab === 'scams') return c === 'scams' || /scam|fraud|ponzi/.test(t);
+      if (tab === 'investing') return c === 'money' || /invest|bank|naira|loan/.test(t);
       return true;
     });
+  }
+  total = all.length;
+  articles = all.slice(offset, offset + perPage);
+}
+const totalPages = Math.max(1, Math.ceil(total / perPage));
 ---
-<Base title="LaneCash — Stay Sharp. Get Ahead.">
+<Base title="LaneCash — Stay Sharp. Get Ahead." description="Finance, crypto, hustles and scam alerts for practical money decisions.">
   <section class="hero">
     <h1>Stay Sharp. Get Ahead.</h1>
     <p>Finance, crypto & side-hustle insights that pay off.</p>
   </section>
-
   <div class="chips">
-    <a class={`chip ${q === 'all' ? 'active' : ''}`} href="/">★ For You</a>
-    <a class={`chip ${q === 'crypto' ? 'active' : ''}`} href="/?tab=crypto">Crypto</a>
-    <a class={`chip ${q === 'hustles' ? 'active' : ''}`} href="/?tab=hustles">Daily Hustles</a>
-    <a class={`chip ${q === 'scams' ? 'active' : ''}`} href="/?tab=scams">Scam Alerts</a>
-    <a class={`chip ${q === 'investing' ? 'active' : ''}`} href="/?tab=investing">Investing</a>
+    <a class={`chip ${tab==='all'?'active':''}`} href="/">★ For You</a>
+    <a class={`chip ${tab==='crypto'?'active':''}`} href="/?tab=crypto">Crypto</a>
+    <a class={`chip ${tab==='hustles'?'active':''}`} href="/?tab=hustles">Daily Hustles</a>
+    <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams">Scam Alerts</a>
+    <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing">Investing</a>
   </div>
-
-  <div class="section-head">
-    <h2>Top Picks</h2>
-    <a href="/category/money">View all ›</a>
-  </div>
-
+  <div class="section-head"><h2>Top Picks</h2><a href="/tools">Tools ›</a></div>
   <section class="feed">
-    {filtered.length ? filtered.map((a) => (
-      <a class="card" href={`/article/${a.slug}`}>
+    {articles.length ? articles.map((a) => (
+      <a class="card" href={`/article/${a.slug}`} data-path={`/article/${a.slug}`}>
         <div class="card-main">
           <span class={`pill ${a.category}`}>{a.category}</span>
           <h3>{a.title}</h3>
           <p>{a.summary}</p>
           <div class="card-meta">
-            <span>LaneCash Desk · {a.reading_minutes || 8} min</span>
-            <span>Bookmark</span>
+            <span>{a.author_team || teamFor(a.category, a.title)} · {a.reading_minutes || 8} min</span>
+            <span class="save-inline" data-slug={a.slug}>Save</span>
           </div>
         </div>
         <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
       </a>
-    )) : (
-      <div class="empty">No articles in this tab yet.</div>
-    )}
+    )) : <div class="empty">No articles yet.</div>}
   </section>
+  <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
+  <script is:inline>
+    document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>window.LC?.track(c.getAttribute('data-path'),'open')));
+    document.querySelectorAll('.save-inline').forEach(btn=>btn.addEventListener('click',(e)=>{
+      e.preventDefault(); e.stopPropagation();
+      const slug=btn.getAttribute('data-slug'); const saved=window.LC.get('lc_saved',[]);
+      if(!saved.includes(slug)){saved.unshift(slug); window.LC.set('lc_saved',saved.slice(0,100)); window.LC.toast('Saved');}
+      else window.LC.toast('Already saved');
+    }));
+  </script>
 </Base>

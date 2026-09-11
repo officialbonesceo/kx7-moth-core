@@ -1,0 +1,11 @@
+---
+import { SOCIALS } from '../lib/socials';
+---
+<div class="social-bar">
+  <div class="social-title">Join LaneCash socials</div>
+  <div class="social-links">
+    {SOCIALS.map((s) => (
+      <a href={s.href} target="_blank" rel="noopener noreferrer">{s.name}</a>
+    ))}
+  </div>
+</div>

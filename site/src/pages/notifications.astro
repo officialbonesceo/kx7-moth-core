@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Alerts — LaneCash">
+  <section class="hero"><h1>Alerts</h1><p>Based on what you open most on this device.</p></section>
+  <div id="nlist" class="feed"></div>
+  <script is:inline>
+    const interest=window.LC.get('lc_interest',{})||{};
+    const top=Object.entries(interest).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const box=document.getElementById('nlist');
+    if(!top.length){ box.innerHTML='<div class="empty">Open a few articles to personalize alerts.</div>'; }
+    else {
+      box.innerHTML=top.map(([path,count])=>`<div class="card" style="grid-template-columns:1fr"><div class="card-main"><h3>${path}</h3><p>Opened ${count} time(s). We’ll prioritize similar topics.</p></div></div>`).join('');
+      if(window.LC.get('lc_notif', false) && Notification.permission==='granted'){
+        const first=top[0][0];
+        new Notification('LaneCash pick', { body: `Based on your activity: ${first}` });
+      }
+    }
+  </script>
+</Base>
