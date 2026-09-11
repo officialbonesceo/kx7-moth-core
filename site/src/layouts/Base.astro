@@ -17,7 +17,6 @@ const origin = Astro.url.origin;
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -28,8 +27,8 @@ const origin = Astro.url.origin;
       <div class="topbar-inner">
         <a class="brand" href="/"><span class="brand-mark">L</span><span>Lane<b>Cash</b></span></a>
         <div class="top-actions">
-          <a href="/search" aria-label="Search">Search</a>
-          <a href="/notifications" aria-label="Notifications">Alerts</a>
+          <a href="/search" aria-label="Search">⌕</a>
+          <a href="/notifications" aria-label="Alerts">🔔</a>
         </div>
       </div>
     </header>
@@ -39,10 +38,10 @@ const origin = Astro.url.origin;
     </main>
     <nav class="bottom-nav" aria-label="Primary">
       <div class="bottom-nav-inner">
-        <a class={`bnav ${path === '/' ? 'active' : ''}`} href="/">Home</a>
-        <a class={`bnav ${path.startsWith('/category') || path.startsWith('/tools') ? 'active' : ''}`} href="/tools">Explore</a>
-        <a class={`bnav ${path.startsWith('/saved') ? 'active' : ''}`} href="/saved">Saved</a>
-        <a class={`bnav ${path.startsWith('/profile') ? 'active' : ''}`} href="/profile">Profile</a>
+        <a class={`bnav ${path === '/' ? 'active' : ''}`} href="/"><span class="ico">⌂</span>Home</a>
+        <a class={`bnav ${path.startsWith('/tools') || path.startsWith('/category') ? 'active' : ''}`} href="/tools"><span class="ico">◎</span>Explore</a>
+        <a class={`bnav ${path.startsWith('/saved') ? 'active' : ''}`} href="/saved"><span class="ico">Bookmark</span>Saved</a>
+        <a class={`bnav ${path.startsWith('/profile') ? 'active' : ''}`} href="/profile"><span class="ico">☺</span>Profile</a>
       </div>
     </nav>
     <div class="toast" id="toast"></div>
@@ -63,17 +62,11 @@ const origin = Astro.url.origin;
           }catch{}
         }
       };
-      // low-write visitor: once per day per device
       (function(){
         const day=new Date().toISOString().slice(0,10);
-        if(window.LC.get('lc_visit_day','')!==day){
-          window.LC.set('lc_visit_day', day);
-          window.LC.beacon('visit');
-        }
+        if(window.LC.get('lc_visit_day','')!==day){ window.LC.set('lc_visit_day', day); window.LC.beacon('visit'); }
         window.LC.beacon('pageview');
-        if('serviceWorker' in navigator){
-          navigator.serviceWorker.register('/sw.js').catch(()=>{});
-        }
+        if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
       })();
     </script>
   </body>
