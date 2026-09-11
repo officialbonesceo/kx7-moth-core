@@ -5,11 +5,18 @@ import { getArticleBySlug, bumpViews } from '../../lib/db';
 import { coverFor } from '../../lib/images';
 import { teamFor } from '../../lib/socials';
 
+export const prerender = false;
+
 const { slug } = Astro.params;
 const db = Astro.locals.runtime?.env?.DB;
-const article = (slug && db) ? await getArticleBySlug(db, slug) : null;
+let article: any = null;
+try {
+  article = (slug && db) ? await getArticleBySlug(db, slug) : null;
+  if (article && db) await bumpViews(db, article.id);
+} catch (e) {
+  console.error('[article]', e);
+}
 if (!article) return Astro.redirect('/');
-if (db) try { await bumpViews(db, article.id); } catch {}
 const cover = coverFor(article);
 const team = article.author_team || teamFor(article.category, article.title);
 ---

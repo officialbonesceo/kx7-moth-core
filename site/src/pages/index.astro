@@ -1,9 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
 import Pagination from '../components/Pagination.astro';
-import { getArticles, countArticles } from '../lib/db';
+import { getArticles } from '../lib/db';
 import { coverFor } from '../lib/images';
 import { teamFor } from '../lib/socials';
+
+export const prerender = false;
 
 const db = Astro.locals.runtime?.env?.DB;
 const tab = Astro.url.searchParams.get('tab') || 'all';
@@ -13,22 +15,31 @@ const offset = (page - 1) * perPage;
 
 let articles: any[] = [];
 let total = 0;
-if (db) {
-  const res = await getArticles(db, 80);
-  let all = res.results || [];
-  if (tab !== 'all') {
-    all = all.filter((a) => {
-      const c = (a.category || '').toLowerCase();
-      const t = `${a.title} ${a.summary}`.toLowerCase();
-      if (tab === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token/.test(t);
-      if (tab === 'hustles') return c === 'guides' || /hustle|earn|freelance|side/.test(t);
-      if (tab === 'scams') return c === 'scams' || /scam|fraud|ponzi/.test(t);
-      if (tab === 'investing') return c === 'money' || /invest|bank|naira|loan/.test(t);
-      return true;
-    });
+let dbError = '';
+
+try {
+  if (db) {
+    const res = await getArticles(db, 80);
+    let all = res.results || [];
+    if (tab !== 'all') {
+      all = all.filter((a) => {
+        const c = (a.category || '').toLowerCase();
+        const t = `${a.title} ${a.summary}`.toLowerCase();
+        if (tab === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token/.test(t);
+        if (tab === 'hustles') return c === 'guides' || /hustle|earn|freelance|side/.test(t);
+        if (tab === 'scams') return c === 'scams' || /scam|fraud|ponzi/.test(t);
+        if (tab === 'investing') return c === 'money' || /invest|bank|naira|loan/.test(t);
+        return true;
+      });
+    }
+    total = all.length;
+    articles = all.slice(offset, offset + perPage);
+  } else {
+    dbError = 'Database binding missing';
   }
-  total = all.length;
-  articles = all.slice(offset, offset + perPage);
+} catch (e: any) {
+  dbError = e?.message || 'Database error';
+  console.error('[index]', e);
 }
 const totalPages = Math.max(1, Math.ceil(total / perPage));
 ---
@@ -45,6 +56,7 @@ const totalPages = Math.max(1, Math.ceil(total / perPage));
     <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing">Investing</a>
   </div>
   <div class="section-head"><h2>Top Picks</h2><a href="/tools">Tools ›</a></div>
+  {dbError && <div class="empty">Temporary issue loading posts. Retry shortly.</div>}
   <section class="feed">
     {articles.length ? articles.map((a) => (
       <a class="card" href={`/article/${a.slug}`} data-path={`/article/${a.slug}`}>
@@ -59,7 +71,7 @@ const totalPages = Math.max(1, Math.ceil(total / perPage));
         </div>
         <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
       </a>
-    )) : <div class="empty">No articles yet.</div>}
+    )) : (!dbError && <div class="empty">No articles yet.</div>)}
   </section>
   <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
   <script is:inline>
