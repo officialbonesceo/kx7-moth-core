@@ -21,6 +21,7 @@ const cover = coverFor(article);
 const team = article.author_team || teamFor(article.category, article.title);
 const origin = Astro.url.origin;
 const pageUrl = `${origin}/article/${article.slug}`;
+const shareText = `${article.title} — via LaneCash`;
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
@@ -63,9 +64,33 @@ const jsonLd = {
       </a>
     )}
   </div>
+
+  <div class="share-bar" aria-label="Share this guide">
+    <div class="share-title">Share this guide</div>
+    <div class="share-actions">
+      <a class="share-btn wa" id="shareWa" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+      <a class="share-btn tg" id="shareTg" target="_blank" rel="noopener noreferrer">Telegram</a>
+      <a class="share-btn x" id="shareX" target="_blank" rel="noopener noreferrer">X</a>
+      <a class="share-btn fb" id="shareFb" target="_blank" rel="noopener noreferrer">Facebook</a>
+      <button class="share-btn copy" id="shareCopy" type="button">Copy link</button>
+      <button class="share-btn native" id="shareNative" type="button">More</button>
+    </div>
+  </div>
+
   <article class="prose" set:html={article.content} />
+
+  <div class="share-bar" aria-label="Share again">
+    <div class="share-title">Found this useful? Share it</div>
+    <div class="share-actions">
+      <a class="share-btn wa" id="shareWa2" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+      <a class="share-btn tg" id="shareTg2" target="_blank" rel="noopener noreferrer">Telegram</a>
+      <a class="share-btn x" id="shareX2" target="_blank" rel="noopener noreferrer">X</a>
+      <button class="share-btn copy" id="shareCopy2" type="button">Copy link</button>
+    </div>
+  </div>
+
   <SocialBar />
-  <script is:inline define:vars={{ slug: article.slug, path: `/article/${article.slug}`, title: article.title, summary: article.summary, category: article.category }}>
+  <script is:inline define:vars={{ slug: article.slug, path: `/article/${article.slug}`, title: article.title, summary: article.summary, category: article.category, pageUrl, shareText }}>
     window.LC?.track(path, 'read');
     const cache = window.LC.get('lc_article_cache', {});
     cache[slug] = { title, summary, category };
@@ -75,7 +100,6 @@ const jsonLd = {
     const label = document.getElementById('saveLabel');
     const saved = window.LC.get('lc_saved', []);
     if (saved.includes(slug)) label.textContent = 'Saved';
-
     btn?.addEventListener('click', () => {
       let s = window.LC.get('lc_saved', []);
       if (s.includes(slug)) {
@@ -90,6 +114,45 @@ const jsonLd = {
       }
       window.LC.set('lc_saved', s.slice(0, 100));
       window.LC.track(path, 'save');
+    });
+
+    const text = encodeURIComponent(shareText);
+    const url = encodeURIComponent(pageUrl);
+    const wa = 'https://wa.me/?text=' + text + '%20' + url;
+    const tg = 'https://t.me/share/url?url=' + url + '&text=' + text;
+    const x = 'https://twitter.com/intent/tweet?text=' + text + '&url=' + url;
+    const fb = 'https://www.facebook.com/sharer/sharer.php?u=' + url;
+
+    function setHref(id, href) {
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('href', href);
+    }
+    setHref('shareWa', wa); setHref('shareWa2', wa);
+    setHref('shareTg', tg); setHref('shareTg2', tg);
+    setHref('shareX', x); setHref('shareX2', x);
+    setHref('shareFb', fb);
+
+    async function copyLink() {
+      try {
+        await navigator.clipboard.writeText(pageUrl);
+        window.LC.toast('Link copied');
+      } catch (e) {
+        window.LC.toast('Copy failed');
+      }
+      window.LC.track(path, 'share_copy');
+    }
+    document.getElementById('shareCopy')?.addEventListener('click', copyLink);
+    document.getElementById('shareCopy2')?.addEventListener('click', copyLink);
+
+    document.getElementById('shareNative')?.addEventListener('click', async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, text: shareText, url: pageUrl });
+          window.LC.track(path, 'share_native');
+        } catch (e) {}
+      } else {
+        copyLink();
+      }
     });
   </script>
 </Base>
