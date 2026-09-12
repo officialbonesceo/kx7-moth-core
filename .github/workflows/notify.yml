@@ -4,18 +4,19 @@ on:
   schedule:
     # Thrice daily (UTC): 07:00, 13:00, 19:00 ≈ 08:00 / 14:00 / 20:00 WAT
     - cron: "0 7,13,19 * * *"
-  push:
-    branches: ["main"]
   workflow_dispatch:
     inputs:
       title:
         description: Notification title
+        required: false
         default: LaneCash
       body:
         description: Notification body
-        default: New practical money update on LaneCash
+        required: false
+        default: Fresh money tip — open LaneCash for today's guide.
       url:
         description: Open path
+        required: false
         default: /
 
 jobs:
@@ -36,8 +37,11 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          NOTIFY_TITLE: ${{ inputs.title }}
+          NOTIFY_BODY: ${{ inputs.body }}
+          NOTIFY_URL: ${{ inputs.url }}
         run: |
-          TITLE="${{ inputs.title || 'LaneCash' }}"
-          BODY="${{ inputs.body || 'Fresh money tip — open LaneCash for today's guide.' }}"
-          URL="${{ inputs.url || '/' }}"
+          TITLE="${NOTIFY_TITLE:-LaneCash}"
+          BODY="${NOTIFY_BODY:-Fresh money tip — open LaneCash for today's guide.}"
+          URL="${NOTIFY_URL:-/}"
           node ops/notify/send.mjs "$TITLE" "$BODY" "$URL"
