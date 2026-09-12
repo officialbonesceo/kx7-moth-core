@@ -19,16 +19,16 @@ let dbError = '';
 
 try {
   if (db) {
-    const res = await getArticles(db, 80);
+    const res = await getArticles(db, 120);
     let all = res.results || [];
     if (tab !== 'all') {
       all = all.filter((a) => {
         const c = (a.category || '').toLowerCase();
         const t = `${a.title} ${a.summary}`.toLowerCase();
-        if (tab === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token/.test(t);
-        if (tab === 'hustles') return c === 'guides' || /hustle|earn|freelance|side/.test(t);
-        if (tab === 'scams') return c === 'scams' || /scam|fraud|ponzi/.test(t);
-        if (tab === 'investing') return c === 'money' || /invest|bank|naira|loan|wallet|payment/.test(t);
+        if (tab === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token|airdrop|wallet|p2p/.test(t);
+        if (tab === 'hustles') return c === 'guides' || /hustle|earn|freelance|side|content|tiktok|youtube|affiliate|drop/.test(t);
+        if (tab === 'scams') return c === 'scams' || /scam|fraud|ponzi|phish|telegram/.test(t);
+        if (tab === 'investing') return c === 'money' || /invest|budget|price|fee|bank|naira|payment/.test(t);
         return true;
       });
     }
@@ -41,8 +41,9 @@ try {
   dbError = e?.message || 'Database error';
 }
 const totalPages = Math.max(1, Math.ceil(total / perPage));
+const showCryptoNews = tab === 'crypto' || tab === 'all';
 ---
-<Base title="LaneCash — Stay Sharp. Get Ahead." description="Finance, crypto, hustles and scam alerts for practical money decisions in Nigeria.">
+<Base title="LaneCash — Stay Sharp. Get Ahead." description="Practical money skills: crypto safety, content systems, affiliate, dropshipping, scam alerts, and calculators.">
   <div class="disclaimer-banner">
     <strong>Disclaimer:</strong> Educational content only — not financial advice.
     <a href="/disclaimer">Read full disclaimer</a>
@@ -50,15 +51,26 @@ const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   <section class="hero">
     <h1>Stay Sharp. Get Ahead.</h1>
-    <p>Finance, crypto & side-hustle insights that pay off.</p>
+    <p>Money skills, creator systems, crypto safety & scam alerts.</p>
   </section>
   <div class="chips">
     <a class={`chip ${tab==='all'?'active':''}`} href="/">★ For You</a>
     <a class={`chip ${tab==='crypto'?'active':''}`} href="/?tab=crypto">Crypto</a>
     <a class={`chip ${tab==='hustles'?'active':''}`} href="/?tab=hustles">Daily Hustles</a>
     <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams">Scam Alerts</a>
-    <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing">Investing</a>
+    <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing">Money</a>
   </div>
+
+  {showCryptoNews && (
+    <div class="calc-card" style="margin-bottom:12px">
+      <div class="section-head" style="margin:0 0 8px">
+        <h2 style="font-size:1rem">Crypto pulse</h2>
+        <a href="/tools">Tools ›</a>
+      </div>
+      <div id="homeCryptoNews" class="muted" style="font-size:.85rem">Loading market headlines…</div>
+    </div>
+  )}
+
   <div class="section-head"><h2>Top Picks</h2><a href="/tools">Money tools ›</a></div>
   {dbError && <div class="empty">Temporary issue loading posts. Retry shortly.</div>}
   <section class="feed">
@@ -81,7 +93,7 @@ const totalPages = Math.max(1, Math.ceil(total / perPage));
     )) : (!dbError && <div class="empty">No articles yet.</div>)}
   </section>
   <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
-  <script is:inline>
+  <script is:inline define:vars={{ showCryptoNews }}>
     document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>window.LC?.track(c.getAttribute('data-path'),'open')));
     document.querySelectorAll('.save-inline').forEach(btn=>btn.addEventListener('click',(e)=>{
       e.preventDefault(); e.stopPropagation();
@@ -89,5 +101,24 @@ const totalPages = Math.max(1, Math.ceil(total / perPage));
       if(!saved.includes(slug)){saved.unshift(slug); window.LC.set('lc_saved',saved.slice(0,100)); window.LC.toast('Saved');}
       else window.LC.toast('Already saved');
     }));
+    if (showCryptoNews) {
+      (async function(){
+        var box = document.getElementById('homeCryptoNews');
+        if (!box) return;
+        try {
+          var r = await fetch('/api/crypto/news');
+          var j = await r.json();
+          var items = (j.items || []).slice(0, 5);
+          if (!items.length) { box.textContent = 'No headlines right now.'; return; }
+          box.innerHTML = items.map(function(it){
+            return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
+              '<a href="' + (it.url||'#') + '" target="_blank" rel="noopener noreferrer" style="color:#fff;font-weight:700;font-size:.88rem">' + (it.title||'') + '</a>' +
+              '<div class="muted" style="font-size:.72rem;margin-top:2px">' + (it.source||'') + '</div></div>';
+          }).join('');
+        } catch (e) {
+          box.textContent = 'Headlines unavailable.';
+        }
+      })();
+    }
   </script>
 </Base>

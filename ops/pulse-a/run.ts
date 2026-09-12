@@ -1,14 +1,16 @@
 /**
  * pulse-a — LaneCash content engine
- * ONLY practical personal finance / hustle / crypto / scam guides.
- * Off-topic business news is blocked and purged.
+ * Publishes up to 10 practical posts per run across global money skills.
+ * Dedupes by title. Mix: creators, affiliate, dropshipping, crypto safety, scams.
  */
 
-import { topicFromLink, allTopicBodies } from './topics';
+import { allTopicBodies } from './topics';
+import { expandItem, pickBatch, CATALOG } from './catalog';
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
 const CF_D1_DATABASE_ID = process.env.CF_D1_DATABASE_ID || '';
+const BATCH = Math.min(10, Math.max(1, Number(process.env.PULSE_BATCH || 10)));
 
 type Category = 'money' | 'opportunities' | 'scams' | 'guides';
 
@@ -38,14 +40,9 @@ function injectLinks(content: string) {
   const links: Record<string, string> = {
     capcut: 'https://www.capcut.com/',
     canva: 'https://www.canva.com/',
-    paystack: 'https://paystack.com/',
-    flutterwave: 'https://flutterwave.com/',
-    opay: 'https://www.opayweb.com/',
-    moniepoint: 'https://moniepoint.com/',
-    kuda: 'https://www.kuda.com/',
-    binance: 'https://www.binance.com/',
     fiverr: 'https://www.fiverr.com/',
     upwork: 'https://www.upwork.com/',
+    binance: 'https://www.binance.com/',
   };
   let out = content;
   for (const [name, url] of Object.entries(links)) {
@@ -58,11 +55,11 @@ function injectLinks(content: string) {
 function imageFor(title: string, category: string) {
   const t = `${title} ${category}`.toLowerCase();
   let scene = 'dark fintech abstract green neon charts money symbols, no people, no faces';
-  if (/scam|fraud|ponzi|fake/.test(t)) scene = 'dark cybersecurity red warning triangle lock shield abstract, no people';
-  else if (/usdt|tether|stablecoin/.test(t)) scene = 'dark USDT tether stablecoin green glow abstract crypto chart, no people';
-  else if (/bitcoin|crypto|token|blockchain|defi/.test(t)) scene = 'dark bitcoin crypto coin stack green neon chart abstract, no people';
-  else if (/pos|moniepoint|opay|kuda|wallet|payment/.test(t)) scene = 'dark mobile payment fintech wallet naira abstract green UI, no people';
-  else if (/hustle|freelance|earn|side|capital|daily/.test(t)) scene = 'dark desk laptop notebook growth chart green accent, no face';
+  if (/scam|fraud|fake|phish|telegram/.test(t)) scene = 'dark cybersecurity red warning triangle lock shield abstract, no people';
+  else if (/youtube|tiktok|reel|content|creator|newsletter/.test(t)) scene = 'dark creator studio abstract green neon media waveform, no faces';
+  else if (/dropship|shop|commerce|affiliate/.test(t)) scene = 'dark ecommerce abstract shopping bag chart green glow, no people';
+  else if (/airdrop|crypto|usdt|bitcoin|wallet/.test(t)) scene = 'dark crypto coin abstract green neon chart, no people';
+  else if (/freelance|hustle|skill|pricing/.test(t)) scene = 'dark desk laptop notebook growth chart green accent, no face';
   const seed = Math.abs([...title].reduce((a, c) => a + c.charCodeAt(0), 0) % 99999);
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(scene)}?width=1200&height=675&nologo=true&seed=${seed}`;
 }
@@ -98,19 +95,18 @@ async function purgeJunk() {
     '%Julius Berger%',
     '%car imports%',
     '%Digital Parks%',
-    '%data centre%',
-    '%data center%',
-    '%refinery%',
-    '%airline%',
-    '%pre-devaluation profit%',
-    '%&#8217;%',
   ];
   for (const p of patterns) {
-    await d1(`DELETE FROM articles WHERE title LIKE ? OR summary LIKE ? OR content LIKE ?`, [p, p, p]);
+    await d1(`DELETE FROM articles WHERE title LIKE ? OR content LIKE ?`, [p, p]);
   }
-  // Drop generic news category filler
   await d1(`DELETE FROM articles WHERE category = 'news'`);
-  console.log('[pulse-a] purged off-topic + generic filler');
+  console.log('[pulse-a] purged junk');
+}
+
+async function loadTitles(): Promise<Set<string>> {
+  const data = await d1(`SELECT title FROM articles LIMIT 500`);
+  const rows = data?.result?.[0]?.results || data?.results || [];
+  return new Set((rows || []).map((r: any) => String(r.title || '')));
 }
 
 async function exists(title: string) {
@@ -122,7 +118,7 @@ async function exists(title: string) {
 async function publish(draft: ArticleDraft) {
   const id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const slug = `${slugify(draft.title) || 'article'}-${id.slice(-5)}`;
-  let data = await d1(
+  const data = await d1(
     `INSERT INTO articles (id, slug, title, summary, content, category, image_url, reading_minutes, status, author_team, source_name, source_url, published_at, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
     [
@@ -134,38 +130,21 @@ async function publish(draft: ArticleDraft) {
       draft.category,
       draft.image_url || null,
       draft.reading_minutes,
-      draft.author_team || 'LaneCash Fin Team',
-      draft.source_name || null,
+      draft.author_team || 'LaneCash Desk',
+      draft.source_name || 'LaneCash Desk',
       draft.source_url || null,
     ]
   );
   if (!data) {
-    data = await d1(
-      `INSERT INTO articles (id, slug, title, summary, content, category, image_url, reading_minutes, status, source_name, source_url, published_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
-      [
-        id,
-        slug,
-        draft.title,
-        draft.summary,
-        draft.content,
-        draft.category,
-        draft.image_url || null,
-        draft.reading_minutes,
-        draft.source_name || null,
-        draft.source_url || null,
-      ]
-    );
-  }
-  if (!data) {
     console.error('[pulse-a] publish failed', draft.title);
-    return;
+    return false;
   }
-  console.log(`[pulse-a] published: ${draft.title}`);
+  console.log('[pulse-a] published:', draft.title);
+  return true;
 }
 
 async function main() {
-  console.log('[pulse-a] start — curated finance only');
+  console.log('[pulse-a] start batch', BATCH);
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] missing Cloudflare credentials');
     process.exit(1);
@@ -173,12 +152,9 @@ async function main() {
 
   await purgeJunk();
 
-  // Only publish curated topic library (no random RSS corporate news)
+  // Ensure classic Nigeria practical guides exist once
   for (const body of allTopicBodies()) {
-    if (await exists(body.title)) {
-      console.log('[pulse-a] skip existing', body.title.slice(0, 50));
-      continue;
-    }
+    if (await exists(body.title)) continue;
     await publish({
       title: body.title,
       summary: body.summary,
@@ -191,7 +167,31 @@ async function main() {
     });
   }
 
-  console.log('[pulse-a] done');
+  const titles = await loadTitles();
+  const batch = pickBatch(BATCH, titles);
+  console.log('[pulse-a] catalog size', CATALOG.length, 'picked', batch.length);
+
+  let published = 0;
+  for (const item of batch) {
+    if (await exists(item.title)) continue;
+    const exp = expandItem(item);
+    const ok = await publish({
+      title: exp.title,
+      summary: exp.summary,
+      content: injectLinks(exp.content),
+      category: exp.category,
+      reading_minutes: 10,
+      author_team: exp.author_team,
+      source_name: 'LaneCash Desk',
+      image_url: imageFor(exp.title, exp.category),
+    });
+    if (ok) {
+      published++;
+      titles.add(item.title);
+    }
+  }
+
+  console.log('[pulse-a] done published', published);
 }
 
 main().catch((e) => {
