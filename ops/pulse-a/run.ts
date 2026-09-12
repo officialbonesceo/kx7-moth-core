@@ -1,5 +1,6 @@
 /**
  * pulse-a — up to 10 posts/run, basics-first catalog, stable SVG covers
+ * Ensures D1 schema (author_team) before insert.
  */
 import { allTopicBodies } from './topics';
 import { expandItem, pickBatch, CATALOG } from './catalog';
@@ -22,6 +23,8 @@ interface ArticleDraft {
   image_url?: string;
   author_team?: string;
 }
+
+let HAS_AUTHOR_TEAM = true;
 
 function slugify(t: string) {
   return t
@@ -72,15 +75,41 @@ async function d1(sql: string, params: any[] = []) {
     }
   );
   const text = await res.text();
-  if (!res.ok) {
-    console.error('[pulse-a] D1', res.status, text);
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = null;
+  }
+  // Cloudflare can return HTTP 200 with success:false inside, or HTTP 400
+  const ok =
+    res.ok &&
+    parsed &&
+    parsed.success !== false &&
+    !(Array.isArray(parsed.errors) && parsed.errors.length) &&
+    !(Array.isArray(parsed.result) && parsed.result.some((r: any) => r && r.success === false));
+  if (!ok) {
+    console.error('[pulse-a] D1', res.status, text.slice(0, 400));
     return null;
   }
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { ok: true };
+  return parsed;
+}
+
+async function ensureSchema() {
+  // Add optional columns if missing (safe to re-run)
+  const alters = [
+    `ALTER TABLE articles ADD COLUMN author_team TEXT`,
+    `ALTER TABLE articles ADD COLUMN source_name TEXT`,
+    `ALTER TABLE articles ADD COLUMN source_url TEXT`,
+  ];
+  for (const sql of alters) {
+    const r = await d1(sql);
+    if (r) console.log('[pulse-a] schema ok:', sql);
   }
+  // Probe whether author_team exists
+  const probe = await d1(`SELECT author_team FROM articles LIMIT 1`);
+  HAS_AUTHOR_TEAM = !!probe;
+  console.log('[pulse-a] HAS_AUTHOR_TEAM', HAS_AUTHOR_TEAM);
 }
 
 async function purgeJunk() {
@@ -110,9 +139,36 @@ async function exists(title: string) {
 async function publish(draft: ArticleDraft) {
   const id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const slug = `${slugify(draft.title) || 'article'}-${id.slice(-5)}`;
-  const data = await d1(
-    `INSERT INTO articles (id, slug, title, summary, content, category, image_url, reading_minutes, status, author_team, source_name, source_url, published_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
+
+  if (HAS_AUTHOR_TEAM) {
+    const data = await d1(
+      `INSERT INTO articles (id, slug, title, summary, content, category, image_url, reading_minutes, status, author_team, source_name, source_url, published_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
+      [
+        id,
+        slug,
+        draft.title,
+        draft.summary,
+        draft.content,
+        draft.category,
+        draft.image_url || null,
+        draft.reading_minutes,
+        draft.author_team || 'LaneCash Desk',
+        draft.source_name || 'LaneCash Desk',
+        draft.source_url || null,
+      ]
+    );
+    if (data) {
+      console.log('[pulse-a] published:', draft.title);
+      return true;
+    }
+    // Column might still be missing — fall through
+    HAS_AUTHOR_TEAM = false;
+  }
+
+  const data2 = await d1(
+    `INSERT INTO articles (id, slug, title, summary, content, category, image_url, reading_minutes, status, published_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', datetime('now'), datetime('now'), datetime('now'))`,
     [
       id,
       slug,
@@ -122,16 +178,13 @@ async function publish(draft: ArticleDraft) {
       draft.category,
       draft.image_url || null,
       draft.reading_minutes,
-      draft.author_team || 'LaneCash Desk',
-      draft.source_name || 'LaneCash Desk',
-      draft.source_url || null,
     ]
   );
-  if (!data) {
+  if (!data2) {
     console.error('[pulse-a] publish failed', draft.title);
     return false;
   }
-  console.log('[pulse-a] published:', draft.title);
+  console.log('[pulse-a] published (no author_team col):', draft.title);
   return true;
 }
 
@@ -141,6 +194,8 @@ async function main() {
     console.error('[pulse-a] missing Cloudflare credentials');
     process.exit(1);
   }
+
+  await ensureSchema();
   await purgeJunk();
 
   for (const body of allTopicBodies()) {
