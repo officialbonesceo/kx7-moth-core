@@ -4,4 +4,5 @@ Allow: /
 Disallow: /bonesceo/
 Disallow: /api/
 
-Sitemap: https://kx7-moth-core.pages.dev/sitemap.xml
+# Prefer dynamic /robots.txt (uses current host). This file is a fallback only.
+Sitemap: /sitemap.xml

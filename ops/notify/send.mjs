@@ -1,7 +1,7 @@
 /**
  * Send web-push to all D1 subscriptions (runs in GitHub Actions / Node).
- * Secrets: CF_*, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
  * Usage: node ops/notify/send.mjs "Title" "Body" "/path"
+ * Optional env SITE_URL = https://your-domain (used if url is a path)
  */
 import webpush from 'web-push';
 
@@ -11,10 +11,16 @@ const CF_D1_DATABASE_ID = process.env.CF_D1_DATABASE_ID;
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:officialbonesceo@gmail.com';
+const SITE_URL = (process.env.SITE_URL || '').replace(/\/$/, '');
 
 const title = process.argv[2] || 'LaneCash';
 const body = process.argv[3] || 'New update on LaneCash';
-const url = process.argv[4] || '/';
+let url = process.argv[4] || '/';
+
+// Resolve relative paths against SITE_URL when set (custom domain)
+if (url.startsWith('/') && SITE_URL) {
+  url = SITE_URL + url;
+}
 
 if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
   console.error('Missing Cloudflare credentials');
@@ -72,4 +78,4 @@ await d1(
   [day, ok, ok]
 );
 
-console.log(`[notify] sent=${ok} fail=${fail}`);
+console.log(`[notify] sent=${ok} fail=${fail} url=${url}`);

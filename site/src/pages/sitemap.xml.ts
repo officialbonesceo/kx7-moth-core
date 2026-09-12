@@ -3,8 +3,9 @@ import { getArticles } from '../lib/db';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ locals, site }) => {
-  const origin = site?.origin || 'https://kx7-moth-core.pages.dev';
+export const GET: APIRoute = async ({ locals, url }) => {
+  // Always use the host the visitor actually opened (custom domain or pages.dev)
+  const origin = url.origin;
   const staticPaths = ['/', '/about', '/disclaimer', '/tools', '/search'];
   let articlePaths: { loc: string; lastmod?: string }[] = [];
 
@@ -21,7 +22,10 @@ export const GET: APIRoute = async ({ locals, site }) => {
   } catch {}
 
   const urls = [
-    ...staticPaths.map((p) => ({ loc: `${origin}${p === '/' ? '/' : p}`, lastmod: undefined as string | undefined })),
+    ...staticPaths.map((p) => ({
+      loc: `${origin}${p === '/' ? '/' : p}`,
+      lastmod: undefined as string | undefined,
+    })),
     ...articlePaths,
   ];
 

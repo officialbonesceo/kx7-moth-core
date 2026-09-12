@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 
+const origin = Astro.url.origin;
 const jsonLd = [
   {
     '@context': 'https://schema.org',
@@ -8,7 +9,8 @@ const jsonLd = [
     name: 'LaneCash Money Tools',
     applicationCategory: 'FinanceApplication',
     operatingSystem: 'Any',
-    description: 'Free Naira converter, USDT price, fee calculator, crypto news, and transaction safety helper for Nigeria.',
+    url: `${origin}/tools`,
+    description: 'Free Naira converter, USDT price, fee calculator, crypto news, and transaction safety helper.',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'NGN' },
   },
 ];
@@ -112,7 +114,7 @@ const jsonLd = [
   <div class="calc-panel" id="panel-news" hidden>
     <div class="calc-card">
       <h3>Crypto news</h3>
-      <p class="muted" style="margin:0 0 10px;font-size:.82rem">Headlines from public crypto feeds. Optional CryptoPanic token improves quality.</p>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">Headlines from public crypto feeds.</p>
       <button class="save-btn calc-primary" id="newsBtn" type="button">Refresh news</button>
       <div id="newsList" style="margin-top:12px"></div>
     </div>
@@ -122,8 +124,7 @@ const jsonLd = [
     <div class="calc-card">
       <h3>Tx / address safety helper</h3>
       <p class="muted" style="margin:0 0 10px;font-size:.85rem;line-height:1.45">
-        Paste a <strong>transaction hash</strong> or <strong>wallet address</strong>. We open the official blockchain explorer so you can verify it yourself.
-        This does <strong>not</strong> recover funds or prove someone is safe — it only helps you read public chain data.
+        Paste a <strong>transaction hash</strong> or <strong>wallet address</strong>. Opens the official explorer.
       </p>
       <label for="chain">Network</label>
       <select id="chain">
@@ -136,25 +137,12 @@ const jsonLd = [
       <input id="txInput" type="text" placeholder="0x… or T…" autocomplete="off" />
       <button class="save-btn calc-primary" id="txBtn" type="button">Open in explorer</button>
       <div class="calc-result" id="txOut" style="font-weight:600">Enter a hash or address</div>
-      <div class="prose" style="margin-top:12px;padding:12px">
-        <h2 style="margin-top:0;font-size:.95rem">What this is for</h2>
-        <ul style="margin:0;font-size:.85rem">
-          <li>Confirm a payment actually landed on-chain</li>
-          <li>See if a contract/address looks newly created or empty</li>
-          <li>Double-check links scammers send (“send USDT to unlock”)</li>
-        </ul>
-        <h2 style="font-size:.95rem">What it is not</h2>
-        <ul style="margin:0;font-size:.85rem">
-          <li>Not a guarantee the person is legitimate</li>
-          <li>Not a refund / recovery service</li>
-          <li>Never share seed phrases or OTPs while checking</li>
-        </ul>
-      </div>
     </div>
   </div>
 
   <script is:inline>
     (function(){
+      var origin = window.location.origin;
       var FALLBACK = {
         USD: { NGN: 1600, EUR: 0.92, GBP: 0.78, USD: 1 },
         NGN: { USD: 1/1600, EUR: 1/1750, GBP: 1/2050, NGN: 1 },
@@ -206,7 +194,7 @@ const jsonLd = [
         var note = document.getElementById('coinNote');
         out.textContent = 'Loading…'; note.textContent = '';
         try {
-          var r = await fetch('/api/crypto/price?id=' + encodeURIComponent(id) + '&qty=' + encodeURIComponent(qty));
+          var r = await fetch(origin + '/api/crypto/price?id=' + encodeURIComponent(id) + '&qty=' + encodeURIComponent(qty));
           var j = await r.json();
           out.textContent = qty + ' ≈ $' + Number(j.total_usd).toLocaleString(undefined,{maximumFractionDigits:2}) +
             ' · ₦' + Number(j.total_ngn).toLocaleString(undefined,{maximumFractionDigits:0});
@@ -237,12 +225,14 @@ const jsonLd = [
         var box = document.getElementById('newsList');
         box.innerHTML = '<p class="muted">Loading…</p>';
         try {
-          var r = await fetch('/api/crypto/news');
+          var r = await fetch(origin + '/api/crypto/news');
           var j = await r.json();
           var items = j.items || [];
           if (!items.length) { box.innerHTML = '<p class="muted">No headlines right now.</p>'; return; }
           box.innerHTML = items.map(function(it){
-            return '<a class="card" style="grid-template-columns:1fr;margin-bottom:8px" href="' + (it.url||'#') + '" target="_blank" rel="noopener noreferrer">' +
+            var href = it.url || '#';
+            if (href.charAt(0) === '/') href = origin + href;
+            return '<a class="card" style="grid-template-columns:1fr;margin-bottom:8px" href="' + href + '" target="_blank" rel="noopener noreferrer">' +
               '<div class="card-main"><span class="pill">' + (it.source||'News') + '</span>' +
               '<h3 style="font-size:.9rem">' + (it.title||'') + '</h3></div></a>';
           }).join('');
@@ -264,10 +254,10 @@ const jsonLd = [
           tron: { tx: 'https://tronscan.org/#/transaction/', addr: 'https://tronscan.org/#/address/' }
         };
         var b = bases[chain] || bases.eth;
-        var url = (isTx ? b.tx : b.addr) + q.replace(/^0x/i, chain==='tron' ? q : (q.startsWith('0x')?q:'0x'+q)).replace(/^0x0x/,'0x');
-        if (chain !== 'tron' && !q.startsWith('0x') && isTx) url = b.tx + '0x' + q;
-        if (chain !== 'tron' && !isTx && !q.startsWith('0x')) url = b.addr + '0x' + q;
+        var url;
         if (chain === 'tron') url = (isTx ? b.tx : b.addr) + q;
+        else if (isTx) url = b.tx + (q.indexOf('0x') === 0 ? q : '0x' + q);
+        else url = b.addr + (q.indexOf('0x') === 0 ? q : '0x' + q);
         out.textContent = 'Opening official explorer…';
         window.open(url, '_blank', 'noopener,noreferrer');
       }
