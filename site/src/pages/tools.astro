@@ -1,124 +1,266 @@
 ---
 import Base from '../layouts/Base.astro';
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'LaneCash Money Tools',
+    applicationCategory: 'FinanceApplication',
+    operatingSystem: 'Any',
+    url: 'https://kx7-moth-core.pages.dev/tools',
+    description: 'Free Naira currency converter, USDT/crypto price checker, fee calculator and hustle weekly target planner for Nigeria.',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'NGN' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'How do I convert Naira to USD?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Use the LaneCash currency converter: enter amount, choose NGN to USD, and convert. Rates are live when available, otherwise clearly marked as estimates.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'How do I check USDT price in Naira?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Open the crypto price tool, select USDT (Tether), enter quantity, and get USD and NGN estimates.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'How do I calculate transfer or POS fees in Nigeria?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Use the fee impact calculator: enter amount and fee percent to see what you keep after charges.',
+        },
+      },
+    ],
+  },
+];
 ---
-<Base title="Tools — LaneCash" description="Currency, crypto and money calculators.">
-  <section class="hero"><h1>Tools</h1><p>Quick calculators. Live APIs when available; clear estimates otherwise.</p></section>
-  <div class="calc-grid">
+<Base
+  title="Free Naira & Crypto Calculators — LaneCash Tools"
+  description="Free tools: NGN to USD converter, USDT price in Naira, transfer fee calculator, and weekly hustle income planner. Fast, mobile-friendly."
+  jsonLd={jsonLd}
+>
+  <div class="disclaimer-banner">
+    <strong>Disclaimer:</strong> Estimates only — not bank rates or financial advice.
+    <a href="/disclaimer">Full disclaimer</a>
+  </div>
+
+  <section class="hero">
+    <h1>Money tools</h1>
+    <p>Convert naira, check crypto, plan fees & weekly targets — free and mobile-first.</p>
+  </section>
+
+  <div class="calc-tabs" role="tablist">
+    <button type="button" class="chip active" data-tab="fx">Currency</button>
+    <button type="button" class="chip" data-tab="crypto">Crypto</button>
+    <button type="button" class="chip" data-tab="fee">Fees</button>
+    <button type="button" class="chip" data-tab="hustle">Hustle plan</button>
+  </div>
+
+  <div class="calc-panel" id="panel-fx">
     <div class="calc-card">
-      <h3>Currency converter</h3>
-      <label>Amount</label>
-      <input id="fxAmount" type="number" value="1000" />
-      <label>From</label>
-      <select id="fxFrom"><option>USD</option><option selected>NGN</option><option>EUR</option><option>GBP</option></select>
-      <label>To</label>
-      <select id="fxTo"><option selected>USD</option><option>NGN</option><option>EUR</option><option>GBP</option></select>
-      <button class="save-btn" id="fxBtn" type="button" style="margin-top:10px">Convert</button>
-      <div class="calc-result" id="fxOut">—</div>
+      <h3>Naira currency converter</h3>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">NGN ↔ USD, EUR, GBP. Live rate when available.</p>
+      <label for="fxAmount">Amount</label>
+      <input id="fxAmount" type="number" inputmode="decimal" value="10000" min="0" step="any" />
+      <div class="calc-row">
+        <div>
+          <label for="fxFrom">From</label>
+          <select id="fxFrom">
+            <option selected>NGN</option><option>USD</option><option>EUR</option><option>GBP</option>
+          </select>
+        </div>
+        <button type="button" class="save-btn" id="fxSwap" style="align-self:end;margin-bottom:2px">⇄</button>
+        <div>
+          <label for="fxTo">To</label>
+          <select id="fxTo">
+            <option selected>USD</option><option>NGN</option><option>EUR</option><option>GBP</option>
+          </select>
+        </div>
+      </div>
+      <button class="save-btn calc-primary" id="fxBtn" type="button">Convert now</button>
+      <div class="calc-result" id="fxOut">Enter amount and tap Convert</div>
       <p class="muted" id="fxNote" style="margin-top:8px;font-size:.75rem"></p>
     </div>
+  </div>
+
+  <div class="calc-panel" id="panel-crypto" hidden>
     <div class="calc-card">
-      <h3>Crypto price</h3>
-      <label>Coin</label>
-      <select id="coin"><option value="bitcoin">Bitcoin (BTC)</option><option value="ethereum">Ethereum (ETH)</option><option value="tether">USDT</option></select>
-      <label>Quantity</label>
-      <input id="coinQty" type="number" value="1" step="0.0001" />
-      <button class="save-btn" id="coinBtn" type="button" style="margin-top:10px">Get live price</button>
-      <div class="calc-result" id="coinOut">—</div>
+      <h3>Crypto price (USD & ₦)</h3>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">BTC, ETH, USDT — live when CoinGecko responds.</p>
+      <label for="coin">Coin</label>
+      <select id="coin">
+        <option value="tether">USDT (Tether)</option>
+        <option value="bitcoin">Bitcoin (BTC)</option>
+        <option value="ethereum">Ethereum (ETH)</option>
+      </select>
+      <label for="coinQty">Quantity</label>
+      <input id="coinQty" type="number" inputmode="decimal" value="100" min="0" step="any" />
+      <button class="save-btn calc-primary" id="coinBtn" type="button">Get price</button>
+      <div class="calc-result" id="coinOut">Tap Get price</div>
       <p class="muted" id="coinNote" style="margin-top:8px;font-size:.75rem"></p>
     </div>
+  </div>
+
+  <div class="calc-panel" id="panel-fee" hidden>
     <div class="calc-card">
-      <h3>Hustle weekly target</h3>
-      <label>Desired weekly income (₦)</label>
-      <input id="target" type="number" value="10000" />
-      <label>Work days / week</label>
-      <input id="days" type="number" value="5" />
-      <label>Pay per job (₦)</label>
-      <input id="perJob" type="number" value="2000" />
-      <button class="save-btn" id="hustleBtn" type="button" style="margin-top:10px">Calculate</button>
-      <div class="calc-result" id="hustleOut">—</div>
-    </div>
-    <div class="calc-card">
-      <h3>Fee impact</h3>
-      <label>Amount (₦)</label>
-      <input id="feeAmt" type="number" value="50000" />
-      <label>Fee %</label>
-      <input id="feePct" type="number" value="1.5" step="0.1" />
-      <button class="save-btn" id="feeBtn" type="button" style="margin-top:10px">Compute</button>
-      <div class="calc-result" id="feeOut">—</div>
+      <h3>Fee impact calculator</h3>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">See what you keep after transfer or POS-style % fees.</p>
+      <label for="feeAmt">Amount (₦)</label>
+      <input id="feeAmt" type="number" inputmode="decimal" value="50000" min="0" step="any" />
+      <label for="feePct">Fee %</label>
+      <input id="feePct" type="number" inputmode="decimal" value="1.5" min="0" step="0.1" />
+      <div class="fee-presets">
+        <button type="button" class="chip" data-fee="0.5">0.5%</button>
+        <button type="button" class="chip" data-fee="1">1%</button>
+        <button type="button" class="chip" data-fee="1.5">1.5%</button>
+        <button type="button" class="chip" data-fee="2">2%</button>
+      </div>
+      <button class="save-btn calc-primary" id="feeBtn" type="button">Calculate fee</button>
+      <div class="calc-result" id="feeOut">Tap Calculate fee</div>
     </div>
   </div>
+
+  <div class="calc-panel" id="panel-hustle" hidden>
+    <div class="calc-card">
+      <h3>Weekly hustle planner</h3>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">Plan jobs/day needed for a naira weekly target.</p>
+      <label for="target">Desired weekly income (₦)</label>
+      <input id="target" type="number" inputmode="decimal" value="20000" min="0" step="any" />
+      <label for="days">Work days / week</label>
+      <input id="days" type="number" inputmode="numeric" value="5" min="1" max="7" />
+      <label for="perJob">Pay per job (₦)</label>
+      <input id="perJob" type="number" inputmode="decimal" value="2000" min="1" step="any" />
+      <button class="save-btn calc-primary" id="hustleBtn" type="button">Plan my week</button>
+      <div class="calc-result" id="hustleOut">Tap Plan my week</div>
+    </div>
+  </div>
+
+  <div class="prose" style="margin-top:18px">
+    <h2>Free money calculators for Nigeria</h2>
+    <p>Use these tools to convert naira, check USDT prices, estimate fees, and plan weekly side-hustle targets. Results are educational estimates — always confirm with your bank or exchange before moving money.</p>
+  </div>
+
   <script is:inline>
-    // Fallback rates only labeled as estimates (approx market-ish defaults)
-    var FALLBACK = {
-      USD: { NGN: 1600, EUR: 0.92, GBP: 0.78, USD: 1 },
-      NGN: { USD: 1/1600, EUR: 1/1750, GBP: 1/2050, NGN: 1 },
-      EUR: { USD: 1.09, NGN: 1750, GBP: 0.85, EUR: 1 },
-      GBP: { USD: 1.28, NGN: 2050, EUR: 1.17, GBP: 1 }
-    };
-    var CRYPTO_FALLBACK = { bitcoin: {usd: 95000, ngn: 95000*1600}, ethereum: {usd: 3500, ngn: 3500*1600}, tether: {usd: 1, ngn: 1600} };
+    (function(){
+      var FALLBACK = {
+        USD: { NGN: 1600, EUR: 0.92, GBP: 0.78, USD: 1 },
+        NGN: { USD: 1/1600, EUR: 1/1750, GBP: 1/2050, NGN: 1 },
+        EUR: { USD: 1.09, NGN: 1750, GBP: 0.85, EUR: 1 },
+        GBP: { USD: 1.28, NGN: 2050, EUR: 1.17, GBP: 1 }
+      };
+      var CRYPTO_FALLBACK = {
+        bitcoin: { usd: 95000, ngn: 95000*1600 },
+        ethereum: { usd: 3500, ngn: 3500*1600 },
+        tether: { usd: 1, ngn: 1600 }
+      };
 
-    async function fx(){
-      var amount = +document.getElementById('fxAmount').value || 0;
-      var from = document.getElementById('fxFrom').value;
-      var to = document.getElementById('fxTo').value;
-      var out = document.getElementById('fxOut');
-      var note = document.getElementById('fxNote');
-      out.textContent = 'Loading…'; note.textContent = '';
-      try {
-        var r = await fetch('https://open.er-api.com/v6/latest/' + from);
-        var j = await r.json();
-        if (j && j.result === 'success' && j.rates && j.rates[to] != null) {
-          var v = amount * j.rates[to];
-          out.textContent = amount + ' ' + from + ' ≈ ' + v.toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + to;
-          note.textContent = 'Live rate via open.er-api.com · ' + (j.time_last_update_utc || '');
-          return;
+      document.querySelectorAll('.calc-tabs .chip').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          document.querySelectorAll('.calc-tabs .chip').forEach(function(b){ b.classList.remove('active'); });
+          btn.classList.add('active');
+          var tab = btn.getAttribute('data-tab');
+          ['fx','crypto','fee','hustle'].forEach(function(id){
+            var p = document.getElementById('panel-' + id);
+            if (p) p.hidden = id !== tab;
+          });
+        });
+      });
+
+      async function fx(){
+        var amount = +document.getElementById('fxAmount').value || 0;
+        var from = document.getElementById('fxFrom').value;
+        var to = document.getElementById('fxTo').value;
+        var out = document.getElementById('fxOut');
+        var note = document.getElementById('fxNote');
+        out.textContent = 'Loading…'; note.textContent = '';
+        try {
+          var r = await fetch('https://open.er-api.com/v6/latest/' + from);
+          var j = await r.json();
+          if (j && j.result === 'success' && j.rates && j.rates[to] != null) {
+            var v = amount * j.rates[to];
+            out.textContent = amount.toLocaleString() + ' ' + from + ' ≈ ' + v.toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + to;
+            note.textContent = 'Live rate · updated ' + (j.time_last_update_utc || '');
+            return;
+          }
+          throw new Error('no rate');
+        } catch (e) {
+          var rate = (FALLBACK[from] && FALLBACK[from][to]) || 1;
+          var v2 = amount * rate;
+          out.textContent = amount.toLocaleString() + ' ' + from + ' ≈ ' + v2.toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + to;
+          note.textContent = 'Estimate only (live FX unavailable). Not a bank rate.';
         }
-        throw new Error('no rate');
-      } catch (e) {
-        var rate = (FALLBACK[from] && FALLBACK[from][to]) || 1;
-        var v2 = amount * rate;
-        out.textContent = amount + ' ' + from + ' ≈ ' + v2.toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + to;
-        note.textContent = 'Estimate only (live FX blocked). Not a bank rate.';
       }
-    }
 
-    async function coin(){
-      var id = document.getElementById('coin').value;
-      var qty = +document.getElementById('coinQty').value || 0;
-      var out = document.getElementById('coinOut');
-      var note = document.getElementById('coinNote');
-      out.textContent = 'Loading…'; note.textContent = '';
-      try {
-        var r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + id + '&vs_currencies=usd,ngn');
-        var j = await r.json();
-        if (!j[id] || j[id].usd == null) throw new Error('empty');
-        var p = j[id];
-        out.textContent = qty + ' ' + id + ' ≈ $' + (p.usd*qty).toLocaleString(undefined,{maximumFractionDigits:2}) + ' / ₦' + (p.ngn*qty).toLocaleString(undefined,{maximumFractionDigits:0});
-        note.textContent = 'Live via CoinGecko';
-      } catch (e) {
-        var f = CRYPTO_FALLBACK[id] || CRYPTO_FALLBACK.tether;
-        out.textContent = qty + ' ' + id + ' ≈ $' + (f.usd*qty).toLocaleString() + ' / ₦' + (f.ngn*qty).toLocaleString();
-        note.textContent = 'Estimate only (live crypto API blocked). Check CoinGecko/Binance for trading prices.';
+      async function coin(){
+        var id = document.getElementById('coin').value;
+        var qty = +document.getElementById('coinQty').value || 0;
+        var out = document.getElementById('coinOut');
+        var note = document.getElementById('coinNote');
+        out.textContent = 'Loading…'; note.textContent = '';
+        try {
+          var r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + id + '&vs_currencies=usd,ngn');
+          var j = await r.json();
+          if (!j[id] || j[id].usd == null) throw new Error('empty');
+          var p = j[id];
+          out.textContent = qty + ' ≈ $' + (p.usd*qty).toLocaleString(undefined,{maximumFractionDigits:2}) + ' · ₦' + (p.ngn*qty).toLocaleString(undefined,{maximumFractionDigits:0});
+          note.textContent = 'Live via CoinGecko';
+        } catch (e) {
+          var f = CRYPTO_FALLBACK[id] || CRYPTO_FALLBACK.tether;
+          out.textContent = qty + ' ≈ $' + (f.usd*qty).toLocaleString() + ' · ₦' + (f.ngn*qty).toLocaleString();
+          note.textContent = 'Estimate only. Confirm on your exchange before trading.';
+        }
       }
-    }
 
-    function hustle(){
-      var target = +document.getElementById('target').value || 0;
-      var days = +document.getElementById('days').value || 1;
-      var per = +document.getElementById('perJob').value || 1;
-      var jobs = Math.ceil(target / Math.max(per,1));
-      var perDay = target / Math.max(days,1);
-      document.getElementById('hustleOut').textContent = 'Need ~' + jobs + ' jobs/week · ~₦' + Math.round(perDay).toLocaleString() + '/day';
-    }
-    function fee(){
-      var amt = +document.getElementById('feeAmt').value || 0;
-      var pct = +document.getElementById('feePct').value || 0;
-      var f = amt * (pct/100);
-      document.getElementById('feeOut').textContent = 'Fee ₦' + f.toLocaleString() + ' · You keep ₦' + (amt-f).toLocaleString();
-    }
-    document.getElementById('fxBtn').onclick = fx;
-    document.getElementById('coinBtn').onclick = coin;
-    document.getElementById('hustleBtn').onclick = hustle;
-    document.getElementById('feeBtn').onclick = fee;
+      function hustle(){
+        var target = +document.getElementById('target').value || 0;
+        var days = Math.max(1, +document.getElementById('days').value || 1);
+        var per = Math.max(1, +document.getElementById('perJob').value || 1);
+        var jobs = Math.ceil(target / per);
+        var perDay = target / days;
+        var jobsPerDay = Math.ceil(jobs / days);
+        document.getElementById('hustleOut').textContent =
+          '~' + jobs + ' jobs/week · ~' + jobsPerDay + ' jobs/day · ₦' + Math.round(perDay).toLocaleString() + '/day target';
+      }
+
+      function fee(){
+        var amt = +document.getElementById('feeAmt').value || 0;
+        var pct = +document.getElementById('feePct').value || 0;
+        var f = amt * (pct/100);
+        document.getElementById('feeOut').textContent =
+          'Fee ₦' + f.toLocaleString(undefined,{maximumFractionDigits:2}) + ' · You keep ₦' + (amt-f).toLocaleString(undefined,{maximumFractionDigits:2});
+      }
+
+      document.getElementById('fxBtn').onclick = fx;
+      document.getElementById('coinBtn').onclick = coin;
+      document.getElementById('hustleBtn').onclick = hustle;
+      document.getElementById('feeBtn').onclick = fee;
+
+      document.getElementById('fxSwap').onclick = function(){
+        var a = document.getElementById('fxFrom');
+        var b = document.getElementById('fxTo');
+        var t = a.value; a.value = b.value; b.value = t;
+        fx();
+      };
+
+      document.querySelectorAll('.fee-presets .chip').forEach(function(b){
+        b.addEventListener('click', function(){
+          document.getElementById('feePct').value = b.getAttribute('data-fee');
+          fee();
+        });
+      });
+
+      // auto-run defaults so tools feel usable immediately
+      fx(); fee(); hustle();
+    })();
   </script>
 </Base>

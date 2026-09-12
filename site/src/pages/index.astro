@@ -42,7 +42,12 @@ try {
 }
 const totalPages = Math.max(1, Math.ceil(total / perPage));
 ---
-<Base title="LaneCash — Stay Sharp. Get Ahead." description="Finance, crypto, hustles and scam alerts for practical money decisions.">
+<Base title="LaneCash — Stay Sharp. Get Ahead." description="Finance, crypto, hustles and scam alerts for practical money decisions in Nigeria.">
+  <div class="disclaimer-banner">
+    <strong>Disclaimer:</strong> Educational content only — not financial advice.
+    <a href="/disclaimer">Read full disclaimer</a>
+  </div>
+
   <section class="hero">
     <h1>Stay Sharp. Get Ahead.</h1>
     <p>Finance, crypto & side-hustle insights that pay off.</p>
@@ -54,7 +59,7 @@ const totalPages = Math.max(1, Math.ceil(total / perPage));
     <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams">Scam Alerts</a>
     <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing">Investing</a>
   </div>
-  <div class="section-head"><h2>Top Picks</h2><a href="/tools">Tools ›</a></div>
+  <div class="section-head"><h2>Top Picks</h2><a href="/tools">Money tools ›</a></div>
   {dbError && <div class="empty">Temporary issue loading posts. Retry shortly.</div>}
   <section class="feed">
     {articles.length ? articles.map((a) => (
