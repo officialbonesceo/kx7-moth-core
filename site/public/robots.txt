@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+Disallow: /bonesceo/
+Disallow: /api/
+
+Sitemap: https://kx7-moth-core.pages.dev/sitemap.xml

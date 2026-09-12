@@ -19,10 +19,32 @@ try {
 if (!article) return Astro.redirect('/');
 const cover = coverFor(article);
 const team = article.author_team || teamFor(article.category, article.title);
+const origin = Astro.url.origin;
+const pageUrl = `${origin}/article/${article.slug}`;
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: article.title,
+  description: article.summary,
+  image: [cover],
+  datePublished: article.published_at || undefined,
+  dateModified: article.updated_at || article.published_at || undefined,
+  author: { '@type': 'Organization', name: team },
+  publisher: { '@type': 'Organization', name: 'LaneCash', url: origin },
+  mainEntityOfPage: pageUrl,
+  articleSection: article.category,
+};
 ---
-<Base title={`${article.title} — LaneCash`} description={article.summary}>
+<Base
+  title={`${article.title} — LaneCash`}
+  description={article.summary}
+  canonical={pageUrl}
+  image={cover}
+  type="article"
+  jsonLd={jsonLd}
+>
   <a class="chip" href="/" style="margin:8px 0 12px;display:inline-flex">← Back</a>
-  <img class="article-cover" src={cover} alt="" />
+  <img class="article-cover" src={cover} alt={article.title} />
   <div class="article-head">
     <span class={`pill ${article.category}`}>{article.category}</span>
     <h1>{article.title}</h1>
@@ -41,7 +63,7 @@ const team = article.author_team || teamFor(article.category, article.title);
       </a>
     )}
   </div>
-  <div class="prose" set:html={article.content} />
+  <article class="prose" set:html={article.content} />
   <SocialBar />
   <script is:inline define:vars={{ slug: article.slug, path: `/article/${article.slug}`, title: article.title, summary: article.summary, category: article.category }}>
     window.LC?.track(path, 'read');

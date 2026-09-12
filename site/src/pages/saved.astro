@@ -1,8 +1,8 @@
 ---
 import Base from '../layouts/Base.astro';
 ---
-<Base title="Saved — LaneCash">
-  <section class="hero"><h1>Saved</h1><p>Stored on this device. Works offline from cache.</p></section>
+<Base title="Saved — LaneCash" description="Your saved LaneCash guides." noindex={true}>
+  <section class="hero"><h1>Saved</h1><p>Stored on this device.</p></section>
   <div id="savedList" class="feed"></div>
   <script is:inline>
     (function(){
@@ -17,7 +17,7 @@ import Base from '../layouts/Base.astro';
       box.innerHTML = slugs.map(function(s){
         const c = cache[s] || {};
         const title = c.title || s.replace(/-/g,' ');
-        const summary = c.summary || 'Open once online to refresh title & summary (slug is cached offline).';
+        const summary = c.summary || 'Open once to refresh title & summary.';
         const category = c.category || 'saved';
         return '<a class="card" href="/article/' + s + '" style="grid-template-columns:1fr">' +
           '<div class="card-main">' +
