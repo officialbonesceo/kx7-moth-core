@@ -1,4 +1,4 @@
-/** Vast rotating topic catalog — global money skills, not Nigeria-only */
+/** Vast rotating topic catalog — always starts from basics + tips */
 
 export type Cat = 'money' | 'opportunities' | 'scams' | 'guides';
 
@@ -8,91 +8,63 @@ export type CatalogItem = {
   summary: string;
   category: Cat;
   team: string;
-  beats: string[]; // section bullets expanded into HTML
+  basics: string[];
+  tips: string[];
+  beats: string[];
 };
 
 export const CATALOG: CatalogItem[] = [
-  // Content creation / algorithms
-  { key: 'yt-algo', title: 'YouTube algorithm basics in 2026: hooks, retention, and posting cadence', summary: 'Practical YouTube setup: packaging, first 3 seconds, retention loops, and a sustainable posting rhythm.', category: 'guides', team: 'LaneCash Creator Desk', beats: ['What the algorithm optimizes for (clicks + watch time + satisfaction)', 'Hook formulas that still work without clickbait lies', 'Titles/thumbnails as one system', 'Posting cadence vs burnout', 'Series design so viewers autoplay next', 'Metrics that matter in week 1 vs month 3', 'Common mistakes new channels make'] },
-  { key: 'tt-algo', title: 'TikTok algorithm playbook: watch time, saves, and series that compound', summary: 'How TikTok distribution works in practice and how to design posts that earn replays without spam tactics.', category: 'guides', team: 'LaneCash Creator Desk', beats: ['Signals TikTok rewards', 'Hook in 1 second patterns', 'On-screen text and pacing', 'Sounds vs original audio tradeoffs', 'Series and pinned content', 'When to post and how to batch', 'What to ignore in guru screenshots'] },
-  { key: 'ig-reels', title: 'Instagram Reels growth without buying followers: packaging and consistency', summary: 'A clean Reels workflow: topics, hooks, captions, and a weekly batch plan.', category: 'guides', team: 'LaneCash Creator Desk', beats: ['Reels vs feed posts today', 'Topic lanes that attract buyers not only viewers', 'Caption structure', 'Collaborations that are actually useful', 'Analytics to review weekly', 'Burnout-proof batching'] },
-  { key: 'content-batch', title: 'Content batching system: 7 days of posts in one afternoon', summary: 'A repeatable batching system for Shorts/Reels/TikTok so you stop daily panic posting.', category: 'guides', team: 'LaneCash Creator Desk', beats: ['Theme days', 'Script templates', 'Filming blocks', 'Editing assembly line', 'Caption bank', 'Scheduling options', 'Quality bar checklist'] },
-  { key: 'faceless', title: 'Faceless channels that can earn: formats that still work and those that died', summary: 'Which faceless formats still have a path, what tools you need, and where beginners waste months.', category: 'opportunities', team: 'LaneCash Creator Desk', beats: ['Formats with residual demand', 'Dead formats to avoid', 'Tool stack on a budget', 'Voice and stock policy risks', 'Monetization paths', '30-day experiment design'] },
-
-  // Digital marketing / affiliate
-  { key: 'aff-start', title: 'Affiliate marketing from zero: honest path, offers, and traffic that converts', summary: 'How affiliate marketing actually pays, which offers fit beginners, and how to avoid junk networks.', category: 'opportunities', team: 'LaneCash Growth Desk', beats: ['Affiliate vs dropshipping vs client work', 'Choosing an offer you can explain', 'Traffic sources ranked by control', 'Disclosure rules', 'Tracking basics', 'Why most beginners quit month 1', 'A 14-day test plan'] },
-  { key: 'aff-content', title: 'Affiliate content that ranks: reviews, comparisons, and honest demos', summary: 'Create affiliate pages and videos people trust — comparisons, demos, and clear CTAs without fake hype.', category: 'guides', team: 'LaneCash Growth Desk', beats: ['Review structure', 'Comparison tables', 'Screenshot/demo ethics', 'CTA placement', 'Updating posts when offers change', 'Spam patterns that kill trust'] },
-  { key: 'email-list', title: 'Build a tiny email list that pays: lead magnet to first broadcast', summary: 'Start a small owned audience so platforms cannot fully control your reach.', category: 'guides', team: 'LaneCash Growth Desk', beats: ['Why owned audience matters', 'One lead magnet idea', 'Landing page minimum', 'Welcome sequence', 'Weekly broadcast formula', 'Compliance basics'] },
-  { key: 'dm-sales', title: 'Selling in DMs without being annoying: scripts that respect people', summary: 'A DM sales framework for services and digital products that does not rely on pressure spam.', category: 'guides', team: 'LaneCash Growth Desk', beats: ['Qualification questions', 'Value-first openers', 'Objection handling', 'When to stop messaging', 'Payment and delivery clarity', 'Boundaries'] },
-
-  // Dropshipping
-  { key: 'drop-real', title: 'Dropshipping realities in 2026: margins, suppliers, and customer expectations', summary: 'What still works in dropshipping, where margins die, and how to test without blowing savings.', category: 'opportunities', team: 'LaneCash Commerce Desk', beats: ['Model definition', 'Winning vs saturated products', 'Supplier checks', 'Shipping time honesty', 'Ad cost reality', 'Returns and chargebacks', 'Small test budget plan'] },
-  { key: 'drop-validate', title: 'Validate a dropshipping product in 7 days before buying ads heavy', summary: 'A one-week validation checklist: demand signals, margin math, and creative tests.', category: 'guides', team: 'LaneCash Commerce Desk', beats: ['Demand signals', 'Landed cost math', 'Creative angles', 'Tiny traffic tests', 'Kill criteria', 'When to scale vs quit'] },
-  { key: 'shop-trust', title: 'Store trust basics: policies, proof, and support that reduce refunds', summary: 'Trust elements that lower refunds and disputes for new online stores.', category: 'guides', team: 'LaneCash Commerce Desk', beats: ['Policy pages that matter', 'Proof without fake reviews', 'Support response times', 'Clear shipping promises', 'Payment clarity'] },
-
-  // Crypto / airdrops (verified posture)
-  { key: 'airdrop-safe', title: 'Crypto airdrops: how to participate safely and spot fee-trap fakes', summary: 'A safety-first airdrop framework — official sources only, wallet hygiene, and red flags.', category: 'opportunities', team: 'LaneCash Crypto Desk', beats: ['What a real airdrop is', 'Official announcement channels only', 'Wallet separation', 'Never pay to claim', 'Phishing sites', 'Tax/record notes', 'Verification checklist'] },
-  { key: 'airdrop-verify', title: 'How to verify an airdrop claim before connecting your wallet', summary: 'Step-by-step verification before any wallet connect or signature.', category: 'scams', team: 'LaneCash Scam Team', beats: ['Domain checks', 'Contract newness risks', 'Signature phishing', 'Social clone accounts', 'Community red flags', 'When to walk away'] },
-  { key: 'tg-earn', title: 'Telegram “paying” channels and bots: what is real work vs extraction', summary: 'How to evaluate Telegram earning claims, task bots, and signal groups without funding scammers.', category: 'scams', team: 'LaneCash Scam Team', beats: ['Common Telegram money pitches', 'Task bots that pay tiny vs drain time', 'Signal groups and loss transfer', 'Admin fee traps', 'Verification steps', 'Safer alternatives'] },
-  { key: 'tg-verify', title: 'How to verify a Telegram job or payout group before joining', summary: 'A practical verification list for Telegram gigs, crypto jobs, and payout screenshots.', category: 'scams', team: 'LaneCash Scam Team', beats: ['Screenshot forensics basics', 'Payment proof standards', 'Contract and scope', 'Upfront fee rule', 'Escalation patterns', 'Exit rules'] },
-  { key: 'usdt-p2p', title: 'USDT P2P safety: release rules, chat scams, and escrow discipline', summary: 'Stay safe on P2P USDT trades with strict release rules and chat hygiene.', category: 'scams', team: 'LaneCash Crypto Desk', beats: ['Why P2P goes wrong', 'Release only after confirmed payment', 'Impersonation scams', 'Offline meeting risks', 'Platform escrow use', 'Personal rules sheet'] },
-
-  // Everyday money / skills global
-  { key: 'budget-simple', title: 'A simple weekly money system you can run from your phone', summary: 'A lightweight weekly money system: income, bills, buffer, and one progress goal.', category: 'money', team: 'LaneCash Fin Team', beats: ['Weekly vs monthly budgets', 'Four buckets', 'Buffer first', 'Tracking without complex apps', 'Debt minimums', 'Review ritual'] },
-  { key: 'side-skill', title: 'Pick a side skill that can bill in 14 days', summary: 'Choose a billable skill with short time-to-first-invoice instead of endless courses.', category: 'guides', team: 'LaneCash Hustle Desk', beats: ['Skill criteria', 'Offer packaging', 'Proof sample', 'Where to find first clients', 'Pricing ladder', 'Delivery checklist'] },
-  { key: 'freelance-global', title: 'Freelance platforms that still pay: positioning and first proposals', summary: 'Positioning and proposal structure for global freelance platforms without racing to the bottom.', category: 'opportunities', team: 'LaneCash Hustle Desk', beats: ['Profile basics', 'Niche positioning', 'Proposal formula', 'Portfolio minimum', 'Client red flags', 'Payment protection'] },
-  { key: 'digital-product', title: 'Sell a small digital product: one problem, one file, one checkout', summary: 'Ship a tiny digital product without building a huge course empire first.', category: 'opportunities', team: 'LaneCash Growth Desk', beats: ['Pick one painful problem', 'Minimum product formats', 'Pricing experiments', 'Checkout options', 'Delivery automation basics', 'Promotion without spam'] },
-  { key: 'newsletter', title: 'Start a niche newsletter people open: topic, cadence, monetization later', summary: 'Launch a focused newsletter with a clear promise and sustainable cadence.', category: 'guides', team: 'LaneCash Creator Desk', beats: ['Niche promise', 'Issue template', 'Growth loops', 'Sponsorship timing', 'Burnout prevention'] },
-  { key: 'community', title: 'Paid community pitfalls: when it works and when it becomes a refund machine', summary: 'Honest take on paid Discords/Telegram communities and what members actually buy.', category: 'opportunities', team: 'LaneCash Growth Desk', beats: ['What people pay for', 'Content ops load', 'Refund drivers', 'Pricing and access tiers', 'When not to launch'] },
-  { key: 'automation', title: 'No-code automation for solo operators: save hours without new software chaos', summary: 'Practical automations for solo creators and freelancers using simple tools.', category: 'guides', team: 'LaneCash Creator Desk', beats: ['What to automate first', 'Zap/Make style flows', 'CRM lite', 'Invoice reminders', 'Content pipelines', 'Over-automation traps'] },
-  { key: 'personal-brand', title: 'Personal brand on a budget: one lane, one proof, weekly visibility', summary: 'Build a credible personal brand without a studio or big ad spend.', category: 'guides', team: 'LaneCash Creator Desk', beats: ['Lane selection', 'Proof assets', 'Weekly visibility block', 'Comment strategy', 'Offer attachment', 'Consistency metrics'] },
-  { key: 'client-retain', title: 'Keep freelance clients longer: delivery systems and boundary scripts', summary: 'Retention systems that make good clients stay without scope chaos.', category: 'guides', team: 'LaneCash Hustle Desk', beats: ['Onboarding checklist', 'Weekly updates', 'Scope boundaries', 'Upsell timing', 'Ending bad clients cleanly'] },
-  { key: 'pricing-raise', title: 'Raise your prices without losing all clients: proof and packaging', summary: 'A calm framework to increase rates using proof, packaging, and grandfathering.', category: 'money', team: 'LaneCash Hustle Desk', beats: ['When you are underpriced', 'Packaging value', 'Announcement script', 'Grandfather rules', 'Handling pushback'] },
-  { key: 'scam-job', title: 'Remote job scams in 2026: fake recruiters, task scams, and cheque fraud', summary: 'Identify modern remote job scams before you send documents or money.', category: 'scams', team: 'LaneCash Scam Team', beats: ['Fake recruiter patterns', 'Task scam loop', 'Equipment purchase scams', 'Cheque overpayment', 'Document phishing', 'Verification steps'] },
-  { key: 'pig-butchering', title: 'Romance and investment chat scams: the long game and the exit', summary: 'How long-game investment/romance scams build trust and how to exit early.', category: 'scams', team: 'LaneCash Scam Team', beats: ['Trust building stages', 'Platforms used', 'Why victims send more', 'Recovery scammer second hit', 'Exit and report steps'] },
+  { key: 'yt-algo', title: 'YouTube algorithm basics: hooks, retention, and posting cadence', summary: 'Start from zero: what YouTube measures, basic hooks, and a simple posting rhythm.', category: 'guides', team: 'LaneCash Creator Desk', basics: ['YouTube promotes videos people watch and return to', 'A channel needs a clear topic lane', 'One video = one promise in the title'], tips: ['Spend 30 minutes writing the first 3 seconds before filming', 'Batch 3 videos in one day once a week', 'Reply to 5 comments after each upload'], beats: ['Packaging is title + thumbnail as one idea', 'Retention matters more than raw views early', 'Series help autoplay', 'Ignore vanity follower screenshots'] },
+  { key: 'tt-algo', title: 'TikTok basics for beginners: watch time, saves, and simple series', summary: 'Beginner TikTok: how distribution works and beginner tips that do not require trends spam.', category: 'guides', team: 'LaneCash Creator Desk', basics: ['TikTok tests posts with small audiences first', 'Replays and saves help', 'On-screen text helps silent viewers'], tips: ['Film vertical with the subject higher in frame', 'Use one idea per video', 'Post consistently for 14 days before judging'], beats: ['Hook in the first second', 'Series and pinned posts', 'Batch filming', 'Avoid fake engagement services'] },
+  { key: 'aff-start', title: 'Affiliate marketing basics: offers, traffic, and honest disclosures', summary: 'Beginner affiliate path: pick an offer you understand, send traffic, disclose clearly.', category: 'opportunities', team: 'LaneCash Growth Desk', basics: ['Affiliate = you recommend, you earn a commission if someone buys', 'You need traffic + trust', 'Disclosure is required when you earn'], tips: ['Start with one offer only', 'Write a real comparison not hype', 'Track clicks for 14 days before switching offers'], beats: ['Offer selection', 'Traffic types', 'Content formats', 'Kill bad offers fast'] },
+  { key: 'drop-real', title: 'Dropshipping basics: margins, suppliers, and honest shipping times', summary: 'Beginner dropshipping: cost math first, ads second, no fantasy margins.', category: 'opportunities', team: 'LaneCash Commerce Desk', basics: ['You sell, a supplier ships', 'Profit = price − product − shipping − ads − fees − returns', 'Slow shipping kills trust'], tips: ['Calculate landed cost before running ads', 'Order a test product to yourself', 'Write real delivery times on the store'], beats: ['Validation week', 'Supplier checks', 'Creative tests', 'Refund risk'] },
+  { key: 'airdrop-safe', title: 'Airdrop basics: how claims work and how fakes steal wallets', summary: 'Beginner airdrop safety: official sources only, never pay to claim, protect seed phrases.', category: 'opportunities', team: 'LaneCash Crypto Desk', basics: ['Real airdrops come from project teams, not random DMs', 'You should not pay a fee to receive tokens', 'Wallet connect can be dangerous on fake sites'], tips: ['Bookmark official sites typed by you', 'Use a separate burner wallet for experiments', 'If rushed or threatened, exit'], beats: ['Verification steps', 'Phishing patterns', 'Record keeping'] },
+  { key: 'tg-earn', title: 'Telegram earning basics: task bots, signals, and fee traps', summary: 'Beginner guide to Telegram money claims — what can be real small tasks vs extraction scams.', category: 'scams', team: 'LaneCash Scam Team', basics: ['Anyone can create a Telegram channel', 'Screenshots are easy to fake', 'Upfront fees are a major red flag'], tips: ['Never pay to unlock a withdrawal', 'Ask for a public verifiable payout trail', 'Start with zero deposit experiments only'], beats: ['Task bots', 'Signal groups', 'Admin fee scams', 'Verification list'] },
+  { key: 'freelance-global', title: 'Freelance basics: offer, portfolio sample, and first proposal', summary: 'Beginner freelancing: one clear offer, one sample, and proposals that respect clients.', category: 'opportunities', team: 'LaneCash Hustle Desk', basics: ['Clients buy outcomes not hours at first', 'A sample beats a long bio', 'Clear scope prevents fights'], tips: ['Write offer in one sentence', 'Make one sample this week', 'Send 10 tailored proposals not 100 spam'], beats: ['Positioning', 'Proposal formula', 'Red flags', 'Payment protection'] },
+  { key: 'budget-simple', title: 'Money basics: a weekly system you can run from your phone', summary: 'Beginner money system: income, bills, buffer, and one goal — weekly not complicated.', category: 'money', team: 'LaneCash Fin Team', basics: ['Know income after fees', 'List fixed bills', 'Keep a small buffer'], tips: ['Review money once a week on the same day', 'Separate hustle money from food money', 'Automate one savings transfer if possible'], beats: ['Four buckets', 'Tracking light', 'Debt minimums'] },
+  { key: 'scam-job', title: 'Remote job scam basics: fake recruiters and task traps', summary: 'Beginner protection against fake remote jobs and task scams.', category: 'scams', team: 'LaneCash Scam Team', basics: ['Real employers do not ask you to pay for the job', 'Task scams pay small then demand fees', 'Recruiters can be impersonated'], tips: ['Verify company domain email', 'Never buy equipment for a stranger', 'Stop when asked for gift cards or crypto fees'], beats: ['Patterns', 'Document phishing', 'Exit steps'] },
+  { key: 'content-batch', title: 'Content basics: batch one week of posts in one sitting', summary: 'Beginner batching so you stop daily panic posting.', category: 'guides', team: 'LaneCash Creator Desk', basics: ['Batching = plan then film then edit', 'One theme per day reduces decisions', 'Captions can be written in a bank'], tips: ['Use CapCut or Canva templates', 'Film standing clips in one hour', 'Schedule only after quality check'], beats: ['Theme days', 'Script templates', 'Assembly line'] },
+  { key: 'usdt-p2p', title: 'USDT P2P basics: release rules that prevent chat scams', summary: 'Beginner P2P safety: confirm payment before release, ignore pressure.', category: 'scams', team: 'LaneCash Crypto Desk', basics: ['P2P is peer trading with platform escrow on good platforms', 'Release only after confirmed payment', 'Chat outside the app increases risk'], tips: ['Use platform chat', 'Start with small size', 'Never release early for sob stories'], beats: ['Impersonation', 'Escrow discipline', 'Personal rules'] },
+  { key: 'digital-product', title: 'Digital product basics: one problem, one file, one checkout', summary: 'Beginner digital product: solve one problem with a small file and a clear checkout.', category: 'opportunities', team: 'LaneCash Growth Desk', basics: ['Start tiny not with a 50-module course', 'People buy specific outcomes', 'Delivery should be automatic or simple'], tips: ['Interview 3 people with the problem', 'Price for a first test not forever', 'Promote where the problem is discussed'], beats: ['Formats', 'Checkout', 'Promotion without spam'] },
 ];
 
-export function expandItem(item: CatalogItem): { title: string; summary: string; category: Cat; author_team: string; content: string } {
-  const sections = item.beats
-    .map((b, i) => {
-      if (i === 0) return `<h2>What this really is</h2>\n<p>${b}. This guide stays practical: mechanisms, costs, risks, and actions — not hype screenshots.</p>`;
-      if (i === 1) return `<h2>Why it matters</h2>\n<p>${b}</p>`;
-      if (i === 2) return `<h2>How it works in practice</h2>\n<p>${b}</p>`;
-      return `<p>• ${b}</p>`;
-    })
-    .join('\n');
-
+export function expandItem(item: CatalogItem) {
+  const basics = item.basics.map((b) => `<li>${b}</li>`).join('');
+  const tips = item.tips.map((t) => `<li>${t}</li>`).join('');
+  const beats = item.beats.map((b) => `<li>${b}</li>`).join('');
   const content = `
-${sections}
+<h2>Start here (basics)</h2>
+<p>If you are new, read this section first. Master these points before advanced tactics.</p>
+<ul>${basics}</ul>
+<h2>Beginner tips</h2>
+<ul>${tips}</ul>
+<h2>What this really is</h2>
+<p>${item.summary} This guide stays practical: mechanisms, costs, risks, and actions — not hype.</p>
+<h2>How it works in practice</h2>
+<ul>${beats}</ul>
 <h2>Costs and realistic outcomes</h2>
-<p>Treat every naira or dollar figure you see online as marketing until you measure your own funnel. Budget time and a loss-tolerant test size. If a method only works with fake engagement or guaranteed returns, skip it.</p>
-<ul>
-<li>Write your test budget before you start.</li>
-<li>Track hours and cash separately.</li>
-<li>Kill ideas that need constant new deposits to "unlock" payouts.</li>
-</ul>
+<p>Write a test budget before you start. Track time and cash separately. Skip anything that needs constant new deposits to unlock payouts or guarantees daily profit.</p>
 <h2>Risks and common scams</h2>
-<p>Related scam patterns to reject while you learn this topic: upfront fees for jobs, guaranteed daily profit apps, wallet-connect airdrop phishing, Telegram admins asking for verification payments, and recovery agents after a loss.</p>
+<p>Reject upfront job fees, guaranteed-return apps, fake airdrop claim sites, Telegram admins demanding verification payments, and recovery scammers after a loss.</p>
 <h2>Exact steps for this week</h2>
 <ol>
 <li>Write a one-sentence goal for this topic.</li>
-<li>List tools you already have (phone, Canva, CapCut, wallet, laptop).</li>
-<li>Do one smallest proof action in 48 hours.</li>
-<li>Log result and fee/time cost.</li>
+<li>List tools you already have.</li>
+<li>Do the smallest proof action in 48 hours.</li>
+<li>Log result, time, and any fee.</li>
 <li>Decide: continue, revise, or stop.</li>
 </ol>
 <h2>What good looks like in 7 and 30 days</h2>
-<p><strong>7 days:</strong> proof of one real action and notes you can reuse.</p>
-<p><strong>30 days:</strong> a repeatable workflow or a clear decision to abandon based on data — not vibes.</p>
+<p><strong>7 days:</strong> one real proof action and notes you can reuse.</p>
+<p><strong>30 days:</strong> a repeatable workflow or a clear stop decision based on data.</p>
 <h2>Final checklist</h2>
 <ul>
-<li>Is the offer or method explainable in plain language?</li>
-<li>Did I avoid upfront-fee and guaranteed-return traps?</li>
-<li>Do I have a kill switch if metrics stay flat?</li>
-<li>Can I show one proof asset?</li>
+<li>Can I explain the basics in plain language?</li>
+<li>Did I avoid fee and guarantee traps?</li>
+<li>Do I have one proof asset?</li>
+<li>Do I have a kill switch if results stay flat?</li>
 </ul>
 `.trim();
-
   return {
     title: item.title,
     summary: item.summary,
@@ -102,28 +74,14 @@ ${sections}
   };
 }
 
-/** Pick up to `n` unpublished titles using day rotation for variety */
 export function pickBatch(n: number, existingTitles: Set<string>): CatalogItem[] {
   const day = Math.floor(Date.now() / 86400000);
-  const rotated = [...CATALOG].sort((a, b) => {
-    const ha = Math.abs(hash(a.key + day));
-    const hb = Math.abs(hash(b.key + day));
-    return ha - hb;
-  });
+  const rotated = [...CATALOG].sort((a, b) => hash(a.key + day) - hash(b.key + day));
   const out: CatalogItem[] = [];
   for (const item of rotated) {
     if (existingTitles.has(item.title)) continue;
     out.push(item);
     if (out.length >= n) break;
-  }
-  // if catalog exhausted, allow variants by suffixing week strategy titles from remaining
-  if (out.length < n) {
-    for (const item of CATALOG) {
-      if (out.length >= n) break;
-      const variant = { ...item, title: `${item.title} (field notes)` };
-      if (existingTitles.has(variant.title) || out.some((x) => x.title === variant.title)) continue;
-      out.push(variant);
-    }
   }
   return out;
 }
@@ -131,5 +89,5 @@ export function pickBatch(n: number, existingTitles: Set<string>): CatalogItem[]
 function hash(s: string) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return h;
+  return Math.abs(h);
 }

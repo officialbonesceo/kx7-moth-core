@@ -1,13 +1,20 @@
 import type { APIRoute } from 'astro';
 export const prerender = false;
 
-const KEYS = ['social_youtube', 'social_tiktok', 'social_instagram', 'social_facebook'] as const;
+const KEYS = [
+  'social_youtube',
+  'social_tiktok',
+  'social_instagram',
+  'social_facebook',
+  'social_telegram',
+] as const;
 
 const DEFAULTS: Record<string, string> = {
   social_youtube: 'https://youtube.com/@LaneCash',
   social_tiktok: 'https://www.tiktok.com/@lanecash',
   social_instagram: 'https://instagram.com/lanecash',
   social_facebook: 'https://facebook.com/lanecash',
+  social_telegram: 'https://t.me/lanecash',
 };
 
 export const GET: APIRoute = async ({ locals }) => {
@@ -26,6 +33,7 @@ export const GET: APIRoute = async ({ locals }) => {
     tiktok: out.social_tiktok,
     instagram: out.social_instagram,
     facebook: out.social_facebook,
+    telegram: out.social_telegram,
   });
 };
 
