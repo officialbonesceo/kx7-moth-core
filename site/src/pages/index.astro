@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Pagination from '../components/Pagination.astro';
 import { getArticles } from '../lib/db';
-import { coverFor } from '../lib/images';
+import { coverFor, svgCover } from '../lib/images';
 import { teamFor } from '../lib/socials';
 
 export const prerender = false;
@@ -28,7 +28,7 @@ try {
         if (tab === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token|airdrop|wallet|p2p/.test(t);
         if (tab === 'hustles') return c === 'guides' || /hustle|earn|freelance|side|content|tiktok|youtube|affiliate|drop/.test(t);
         if (tab === 'scams') return c === 'scams' || /scam|fraud|ponzi|phish|telegram/.test(t);
-        if (tab === 'investing') return c === 'money' || /invest|budget|price|fee|bank|naira|payment/.test(t);
+        if (tab === 'investing') return c === 'money' || /invest|budget|price|fee|bank|naira|loan|wallet|payment/.test(t);
         return true;
       });
     }
@@ -42,6 +42,7 @@ try {
 }
 const totalPages = Math.max(1, Math.ceil(total / perPage));
 const showCryptoNews = tab === 'crypto' || tab === 'all';
+const isForYou = tab === 'all';
 ---
 <Base title="LaneCash — Stay Sharp. Get Ahead." description="Practical money skills: crypto safety, content systems, affiliate, dropshipping, scam alerts, and calculators.">
   <div class="disclaimer-banner">
@@ -71,11 +72,22 @@ const showCryptoNews = tab === 'crypto' || tab === 'all';
     </div>
   )}
 
-  <div class="section-head"><h2>Top Picks</h2><a href="/tools">Money tools ›</a></div>
+  <div class="section-head">
+    <h2>{isForYou ? 'For You' : 'Top Picks'}</h2>
+    <a href="/tools">Money tools ›</a>
+  </div>
   {dbError && <div class="empty">Temporary issue loading posts. Retry shortly.</div>}
-  <section class="feed">
+  <section class="feed" id="feed">
     {articles.length ? articles.map((a) => (
-      <a class="card" href={`/article/${a.slug}`} data-path={`/article/${a.slug}`}>
+      <a
+        class="card"
+        href={`/article/${a.slug}`}
+        data-path={`/article/${a.slug}`}
+        data-slug={a.slug}
+        data-title={a.title}
+        data-category={a.category}
+        data-summary={a.summary}
+      >
         <div class="card-main">
           <span class={`pill ${a.category}`}>{a.category}</span>
           <h3>{a.title}</h3>
@@ -88,37 +100,88 @@ const showCryptoNews = tab === 'crypto' || tab === 'all';
             </span>
           </div>
         </div>
-        <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
+        <img
+          class="card-thumb"
+          src={coverFor(a)}
+          alt=""
+          loading="lazy"
+          data-fallback={svgCover(a)}
+          onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')||'/covers/fallback.svg'"
+        />
       </a>
     )) : (!dbError && <div class="empty">No articles yet.</div>)}
   </section>
   <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
-  <script is:inline define:vars={{ showCryptoNews }}>
-    document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>window.LC?.track(c.getAttribute('data-path'),'open')));
-    document.querySelectorAll('.save-inline').forEach(btn=>btn.addEventListener('click',(e)=>{
-      e.preventDefault(); e.stopPropagation();
-      const slug=btn.getAttribute('data-slug'); const saved=window.LC.get('lc_saved',[]);
-      if(!saved.includes(slug)){saved.unshift(slug); window.LC.set('lc_saved',saved.slice(0,100)); window.LC.toast('Saved');}
-      else window.LC.toast('Already saved');
-    }));
-    if (showCryptoNews) {
-      (async function(){
-        var box = document.getElementById('homeCryptoNews');
-        if (!box) return;
-        try {
-          var r = await fetch('/api/crypto/news');
-          var j = await r.json();
-          var items = (j.items || []).slice(0, 5);
-          if (!items.length) { box.textContent = 'No headlines right now.'; return; }
-          box.innerHTML = items.map(function(it){
-            return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
-              '<a href="' + (it.url||'#') + '" target="_blank" rel="noopener noreferrer" style="color:#fff;font-weight:700;font-size:.88rem">' + (it.title||'') + '</a>' +
-              '<div class="muted" style="font-size:.72rem;margin-top:2px">' + (it.source||'') + '</div></div>';
-          }).join('');
-        } catch (e) {
-          box.textContent = 'Headlines unavailable.';
+  <script is:inline define:vars={{ showCryptoNews, isForYou }}>
+    (function(){
+      // Cache-based For You ranking — no extra DB reads
+      if (isForYou) {
+        var feed = document.getElementById('feed');
+        if (feed) {
+          var interest = (window.LC && window.LC.get('lc_interest', {})) || {};
+          var saved = (window.LC && window.LC.get('lc_saved', [])) || [];
+          var cards = Array.prototype.slice.call(feed.querySelectorAll('.card'));
+          function score(card) {
+            var path = card.getAttribute('data-path') || '';
+            var slug = card.getAttribute('data-slug') || '';
+            var text = ((card.getAttribute('data-title') || '') + ' ' + (card.getAttribute('data-summary') || '') + ' ' + (card.getAttribute('data-category') || '')).toLowerCase();
+            var s = 0;
+            s += (interest[path] || 0) * 5;
+            if (saved.indexOf(slug) >= 0) s += 8;
+            // interest path keywords → topic boost
+            var keys = Object.keys(interest);
+            for (var i = 0; i < keys.length; i++) {
+              var k = keys[i].toLowerCase();
+              var w = interest[keys[i]] || 0;
+              if (/scam|phish|fraud/.test(k) && /scam|phish|fraud|telegram/.test(text)) s += w * 2;
+              if (/crypto|usdt|bitcoin|airdrop/.test(k) && /crypto|usdt|bitcoin|airdrop|wallet/.test(text)) s += w * 2;
+              if (/affiliate|drop|youtube|tiktok|content|hustle|freelance/.test(k) && /affiliate|drop|youtube|tiktok|content|hustle|freelance/.test(text)) s += w * 2;
+            }
+            return s;
+          }
+          cards.sort(function(a, b) { return score(b) - score(a); });
+          cards.forEach(function(c) { feed.appendChild(c); });
         }
-      })();
-    }
+      }
+
+      document.querySelectorAll('.card').forEach(function(c){
+        c.addEventListener('click', function(){
+          window.LC && window.LC.track(c.getAttribute('data-path'), 'open');
+        });
+      });
+      document.querySelectorAll('.save-inline').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.preventDefault(); e.stopPropagation();
+          var slug = btn.getAttribute('data-slug');
+          var saved = window.LC.get('lc_saved', []);
+          if (saved.indexOf(slug) < 0) {
+            saved.unshift(slug);
+            window.LC.set('lc_saved', saved.slice(0, 100));
+            window.LC.toast('Saved');
+            window.LC.beacon('save');
+          } else window.LC.toast('Already saved');
+        });
+      });
+
+      if (showCryptoNews) {
+        (async function(){
+          var box = document.getElementById('homeCryptoNews');
+          if (!box) return;
+          try {
+            var r = await fetch('/api/crypto/news');
+            var j = await r.json();
+            var items = (j.items || []).slice(0, 5);
+            if (!items.length) { box.textContent = 'No headlines right now.'; return; }
+            box.innerHTML = items.map(function(it){
+              return '<div style="padding:8px 0;border-bottom:1px solid rgba(127,127,127,.15)">' +
+                '<a href="' + (it.url||'#') + '" target="_blank" rel="noopener noreferrer" style="font-weight:700;font-size:.88rem">' + (it.title||'') + '</a>' +
+                '<div class="muted" style="font-size:.72rem;margin-top:2px">' + (it.source||'') + '</div></div>';
+            }).join('');
+          } catch (e) {
+            box.textContent = 'Headlines unavailable.';
+          }
+        })();
+      }
+    })();
   </script>
 </Base>

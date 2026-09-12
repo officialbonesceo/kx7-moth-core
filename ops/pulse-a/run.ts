@@ -1,9 +1,6 @@
 /**
- * pulse-a — LaneCash content engine
- * Publishes up to 10 practical posts per run across global money skills.
- * Dedupes by title. Mix: creators, affiliate, dropshipping, crypto safety, scams.
+ * pulse-a — up to 10 posts/run, basics-first catalog, stable SVG covers
  */
-
 import { allTopicBodies } from './topics';
 import { expandItem, pickBatch, CATALOG } from './catalog';
 
@@ -47,21 +44,22 @@ function injectLinks(content: string) {
   let out = content;
   for (const [name, url] of Object.entries(links)) {
     if (out.toLowerCase().includes(url.toLowerCase())) continue;
-    out = out.replace(new RegExp(`\\b(${name})\\b`, 'ig'), (m) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${m}</a>`);
+    out = out.replace(
+      new RegExp(`\\b(${name})\\b`, 'ig'),
+      (m) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${m}</a>`
+    );
   }
   return out;
 }
 
-function imageFor(title: string, category: string) {
+function coverForTitle(title: string, category: string) {
   const t = `${title} ${category}`.toLowerCase();
-  let scene = 'dark fintech abstract green neon charts money symbols, no people, no faces';
-  if (/scam|fraud|fake|phish|telegram/.test(t)) scene = 'dark cybersecurity red warning triangle lock shield abstract, no people';
-  else if (/youtube|tiktok|reel|content|creator|newsletter/.test(t)) scene = 'dark creator studio abstract green neon media waveform, no faces';
-  else if (/dropship|shop|commerce|affiliate/.test(t)) scene = 'dark ecommerce abstract shopping bag chart green glow, no people';
-  else if (/airdrop|crypto|usdt|bitcoin|wallet/.test(t)) scene = 'dark crypto coin abstract green neon chart, no people';
-  else if (/freelance|hustle|skill|pricing/.test(t)) scene = 'dark desk laptop notebook growth chart green accent, no face';
-  const seed = Math.abs([...title].reduce((a, c) => a + c.charCodeAt(0), 0) % 99999);
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(scene)}?width=1200&height=675&nologo=true&seed=${seed}`;
+  if (category === 'scams' || /scam|fraud|phish|telegram/.test(t)) return '/covers/scams.svg';
+  if (/crypto|usdt|bitcoin|airdrop|wallet|p2p|token/.test(t)) return '/covers/crypto.svg';
+  if (/hustle|freelance|content|youtube|tiktok|affiliate|drop|creator|skill/.test(t))
+    return '/covers/hustle.svg';
+  if (category === 'money' || /budget|fee|naira|payment|price/.test(t)) return '/covers/money.svg';
+  return '/covers/fallback.svg';
 }
 
 async function d1(sql: string, params: any[] = []) {
@@ -90,17 +88,11 @@ async function purgeJunk() {
     '%is not a magic income switch%',
     '%Do not invent profits from a headline%',
     '%This update is treated as a money decision input%',
-    '%iPhone%',
-    '%TSC debts%',
-    '%Julius Berger%',
-    '%car imports%',
-    '%Digital Parks%',
   ];
   for (const p of patterns) {
     await d1(`DELETE FROM articles WHERE title LIKE ? OR content LIKE ?`, [p, p]);
   }
   await d1(`DELETE FROM articles WHERE category = 'news'`);
-  console.log('[pulse-a] purged junk');
 }
 
 async function loadTitles(): Promise<Set<string>> {
@@ -149,10 +141,8 @@ async function main() {
     console.error('[pulse-a] missing Cloudflare credentials');
     process.exit(1);
   }
-
   await purgeJunk();
 
-  // Ensure classic Nigeria practical guides exist once
   for (const body of allTopicBodies()) {
     if (await exists(body.title)) continue;
     await publish({
@@ -163,13 +153,13 @@ async function main() {
       reading_minutes: 12,
       author_team: body.author_team,
       source_name: 'LaneCash Desk',
-      image_url: imageFor(body.title, body.category),
+      image_url: coverForTitle(body.title, body.category),
     });
   }
 
   const titles = await loadTitles();
   const batch = pickBatch(BATCH, titles);
-  console.log('[pulse-a] catalog size', CATALOG.length, 'picked', batch.length);
+  console.log('[pulse-a] catalog', CATALOG.length, 'picked', batch.length);
 
   let published = 0;
   for (const item of batch) {
@@ -183,14 +173,13 @@ async function main() {
       reading_minutes: 10,
       author_team: exp.author_team,
       source_name: 'LaneCash Desk',
-      image_url: imageFor(exp.title, exp.category),
+      image_url: coverForTitle(exp.title, exp.category),
     });
     if (ok) {
       published++;
       titles.add(item.title);
     }
   }
-
   console.log('[pulse-a] done published', published);
 }
 
