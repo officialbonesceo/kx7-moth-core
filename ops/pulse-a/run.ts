@@ -1,7 +1,6 @@
 /**
- * pulse-a — AI-only: research → rewrite → publish (1 post/run).
- * NO template/catalog fallback. If AI fails, the job fails.
- * Educational only — not financial advice.
+ * pulse-a — AI-only: research (best effort) → AI rewrite → publish 1 post.
+ * No template catalog. If AI fails → exit 2.
  */
 import { pickQueries, researchTopic, packToContext } from './research';
 import { rewriteWithAi } from './ai';
@@ -28,16 +27,6 @@ let HAS_AUTHOR_TEAM = true;
 
 const DISCLAIMER_HTML =
   '<h2>Disclaimer</h2><p>This guide is <strong>educational only</strong>. It is <strong>not financial, investment, tax, or legal advice</strong>. Nothing here promises income or returns. Verify tools yourself and never risk money you cannot afford to lose.</p>';
-
-/** Fingerprints of the old expandItem / catalog templates */
-const TEMPLATE_FINGERPRINTS = [
-  '%Write a test budget before you start%',
-  '%Do the smallest proof action in 48 hours%',
-  '%Do I have a kill switch if results stay flat%',
-  '%Start here (basics)%Master these points before advanced tactics%',
-  '%Reject upfront job fees, guaranteed-return apps, fake airdrop%',
-  '%What good looks like in 7 and 30 days%',
-];
 
 function slugify(t: string) {
   return t
@@ -94,7 +83,7 @@ async function d1(sql: string, params: any[] = [], quiet = false) {
   } catch {
     parsed = null;
   }
-  const errMsg = JSON.stringify(parsed?.errors || parsed?.result || text).slice(0, 300);
+  const errMsg = JSON.stringify(parsed?.errors || parsed?.result || text).slice(0, 280);
   const duplicateCol = /duplicate column/i.test(errMsg);
   const ok =
     res.ok &&
@@ -117,24 +106,21 @@ async function ensureSchema() {
   console.log('[pulse-a] HAS_AUTHOR_TEAM', HAS_AUTHOR_TEAM);
 }
 
-/** Remove old template/catalog posts that mixed generic checklists into every topic */
+/** Safe purge: only known template phrases (simple LIKE, one % pattern each) */
 async function purgeTemplateArticles() {
-  console.log('[pulse-a] purging old template/catalog articles…');
-  let removed = 0;
-  for (const fp of TEMPLATE_FINGERPRINTS) {
-    const r = await d1(`DELETE FROM articles WHERE content LIKE ?`, [fp]);
-    if (r) removed++;
+  console.log('[pulse-a] purging old template articles…');
+  const phrases = [
+    '%smallest proof action in 48 hours%',
+    '%kill switch if results stay flat%',
+    '%Write a test budget before you start%',
+    '%guaranteed-return apps, fake airdrop%',
+  ];
+  for (const p of phrases) {
+    await d1(`DELETE FROM articles WHERE content LIKE ?`, [p]);
   }
-  // Also drop pure desk templates that never went through AI+research
-  await d1(
-    `DELETE FROM articles WHERE source_name = ? OR source_name = ? OR source_name IS NULL`,
-    ['LaneCash Desk', 'LaneCash Desk']
-  );
-  await d1(`DELETE FROM articles WHERE source_name NOT LIKE ? AND source_name NOT LIKE ?`, [
-    '%AI%',
-    '%research%',
-  ]);
-  console.log('[pulse-a] template purge pass done (fingerprints touched:', removed, ')');
+  // Desk templates without AI marker
+  await d1(`DELETE FROM articles WHERE source_name = ?`, ['LaneCash Desk']);
+  console.log('[pulse-a] purge done');
 }
 
 async function loadTitles(): Promise<Set<string>> {
@@ -195,26 +181,22 @@ async function publishOneFromResearch(titles: Set<string>): Promise<boolean> {
   const queries = pickQueries(5);
   for (const q of queries) {
     try {
-      console.log('[pulse-a] research', q);
+      console.log('[pulse-a] topic', q);
       const pack = await researchTopic(q);
-      if (!pack.hits.length && !pack.tools.length) {
-        console.warn('[pulse-a] no research hits');
-        continue;
-      }
+      // Research optional — AI can still write from the topic alone
       const ctx = packToContext(pack);
       const seedTitle = pack.hits[0]?.title || q;
       const ai = await rewriteWithAi(ctx, seedTitle);
       if (!ai) {
-        console.warn('[pulse-a] AI failed for this query');
+        console.warn('[pulse-a] AI failed for topic');
         continue;
       }
 
-      // Reject residual template-looking AI output
       if (
         /smallest proof action in 48 hours/i.test(ai.contentHtml) ||
         /kill switch if results stay flat/i.test(ai.contentHtml)
       ) {
-        console.warn('[pulse-a] rejected template-like AI output');
+        console.warn('[pulse-a] rejected template-like output');
         continue;
       }
 
@@ -246,7 +228,7 @@ async function publishOneFromResearch(titles: Set<string>): Promise<boolean> {
 }
 
 async function main() {
-  console.log('[pulse-a] AI-only mode · 1 post/run · no template fallback');
+  console.log('[pulse-a] AI-only · 1 post/run');
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
@@ -255,12 +237,12 @@ async function main() {
   await purgeTemplateArticles();
 
   const titles = await loadTitles();
-  console.log('[pulse-a] titles remaining after purge', titles.size);
+  console.log('[pulse-a] existing titles', titles.size);
 
   const ok = await publishOneFromResearch(titles);
   console.log('[pulse-a] done published', ok ? 1 : 0);
   if (!ok) {
-    console.error('[pulse-a] ZERO published — AI/research failed (no silent template fill)');
+    console.error('[pulse-a] ZERO published — need working CF AI and/or OPENROUTER_API_KEY');
     process.exit(2);
   }
 }
