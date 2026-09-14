@@ -11,17 +11,24 @@ const { slug } = Astro.params;
 const db = Astro.locals.runtime?.env?.DB;
 let article: any = null;
 try {
-  article = (slug && db) ? await getArticleBySlug(db, slug) : null;
+  article = slug && db ? await getArticleBySlug(db, slug) : null;
   if (article && db) await bumpViews(db, article.id);
 } catch (e) {
   console.error('[article]', e);
 }
 if (!article) return Astro.redirect('/');
 const cover = coverFor(article);
-const team = article.author_team || teamFor(article.category, article.title);
+const team = article.author_team || teamFor(article.category, article.title) || 'LaneCash Desk';
 const origin = Astro.url.origin;
 const pageUrl = `${origin}/article/${article.slug}`;
 const shareText = `${article.title} — via LaneCash`;
+// Never show internal pipeline labels on the public page
+const rawSource = String(article.source_name || '');
+const showSource =
+  article.source_url &&
+  rawSource &&
+  !/ai|openrouter|cloudflare|model|research\s*\(/i.test(rawSource);
+const sourceLabel = showSource ? rawSource : 'LaneCash';
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
@@ -45,7 +52,7 @@ const jsonLd = {
   jsonLd={jsonLd}
 >
   <a class="chip" href="/" style="margin:8px 0 12px;display:inline-flex">← Back</a>
-  <img class="article-cover" src={cover} alt={article.title} />
+  <img class="article-cover" src={cover} alt="" />
   <div class="article-head">
     <span class={`pill ${article.category}`}>{article.category}</span>
     <h1>{article.title}</h1>
@@ -57,11 +64,12 @@ const jsonLd = {
         <span id="saveLabel">Save</span>
       </button>
     </div>
-    {article.source_url && (
+    {article.source_url && showSource ? (
       <a class="source-pill" href={article.source_url} target="_blank" rel="noopener noreferrer">
-        Source: {article.source_name || 'Original'}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:4px"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
+        Source: {sourceLabel}
       </a>
+    ) : (
+      <span class="source-pill" style="opacity:.85">Source: LaneCash</span>
     )}
   </div>
 
@@ -118,41 +126,30 @@ const jsonLd = {
 
     const text = encodeURIComponent(shareText);
     const url = encodeURIComponent(pageUrl);
-    const wa = 'https://wa.me/?text=' + text + '%20' + url;
-    const tg = 'https://t.me/share/url?url=' + url + '&text=' + text;
-    const x = 'https://twitter.com/intent/tweet?text=' + text + '&url=' + url;
-    const fb = 'https://www.facebook.com/sharer/sharer.php?u=' + url;
-
-    function setHref(id, href) {
-      const el = document.getElementById(id);
+    const map = [
+      ['shareWa', 'shareWa2', `https://wa.me/?text=${text}%20${url}`],
+      ['shareTg', 'shareTg2', `https://t.me/share/url?url=${url}&text=${text}`],
+      ['shareX', 'shareX2', `https://twitter.com/intent/tweet?text=${text}&url=${url}`],
+      ['shareFb', null, `https://www.facebook.com/sharer/sharer.php?u=${url}`],
+    ];
+    map.forEach(([a, b, href]) => {
+      const el = document.getElementById(a);
       if (el) el.setAttribute('href', href);
-    }
-    setHref('shareWa', wa); setHref('shareWa2', wa);
-    setHref('shareTg', tg); setHref('shareTg2', tg);
-    setHref('shareX', x); setHref('shareX2', x);
-    setHref('shareFb', fb);
-
-    async function copyLink() {
-      try {
-        await navigator.clipboard.writeText(pageUrl);
-        window.LC.toast('Link copied');
-      } catch (e) {
-        window.LC.toast('Copy failed');
+      if (b) {
+        const el2 = document.getElementById(b);
+        if (el2) el2.setAttribute('href', href);
       }
-      window.LC.track(path, 'share_copy');
+    });
+    function copy() {
+      navigator.clipboard?.writeText(pageUrl).then(() => window.LC.toast('Link copied'));
     }
-    document.getElementById('shareCopy')?.addEventListener('click', copyLink);
-    document.getElementById('shareCopy2')?.addEventListener('click', copyLink);
-
+    document.getElementById('shareCopy')?.addEventListener('click', copy);
+    document.getElementById('shareCopy2')?.addEventListener('click', copy);
     document.getElementById('shareNative')?.addEventListener('click', async () => {
-      if (navigator.share) {
-        try {
-          await navigator.share({ title, text: shareText, url: pageUrl });
-          window.LC.track(path, 'share_native');
-        } catch (e) {}
-      } else {
-        copyLink();
-      }
+      try {
+        if (navigator.share) await navigator.share({ title, text: shareText, url: pageUrl });
+        else copy();
+      } catch {}
     });
   </script>
 </Base>

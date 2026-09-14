@@ -1,9 +1,10 @@
 /**
  * pulse-a — research (best effort) → rewrite → publish 1 post.
- * Public source label is always "LaneCash" (no AI/tech wording on site).
+ * Public source label: LaneCash only (no model names on site).
  */
 import { pickQueries, researchTopic, packToContext } from './research';
 import { rewriteWithAi } from './ai';
+import { markdownToHtml } from './format';
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
@@ -26,7 +27,7 @@ interface ArticleDraft {
 let HAS_AUTHOR_TEAM = true;
 
 const DISCLAIMER_HTML =
-  '<h2>Disclaimer</h2><p>This guide is <strong>educational only</strong>. It is <strong>not financial, investment, tax, or legal advice</strong>. Nothing here promises income or returns. Verify tools yourself and never risk money you cannot afford to lose.</p>';
+  '<h2>Disclaimer</h2><p>This guide is <strong>educational only</strong>. It is <strong>not financial, investment, tax, or legal advice</strong>. Nothing here promises income or returns.</p>';
 
 function slugify(t: string) {
   return t
@@ -38,14 +39,14 @@ function slugify(t: string) {
     .slice(0, 80);
 }
 
-function injectLinks(content: string) {
+function polishContent(content: string) {
+  let out = markdownToHtml(content);
   const links: Record<string, string> = {
     CapCut: 'https://www.capcut.com/',
     Canva: 'https://www.canva.com/',
     Fiverr: 'https://www.fiverr.com/',
     Upwork: 'https://www.upwork.com/',
   };
-  let out = content;
   for (const [name, url] of Object.entries(links)) {
     if (out.includes(url)) continue;
     out = out.replace(
@@ -106,14 +107,14 @@ async function ensureSchema() {
   console.log('[pulse-a] HAS_AUTHOR_TEAM', HAS_AUTHOR_TEAM);
 }
 
-async function purgeBadFormatArticles() {
-  // Remove posts that still show raw markdown markers in content
-  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%**Step%']);
+async function purgeBadFormatting() {
+  // Remove posts that still show raw markdown walls
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%**Step %']);
   await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%## %']);
-  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Educational AI+%']);
-  await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%AI+research%']);
-  await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%AI+%']);
-  console.log('[pulse-a] purged markdown / AI-labeled posts');
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Unlock your Creativity%']);
+  await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%AI%']);
+  await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%research%']);
+  console.log('[pulse-a] cleared poorly formatted / labeled posts');
 }
 
 async function loadTitles(): Promise<Set<string>> {
@@ -145,9 +146,9 @@ async function publish(draft: ArticleDraft) {
         draft.category,
         draft.image_url || null,
         draft.reading_minutes,
+        draft.author_team || 'LaneCash Desk',
         'LaneCash',
-        'LaneCash',
-        null,
+        draft.source_url || null,
       ]
     );
     if (data) {
@@ -182,28 +183,28 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
       if (!ai) continue;
 
       if (/\*\*Step/i.test(ai.contentHtml) || /^##\s/m.test(ai.contentHtml)) {
-        // safety: re-run through converter already in parse; if still bad, skip
-        console.warn('[pulse-a] still has markdown markers after convert, skip');
-        continue;
+        ai.contentHtml = polishContent(ai.contentHtml);
       }
 
-      if ((await exists(ai.title)) || titles.has(ai.title)) {
-        ai.title = `${ai.title} (${new Date().toISOString().slice(0, 10)})`;
-        if (await exists(ai.title)) continue;
+      let title = ai.title.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim();
+      if ((await exists(title)) || titles.has(title)) {
+        title = `${title} (${new Date().toISOString().slice(0, 10)})`;
+        if (await exists(title)) continue;
       }
 
       const ok = await publish({
-        title: ai.title,
-        summary: ai.summary,
-        content: injectLinks(ai.contentHtml),
+        title,
+        summary: ai.summary.replace(/\*\*/g, '').trim(),
+        content: polishContent(ai.contentHtml),
         category: ai.category,
         reading_minutes: 8,
-        author_team: 'LaneCash',
+        author_team: 'LaneCash Desk',
         source_name: 'LaneCash',
-        image_url: coverForTitle(ai.title, ai.category),
+        source_url: pack.hits[0]?.url || null,
+        image_url: coverForTitle(title, ai.category),
       });
       if (ok) {
-        titles.add(ai.title);
+        titles.add(title);
         return true;
       }
     } catch (e) {
@@ -214,13 +215,13 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
 }
 
 async function main() {
-  console.log('[pulse-a] 1 post/run · source label LaneCash');
+  console.log('[pulse-a] 1 post/run · public source=LaneCash');
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
   }
   await ensureSchema();
-  await purgeBadFormatArticles();
+  await purgeBadFormatting();
 
   const titles = await loadTitles();
   console.log('[pulse-a] existing titles', titles.size);
