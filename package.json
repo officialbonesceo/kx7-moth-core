@@ -6,7 +6,8 @@
   "scripts": {
     "pulse-a": "tsx ops/pulse-a/run.ts",
     "pulse-b": "tsx ops/pulse-b/run.ts",
-    "seed30": "tsx ops/seed/run.ts"
+    "seed30": "tsx ops/seed/run.ts",
+    "wipe-seed": "tsx ops/seed/wipe.ts"
   },
   "dependencies": {
     "tsx": "^4.19.0"
