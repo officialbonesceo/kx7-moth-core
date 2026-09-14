@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import SocialBar from '../../components/SocialBar.astro';
+import AdSlot from '../../components/AdSlot.astro';
 import { getArticleBySlug, bumpViews } from '../../lib/db';
 import { coverFor } from '../../lib/images';
 import { teamFor } from '../../lib/socials';
@@ -22,7 +23,6 @@ const team = article.author_team || teamFor(article.category, article.title) || 
 const origin = Astro.url.origin;
 const pageUrl = `${origin}/article/${article.slug}`;
 const shareText = `${article.title} — via LaneCash`;
-// Never show internal pipeline labels on the public page
 const rawSource = String(article.source_name || '');
 const showSource =
   article.source_url &&
@@ -85,7 +85,11 @@ const jsonLd = {
     </div>
   </div>
 
+  <AdSlot />
+
   <article class="prose" set:html={article.content} />
+
+  <AdSlot />
 
   <div class="share-bar" aria-label="Share again">
     <div class="share-title">Found this useful? Share it</div>
