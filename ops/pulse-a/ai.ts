@@ -1,8 +1,8 @@
 /**
  * AI rewrite layer:
- * 1) Cloudflare Workers AI (free-tier models, discovered dynamically when possible)
- * 2) OpenRouter (cheap/free models discovered from /api/v1/models)
+ * Cloudflare Workers AI first, OpenRouter fallback with model discovery.
  * Continues from partial text if a provider fails mid-way.
+ * All output is educational only — never financial advice.
  */
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
@@ -17,6 +17,16 @@ export type AiDraft = {
   author_team: string;
   model: string;
 };
+
+const SYSTEM = `You write practical educational guides about online skills, safety, and money habits.
+Rules you MUST follow:
+- This is NOT financial advice, investment advice, or a promise of income.
+- Never guarantee earnings, ROI, daily profit, or "easy money".
+- Prefer small experiments, checklists, and risk warnings.
+- If research mentions tools, present them as optional examples the reader should verify themselves.
+- Output only HTML fragments using h2, p, ul, ol, li, a — no scripts.
+- Write clearly for beginners; build confidence through small proof steps, not hype.
+- Always include a short disclaimer line in the final checklist: educational only, not financial advice.`;
 
 const CF_MODEL_CANDIDATES = [
   '@cf/meta/llama-3.1-8b-instruct',
@@ -71,7 +81,6 @@ async function listOpenRouterModels(): Promise<string[]> {
 }
 
 async function listCloudflareModels(): Promise<string[]> {
-  // CF does not always expose a public model list with this token; try then fall back to candidates
   try {
     const r = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/models/search`,
@@ -84,7 +93,7 @@ async function listCloudflareModels(): Promise<string[]> {
       const j = await r.json();
       const names = (j.result || [])
         .map((m: any) => m.name || m.id)
-        .filter((n: string) => n && n.startsWith('@cf/'))
+        .filter((n: string) => n && String(n).startsWith('@cf/'))
         .slice(0, 10);
       if (names.length) {
         console.log('[ai] cloudflare models discovered', names.slice(0, 4).join(', '));
@@ -108,11 +117,7 @@ async function cfRun(model: string, prompt: string, maxTokens = 1200): Promise<s
         },
         body: JSON.stringify({
           messages: [
-            {
-              role: 'system',
-              content:
-                'You write practical beginner money guides. Educational only, not financial advice. No guaranteed income claims. Output valid HTML fragments using h2,p,ul,ol,li,a only.',
-            },
+            { role: 'system', content: SYSTEM },
             { role: 'user', content: prompt },
           ],
           max_tokens: maxTokens,
@@ -152,11 +157,7 @@ async function openRouterRun(model: string, prompt: string, maxTokens = 1200): P
       body: JSON.stringify({
         model,
         messages: [
-          {
-            role: 'system',
-            content:
-              'You write practical beginner money guides. Educational only. No guaranteed returns. HTML with h2,p,ul,ol,li,a only.',
-          },
+          { role: 'system', content: SYSTEM },
           { role: 'user', content: prompt },
         ],
         max_tokens: maxTokens,
@@ -178,33 +179,36 @@ async function openRouterRun(model: string, prompt: string, maxTokens = 1200): P
 
 function buildPrompt(context: string, partial?: string) {
   if (partial && partial.trim().length > 80) {
-    return `Continue this beginner guide from where it stopped. Keep the same structure. Do not repeat finished sections.
+    return `Continue this beginner educational guide from where it stopped. Keep the same structure. Do not repeat finished sections.
+Remember: NOT financial advice; no income guarantees.
 
 Partial article so far:
 ${partial.slice(0, 6000)}
 
-Research context (use carefully, do not invent fees or guarantees):
+Research context (use carefully; tools are optional examples to verify):
 ${context.slice(0, 3500)}
 
 Continue with remaining sections in HTML only.`;
   }
-  return `Using the research notes, write a COMPLETE beginner guide.
+  return `Using the research notes, write ONE complete beginner educational guide.
 
-Requirements:
+Hard rules:
+- NOT financial advice and not a promise of income
+- No guaranteed earnings, ROI, or "get rich" language
+- Build confidence with small, realistic practice steps
+
+Output format:
 - Title line first: TITLE: ...
-- Summary line: SUMMARY: ... (1-2 sentences)
+- Summary line: SUMMARY: ... (1-2 sentences, educational tone)
 - Category line: CATEGORY: money|opportunities|scams|guides
-- Then HTML body with sections:
+- Then HTML body with:
   1) Start here (basics)
   2) Beginner tips
   3) Step-by-step for this week
-  4) Free/cheap tools that may help (with links from research if present)
+  4) Free/cheap tools that may help (from research; reader must verify)
   5) Risks and scam warnings
   6) What good looks like in 7 and 30 days
-  7) Final checklist
-- Encourage confidence through small proof actions, not hype
-- Never promise income, ROI, or "easy money"
-- Mention CapCut/Canva only if relevant
+  7) Final checklist including: This is educational only — not financial advice.
 
 Research notes:
 ${context.slice(0, 5000)}`;
@@ -225,12 +229,19 @@ function parseAiOutput(raw: string, fallbackTitle: string): AiDraft {
       .map((p) => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
       .join('\n');
   }
-  // sanitize rough
   body = body.replace(/<script[\s\S]*?<\/script>/gi, '');
+  if (!/not financial advice/i.test(body)) {
+    body +=
+      '\n<h2>Disclaimer</h2>\n<p>This guide is educational only. It is not financial, investment, or legal advice. Results vary; never risk money you cannot afford to lose.</p>';
+  }
   const category = (catMatch?.[1]?.toLowerCase() || 'guides') as AiDraft['category'];
   const title = (titleMatch?.[1] || fallbackTitle).trim().slice(0, 140);
-  const summary =
-    (summaryMatch?.[1] || 'A practical beginner guide with steps, tools, and safety notes.').trim().slice(0, 280);
+  const summary = (
+    summaryMatch?.[1] ||
+    'Educational beginner guide with steps, optional tools, and safety notes — not financial advice.'
+  )
+    .trim()
+    .slice(0, 280);
   return {
     title,
     summary,
@@ -248,7 +259,6 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
   let partial = '';
   let usedModel = '';
 
-  // Phase 1: Cloudflare AI
   for (const model of cfModels) {
     const prompt = buildPrompt(context, partial || undefined);
     console.log('[ai] trying CF', model, partial ? '(continue)' : '(fresh)');
@@ -256,11 +266,9 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
     if (!out) continue;
     partial = partial ? `${partial}\n${out}` : out;
     usedModel = `cf:${model}`;
-    // If we have TITLE + enough HTML, stop
     if (/TITLE:/i.test(partial) && partial.length > 900) break;
   }
 
-  // Phase 2: OpenRouter continues or starts
   if (partial.length < 600 || !/TITLE:/i.test(partial)) {
     for (const model of orModels.slice(0, 6)) {
       const prompt = buildPrompt(context, partial || undefined);

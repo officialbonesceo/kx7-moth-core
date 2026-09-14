@@ -1,6 +1,6 @@
 /**
- * pulse-a — research (DDG/Wiki) → AI rewrite (CF then OpenRouter) → D1
- * Loud logs. Template catalog is fallback only when AI fails.
+ * pulse-a — 1 researched+AI post per run (templates only if AI fails).
+ * Educational content only — not financial advice.
  */
 import { allTopicBodies } from './topics';
 import { expandItem, pickBatch, CATALOG } from './catalog';
@@ -10,7 +10,7 @@ import { rewriteWithAi } from './ai';
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
 const CF_D1_DATABASE_ID = process.env.CF_D1_DATABASE_ID || '';
-const BATCH = Math.min(5, Math.max(1, Number(process.env.PULSE_BATCH || 5)));
+const BATCH = 1; // always one post per run
 
 type Category = 'money' | 'opportunities' | 'scams' | 'guides';
 
@@ -27,6 +27,9 @@ interface ArticleDraft {
 }
 
 let HAS_AUTHOR_TEAM = true;
+
+const DISCLAIMER_HTML =
+  '<h2>Disclaimer</h2><p>This guide is <strong>educational only</strong>. It is <strong>not financial, investment, tax, or legal advice</strong>. Nothing here promises income or returns. Verify tools yourself and never risk money you cannot afford to lose.</p>';
 
 function slugify(t: string) {
   return t
@@ -48,8 +51,12 @@ function injectLinks(content: string) {
   let out = content;
   for (const [name, url] of Object.entries(links)) {
     if (out.includes(url)) continue;
-    out = out.replace(new RegExp(`\\b(${name})\\b`, 'g'), `<a href="${url}" target="_blank" rel="noopener noreferrer">$1</a>`);
+    out = out.replace(
+      new RegExp(`\\b(${name})\\b`, 'g'),
+      `<a href="${url}" target="_blank" rel="noopener noreferrer">$1</a>`
+    );
   }
+  if (!/not financial advice/i.test(out)) out += DISCLAIMER_HTML;
   return out;
 }
 
@@ -156,32 +163,26 @@ async function publish(draft: ArticleDraft) {
   return true;
 }
 
-async function publishFromResearch(titles: Set<string>): Promise<number> {
-  const queries = pickQueries(BATCH);
-  console.log('[pulse-a] research queries', queries.length);
-  let published = 0;
-
+async function publishOneFromResearch(titles: Set<string>): Promise<boolean> {
+  const queries = pickQueries(3); // try up to 3 queries until one publishes
   for (const q of queries) {
     try {
+      console.log('[pulse-a] research', q);
       const pack = await researchTopic(q);
       if (!pack.hits.length && !pack.tools.length) {
-        console.warn('[pulse-a] no research hits for', q);
+        console.warn('[pulse-a] no hits');
         continue;
       }
       const ctx = packToContext(pack);
       const seedTitle = pack.hits[0]?.title || q;
       const ai = await rewriteWithAi(ctx, seedTitle);
       if (!ai) {
-        console.warn('[pulse-a] AI failed for query, skipping (no silent fake article)');
+        console.warn('[pulse-a] AI failed for query');
         continue;
       }
-      if (await exists(ai.title) || titles.has(ai.title)) {
-        // force uniqueness
+      if ((await exists(ai.title)) || titles.has(ai.title)) {
         ai.title = `${ai.title} (${new Date().toISOString().slice(0, 10)})`;
-        if (await exists(ai.title)) {
-          console.log('[pulse-a] skip duplicate', ai.title);
-          continue;
-        }
+        if (await exists(ai.title)) continue;
       }
       const ok = await publish({
         title: ai.title,
@@ -190,23 +191,22 @@ async function publishFromResearch(titles: Set<string>): Promise<number> {
         category: ai.category,
         reading_minutes: 10,
         author_team: ai.author_team,
-        source_name: `AI+research (${ai.model})`,
+        source_name: `Educational AI+research (${ai.model})`,
         source_url: pack.hits[0]?.url || null,
         image_url: coverForTitle(ai.title, ai.category),
       });
       if (ok) {
-        published++;
         titles.add(ai.title);
+        return true;
       }
     } catch (e) {
-      console.error('[pulse-a] research/ai item error', e);
+      console.error('[pulse-a] item error', e);
     }
   }
-  return published;
+  return false;
 }
 
-async function publishTemplates(titles: Set<string>): Promise<number> {
-  let published = 0;
+async function publishOneTemplate(titles: Set<string>): Promise<boolean> {
   for (const body of allTopicBodies()) {
     if (titles.has(body.title) || (await exists(body.title))) continue;
     const ok = await publish({
@@ -219,12 +219,9 @@ async function publishTemplates(titles: Set<string>): Promise<number> {
       source_name: 'LaneCash Desk',
       image_url: coverForTitle(body.title, body.category),
     });
-    if (ok) {
-      published++;
-      titles.add(body.title);
-    }
+    if (ok) return true;
   }
-  const batch = pickBatch(Math.max(0, BATCH - published), titles);
+  const batch = pickBatch(1, titles);
   for (const item of batch) {
     if (await exists(item.title)) continue;
     const exp = expandItem(item);
@@ -238,35 +235,30 @@ async function publishTemplates(titles: Set<string>): Promise<number> {
       source_name: 'LaneCash Desk',
       image_url: coverForTitle(exp.title, exp.category),
     });
-    if (ok) {
-      published++;
-      titles.add(item.title);
-    }
+    if (ok) return true;
   }
-  return published;
+  console.log('[pulse-a] catalog size', CATALOG.length);
+  return false;
 }
 
 async function main() {
-  console.log('[pulse-a] start batch', BATCH, 'mode=research+ai');
+  console.log('[pulse-a] start 1 post/run · educational only (not financial advice)');
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
   }
   await ensureSchema();
-
   const titles = await loadTitles();
   console.log('[pulse-a] existing titles', titles.size);
 
-  let published = await publishFromResearch(titles);
-  console.log('[pulse-a] from research+ai', published);
-
-  if (published < 1) {
-    console.warn('[pulse-a] AI path produced 0 — falling back to local templates');
-    published += await publishTemplates(titles);
+  let ok = await publishOneFromResearch(titles);
+  if (!ok) {
+    console.warn('[pulse-a] AI path produced 0 — template fallback');
+    ok = await publishOneTemplate(titles);
   }
 
-  console.log('[pulse-a] done published', published);
-  if (published === 0) {
+  console.log('[pulse-a] done published', ok ? 1 : 0);
+  if (!ok) {
     console.error('[pulse-a] ZERO published');
     process.exit(2);
   }
