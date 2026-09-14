@@ -1,6 +1,6 @@
 /**
- * pulse-a — AI-only: research (best effort) → AI rewrite → publish 1 post.
- * No template catalog. If AI fails → exit 2.
+ * pulse-a — research (best effort) → rewrite → publish 1 post.
+ * Public source label is always "LaneCash" (no AI/tech wording on site).
  */
 import { pickQueries, researchTopic, packToContext } from './research';
 import { rewriteWithAi } from './ai';
@@ -61,7 +61,7 @@ function coverForTitle(title: string, category: string) {
   const t = `${title} ${category}`.toLowerCase();
   if (category === 'scams' || /scam|fraud|phish|telegram/.test(t)) return '/covers/scams.svg';
   if (/crypto|usdt|bitcoin|airdrop|wallet|p2p|token/.test(t)) return '/covers/crypto.svg';
-  if (/hustle|freelance|content|youtube|tiktok|affiliate|drop|creator|skill|algorithm|shorts|reels/.test(t))
+  if (/hustle|freelance|content|youtube|tiktok|affiliate|drop|creator|skill|algorithm|shorts|reels|digital product/.test(t))
     return '/covers/hustle.svg';
   if (category === 'money' || /budget|fee|naira|payment|price/.test(t)) return '/covers/money.svg';
   return '/covers/fallback.svg';
@@ -106,21 +106,14 @@ async function ensureSchema() {
   console.log('[pulse-a] HAS_AUTHOR_TEAM', HAS_AUTHOR_TEAM);
 }
 
-/** Safe purge: only known template phrases (simple LIKE, one % pattern each) */
-async function purgeTemplateArticles() {
-  console.log('[pulse-a] purging old template articles…');
-  const phrases = [
-    '%smallest proof action in 48 hours%',
-    '%kill switch if results stay flat%',
-    '%Write a test budget before you start%',
-    '%guaranteed-return apps, fake airdrop%',
-  ];
-  for (const p of phrases) {
-    await d1(`DELETE FROM articles WHERE content LIKE ?`, [p]);
-  }
-  // Desk templates without AI marker
-  await d1(`DELETE FROM articles WHERE source_name = ?`, ['LaneCash Desk']);
-  console.log('[pulse-a] purge done');
+async function purgeBadFormatArticles() {
+  // Remove posts that still show raw markdown markers in content
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%**Step%']);
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%## %']);
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Educational AI+%']);
+  await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%AI+research%']);
+  await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%AI+%']);
+  console.log('[pulse-a] purged markdown / AI-labeled posts');
 }
 
 async function loadTitles(): Promise<Set<string>> {
@@ -152,9 +145,9 @@ async function publish(draft: ArticleDraft) {
         draft.category,
         draft.image_url || null,
         draft.reading_minutes,
-        draft.author_team || 'LaneCash Desk',
-        draft.source_name || 'Educational AI+research',
-        draft.source_url || null,
+        'LaneCash',
+        'LaneCash',
+        null,
       ]
     );
     if (data) {
@@ -177,26 +170,20 @@ async function publish(draft: ArticleDraft) {
   return true;
 }
 
-async function publishOneFromResearch(titles: Set<string>): Promise<boolean> {
+async function publishOne(titles: Set<string>): Promise<boolean> {
   const queries = pickQueries(5);
   for (const q of queries) {
     try {
       console.log('[pulse-a] topic', q);
       const pack = await researchTopic(q);
-      // Research optional — AI can still write from the topic alone
       const ctx = packToContext(pack);
       const seedTitle = pack.hits[0]?.title || q;
       const ai = await rewriteWithAi(ctx, seedTitle);
-      if (!ai) {
-        console.warn('[pulse-a] AI failed for topic');
-        continue;
-      }
+      if (!ai) continue;
 
-      if (
-        /smallest proof action in 48 hours/i.test(ai.contentHtml) ||
-        /kill switch if results stay flat/i.test(ai.contentHtml)
-      ) {
-        console.warn('[pulse-a] rejected template-like output');
+      if (/\*\*Step/i.test(ai.contentHtml) || /^##\s/m.test(ai.contentHtml)) {
+        // safety: re-run through converter already in parse; if still bad, skip
+        console.warn('[pulse-a] still has markdown markers after convert, skip');
         continue;
       }
 
@@ -210,10 +197,9 @@ async function publishOneFromResearch(titles: Set<string>): Promise<boolean> {
         summary: ai.summary,
         content: injectLinks(ai.contentHtml),
         category: ai.category,
-        reading_minutes: 10,
-        author_team: ai.author_team,
-        source_name: `Educational AI+research (${ai.model})`,
-        source_url: pack.hits[0]?.url || null,
+        reading_minutes: 8,
+        author_team: 'LaneCash',
+        source_name: 'LaneCash',
         image_url: coverForTitle(ai.title, ai.category),
       });
       if (ok) {
@@ -228,21 +214,21 @@ async function publishOneFromResearch(titles: Set<string>): Promise<boolean> {
 }
 
 async function main() {
-  console.log('[pulse-a] AI-only · 1 post/run');
+  console.log('[pulse-a] 1 post/run · source label LaneCash');
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
   }
   await ensureSchema();
-  await purgeTemplateArticles();
+  await purgeBadFormatArticles();
 
   const titles = await loadTitles();
   console.log('[pulse-a] existing titles', titles.size);
 
-  const ok = await publishOneFromResearch(titles);
+  const ok = await publishOne(titles);
   console.log('[pulse-a] done published', ok ? 1 : 0);
   if (!ok) {
-    console.error('[pulse-a] ZERO published — need working CF AI and/or OPENROUTER_API_KEY');
+    console.error('[pulse-a] ZERO published');
     process.exit(2);
   }
 }

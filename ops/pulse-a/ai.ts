@@ -1,6 +1,6 @@
 /**
- * AI rewrite: Cloudflare first, OpenRouter fallback, continue mid-fail.
- * Must stay ON-TOPIC for the research query. No generic checklist paste.
+ * AI rewrite: Cloudflare first, OpenRouter fallback.
+ * Always normalize output to clean HTML (models often return markdown).
  */
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
@@ -16,14 +16,14 @@ export type AiDraft = {
   model: string;
 };
 
-const SYSTEM = `You write practical educational guides.
+const SYSTEM = `You write practical educational guides for beginners.
 Rules:
 - NOT financial, investment, or income-guarantee advice.
-- Stay strictly on the topic of the research query. If the topic is YouTube algorithm, write only about YouTube packaging, retention, posting — do NOT paste unrelated crypto, airdrop, or deposit-scam checklists.
-- Every section must clearly connect to the topic.
-- No boilerplate that could apply to any article unchanged.
-- HTML only: h2, p, ul, ol, li, a.
-- Build beginner confidence with specific, topic-relevant steps.`;
+- Stay strictly on the assigned topic.
+- Output TITLE, SUMMARY, CATEGORY lines first, then the body.
+- Body must use HTML tags only: h2, h3, p, ul, ol, li, strong, em, a.
+- Do NOT use markdown (# ## ** -). Do NOT mention AI, models, ChatGPT, Cloudflare, or how the article was written.
+- Sound like a clear human editor at LaneCash.`;
 
 const CF_MODEL_CANDIDATES = [
   '@cf/meta/llama-3.1-8b-instruct',
@@ -78,7 +78,7 @@ async function listCloudflareModels(): Promise<string[]> {
   return CF_MODEL_CANDIDATES;
 }
 
-async function cfRun(model: string, prompt: string, maxTokens = 1200): Promise<string | null> {
+async function cfRun(model: string, prompt: string, maxTokens = 1400): Promise<string | null> {
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN) return null;
   try {
     const r = await fetch(
@@ -114,7 +114,7 @@ async function cfRun(model: string, prompt: string, maxTokens = 1200): Promise<s
   }
 }
 
-async function openRouterRun(model: string, prompt: string, maxTokens = 1200): Promise<string | null> {
+async function openRouterRun(model: string, prompt: string, maxTokens = 1400): Promise<string | null> {
   if (!OPENROUTER_API_KEY) return null;
   try {
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -123,7 +123,7 @@ async function openRouterRun(model: string, prompt: string, maxTokens = 1200): P
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://github.com/officialbonesceo/kx7-moth-core',
-        'X-Title': 'LaneCash pulse',
+        'X-Title': 'LaneCash',
       },
       body: JSON.stringify({
         model,
@@ -150,62 +150,172 @@ async function openRouterRun(model: string, prompt: string, maxTokens = 1200): P
 
 function buildPrompt(context: string, partial?: string) {
   if (partial && partial.trim().length > 80) {
-    return `Continue this ON-TOPIC educational guide. Do not change subject. No generic money-scam boilerplate unless the topic is scams.
+    return `Continue this educational guide in HTML only (h2,p,ul,ol,li). No markdown. Stay on topic.
 
 Partial so far:
 ${partial.slice(0, 6000)}
 
-Research:
-${context.slice(0, 3500)}
-
-Continue in HTML only.`;
+Context:
+${context.slice(0, 3000)}`;
   }
-  return `Write ONE complete beginner educational guide that matches the research topic exactly.
+  return `Write one complete beginner educational guide.
 
-Hard rules:
-- On-topic only (e.g. YouTube guide = YouTube steps, not crypto deposits)
-- NOT financial advice; no guaranteed income
-- Specific steps for THIS topic
+Required header lines:
+TITLE: clear specific title
+SUMMARY: 1-2 sentences
+CATEGORY: money OR opportunities OR scams OR guides
 
-Format:
-TITLE: ...
-SUMMARY: ...
-CATEGORY: money|opportunities|scams|guides
-Then HTML sections relevant to the topic, including a short Disclaimer (educational only, not financial advice).
+Then body in HTML only, with sections such as:
+<h2>Start here</h2>
+<p>...</p>
+<h2>Step-by-step</h2>
+<ol><li>...</li></ol>
+<h2>Common mistakes</h2>
+<ul><li>...</li></ul>
+<h2>Disclaimer</h2>
+<p>Educational only — not financial advice.</p>
 
-Research notes:
+No markdown. No mention of AI or tools used to write this.
+
+Topic context:
 ${context.slice(0, 5000)}`;
 }
 
+/** Convert common markdown leftovers into HTML */
+export function markdownToHtml(input: string): string {
+  let s = input.replace(/\r\n/g, '\n').trim();
+
+  // Remove accidental code fences
+  s = s.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '');
+
+  // Headings
+  s = s.replace(/^######\s+(.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^#####\s+(.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^####\s+(.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^###\s+(.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^#\s+(.+)$/gm, '<h2>$1</h2>');
+
+  // Bold / italic
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  s = s.replace(/(?<![\w*])\*([^*]+)\*(?![\w*])/g, '<em>$1</em>');
+
+  // Links [text](url)
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // Numbered steps on one line: **Step 1: ...** -
+  s = s.replace(/\*\*Step\s+(\d+):\s*([^*]+)\*\*/gi, '<h3>Step $1: $2</h3>');
+
+  // Lists: group consecutive - or * or 1. lines
+  const lines = s.split('\n');
+  const out: string[] = [];
+  let listBuf: string[] = [];
+  let listType: 'ul' | 'ol' | null = null;
+
+  function flushList() {
+    if (!listBuf.length || !listType) return;
+    out.push(`<${listType}>${listBuf.map((li) => `<li>${li}</li>`).join('')}</${listType}>`);
+    listBuf = [];
+    listType = null;
+  }
+
+  for (const line of lines) {
+    const ul = line.match(/^\s*[-*•]\s+(.+)$/);
+    const ol = line.match(/^\s*\d+[.)]\s+(.+)$/);
+    if (ul) {
+      if (listType && listType !== 'ul') flushList();
+      listType = 'ul';
+      listBuf.push(ul[1]);
+      continue;
+    }
+    if (ol) {
+      if (listType && listType !== 'ol') flushList();
+      listType = 'ol';
+      listBuf.push(ol[1]);
+      continue;
+    }
+    flushList();
+    out.push(line);
+  }
+  flushList();
+  s = out.join('\n');
+
+  // Paragraphs for remaining plain blocks
+  if (!/<p[\s>]/i.test(s) || (s.match(/<p[\s>]/gi) || []).length < 2) {
+    const chunks = s.split(/\n\n+/);
+    s = chunks
+      .map((chunk) => {
+        const t = chunk.trim();
+        if (!t) return '';
+        if (/^<(h[1-6]|ul|ol|p|blockquote|div)\b/i.test(t)) return t;
+        // single line already tagged
+        if (/^<[^>]+>.*<\/[^>]+>$/s.test(t) && !t.includes('\n')) return t;
+        // lines that are already block tags
+        if (/<h[1-6][\s>]/i.test(t) || /<(ul|ol)[\s>]/i.test(t)) return t;
+        const withBreaks = t
+          .split('\n')
+          .map((ln) => ln.trim())
+          .filter(Boolean)
+          .join('<br/>');
+        return `<p>${withBreaks}</p>`;
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  // Strip leftover ** and ##
+  s = s.replace(/\*\*/g, '');
+  s = s.replace(/^#+\s*/gm, '');
+
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
+  return s.trim();
+}
+
 function parseAiOutput(raw: string, fallbackTitle: string): AiDraft {
-  const titleMatch = raw.match(/TITLE:\s*(.+)/i);
-  const summaryMatch = raw.match(/SUMMARY:\s*(.+)/i);
-  const catMatch = raw.match(/CATEGORY:\s*(money|opportunities|scams|guides)/i);
-  let body = raw
+  let text = raw.trim();
+
+  const titleMatch =
+    text.match(/TITLE:\s*(.+)/i) ||
+    text.match(/^##\s+(.+)$/m) ||
+    text.match(/^#\s+(.+)$/m);
+  const summaryMatch = text.match(/SUMMARY:\s*(.+)/i);
+  const catMatch = text.match(/CATEGORY:\s*(money|opportunities|scams|guides)/i);
+
+  let body = text
     .replace(/TITLE:\s*.+/i, '')
     .replace(/SUMMARY:\s*.+/i, '')
     .replace(/CATEGORY:\s*.+/i, '')
     .trim();
-  if (!/<[a-z][\s\S]*>/i.test(body)) {
-    body = body
-      .split(/\n\n+/)
-      .map((p) => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
-      .join('\n');
+
+  // Drop a duplicate H1/H2 if it matches title
+  if (titleMatch?.[1]) {
+    const esc = titleMatch[1].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    body = body.replace(new RegExp(`^#+\\s*${esc}\\s*`, 'i'), '').trim();
   }
-  body = body.replace(/<script[\s\S]*?<\/script>/gi, '');
+
+  body = markdownToHtml(body);
+
   if (!/not financial advice/i.test(body)) {
     body +=
       '\n<h2>Disclaimer</h2>\n<p>This guide is educational only. It is not financial, investment, or legal advice.</p>';
   }
+
+  let title = (titleMatch?.[1] || fallbackTitle).trim();
+  title = title.replace(/^#+\s*/, '').replace(/\*\*/g, '').slice(0, 140);
+
+  let summary = (summaryMatch?.[1] || 'Practical beginner guide from LaneCash — educational only, not financial advice.')
+    .trim()
+    .replace(/\*\*/g, '')
+    .slice(0, 280);
+
   return {
-    title: (titleMatch?.[1] || fallbackTitle).trim().slice(0, 140),
-    summary: (summaryMatch?.[1] || 'Educational beginner guide — not financial advice.')
-      .trim()
-      .slice(0, 280),
+    title,
+    summary,
     contentHtml: body,
     category: (catMatch?.[1]?.toLowerCase() || 'guides') as AiDraft['category'],
-    author_team: 'LaneCash Desk',
-    model: 'unknown',
+    author_team: 'LaneCash',
+    model: 'internal', // logs only — never shown on site
   };
 }
 
@@ -220,11 +330,11 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
     const out = await cfRun(model, buildPrompt(context, partial || undefined), partial ? 900 : 1400);
     if (!out) continue;
     partial = partial ? `${partial}\n${out}` : out;
-    usedModel = `cf:${model}`;
-    if (/TITLE:/i.test(partial) && partial.length > 900) break;
+    usedModel = model;
+    if (partial.length > 900) break;
   }
 
-  if (partial.length < 600 || !/TITLE:/i.test(partial)) {
+  if (partial.length < 500) {
     for (const model of orModels.slice(0, 6)) {
       console.log('[ai] trying OR', model, partial ? '(continue)' : '(fresh)');
       const out = await openRouterRun(
@@ -234,8 +344,8 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
       );
       if (!out) continue;
       partial = partial ? `${partial}\n${out}` : out;
-      usedModel = `or:${model}`;
-      if (/TITLE:/i.test(partial) && partial.length > 900) break;
+      usedModel = model;
+      if (partial.length > 900) break;
     }
   }
 
@@ -243,8 +353,9 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
     console.error('[ai] all models failed');
     return null;
   }
+
   const draft = parseAiOutput(partial, seedTitle);
   draft.model = usedModel || 'mixed';
-  console.log('[ai] draft ok', draft.title.slice(0, 60), draft.model);
+  console.log('[ai] draft ok', draft.title.slice(0, 60));
   return draft;
 }
