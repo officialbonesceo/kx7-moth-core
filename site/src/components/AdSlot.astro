@@ -1,0 +1,35 @@
+---
+/** Loads Monetag in-page script from /api/ads when admin has saved one */
+---
+<div id="lc-ad-inpage" class="lc-ad-slot" aria-hidden="true"></div>
+<script is:inline>
+(function () {
+  fetch('/api/ads')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var raw = (data && data.script) ? String(data.script).trim() : '';
+      if (!raw) return;
+      var host = document.getElementById('lc-ad-inpage');
+      if (!host) return;
+      // Monetag usually gives a <script src="..."> snippet — inject safely
+      var tmp = document.createElement('div');
+      tmp.innerHTML = raw;
+      var nodes = Array.prototype.slice.call(tmp.childNodes);
+      nodes.forEach(function (node) {
+        if (node.nodeName === 'SCRIPT') {
+          var s = document.createElement('script');
+          if (node.src) s.src = node.src;
+          if (node.textContent) s.text = node.textContent;
+          if (node.async) s.async = true;
+          host.appendChild(s);
+        } else {
+          host.appendChild(node.cloneNode(true));
+        }
+      });
+    })
+    .catch(function () {});
+})();
+</script>
+<style>
+  .lc-ad-slot { margin: 16px 0; min-height: 0; }
+</style>
