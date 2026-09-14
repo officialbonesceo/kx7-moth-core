@@ -1,6 +1,6 @@
 /**
- * pulse-a — up to 10 posts/run, basics-first catalog, stable SVG covers
- * Ensures D1 schema (author_team) before insert.
+ * pulse-a — publish up to BATCH new posts per run.
+ * Loud logs. No silent zero without explanation.
  */
 import { allTopicBodies } from './topics';
 import { expandItem, pickBatch, CATALOG } from './catalog';
@@ -65,7 +65,7 @@ function coverForTitle(title: string, category: string) {
   return '/covers/fallback.svg';
 }
 
-async function d1(sql: string, params: any[] = []) {
+async function d1(sql: string, params: any[] = [], quiet = false) {
   const res = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/d1/database/${CF_D1_DATABASE_ID}/query`,
     {
@@ -81,7 +81,8 @@ async function d1(sql: string, params: any[] = []) {
   } catch {
     parsed = null;
   }
-  // Cloudflare can return HTTP 200 with success:false inside, or HTTP 400
+  const errMsg = JSON.stringify(parsed?.errors || parsed?.result || text).slice(0, 300);
+  const duplicateCol = /duplicate column/i.test(errMsg);
   const ok =
     res.ok &&
     parsed &&
@@ -89,24 +90,19 @@ async function d1(sql: string, params: any[] = []) {
     !(Array.isArray(parsed.errors) && parsed.errors.length) &&
     !(Array.isArray(parsed.result) && parsed.result.some((r: any) => r && r.success === false));
   if (!ok) {
-    console.error('[pulse-a] D1', res.status, text.slice(0, 400));
+    if (!(quiet && duplicateCol)) {
+      console.error('[pulse-a] D1 FAIL', res.status, errMsg);
+    }
     return null;
   }
   return parsed;
 }
 
 async function ensureSchema() {
-  // Add optional columns if missing (safe to re-run)
-  const alters = [
-    `ALTER TABLE articles ADD COLUMN author_team TEXT`,
-    `ALTER TABLE articles ADD COLUMN source_name TEXT`,
-    `ALTER TABLE articles ADD COLUMN source_url TEXT`,
-  ];
-  for (const sql of alters) {
-    const r = await d1(sql);
-    if (r) console.log('[pulse-a] schema ok:', sql);
-  }
-  // Probe whether author_team exists
+  // Quiet: duplicate column is expected after first success
+  await d1(`ALTER TABLE articles ADD COLUMN author_team TEXT`, [], true);
+  await d1(`ALTER TABLE articles ADD COLUMN source_name TEXT`, [], true);
+  await d1(`ALTER TABLE articles ADD COLUMN source_url TEXT`, [], true);
   const probe = await d1(`SELECT author_team FROM articles LIMIT 1`);
   HAS_AUTHOR_TEAM = !!probe;
   console.log('[pulse-a] HAS_AUTHOR_TEAM', HAS_AUTHOR_TEAM);
@@ -125,7 +121,7 @@ async function purgeJunk() {
 }
 
 async function loadTitles(): Promise<Set<string>> {
-  const data = await d1(`SELECT title FROM articles LIMIT 500`);
+  const data = await d1(`SELECT title FROM articles LIMIT 800`);
   const rows = data?.result?.[0]?.results || data?.results || [];
   return new Set((rows || []).map((r: any) => String(r.title || '')));
 }
@@ -162,8 +158,8 @@ async function publish(draft: ArticleDraft) {
       console.log('[pulse-a] published:', draft.title);
       return true;
     }
-    // Column might still be missing — fall through
     HAS_AUTHOR_TEAM = false;
+    console.warn('[pulse-a] falling back to insert without author_team');
   }
 
   const data2 = await d1(
@@ -181,26 +177,28 @@ async function publish(draft: ArticleDraft) {
     ]
   );
   if (!data2) {
-    console.error('[pulse-a] publish failed', draft.title);
+    console.error('[pulse-a] PUBLISH FAILED:', draft.title);
     return false;
   }
-  console.log('[pulse-a] published (no author_team col):', draft.title);
+  console.log('[pulse-a] published:', draft.title);
   return true;
 }
 
 async function main() {
   console.log('[pulse-a] start batch', BATCH);
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
-    console.error('[pulse-a] missing Cloudflare credentials');
+    console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
   }
 
   await ensureSchema();
   await purgeJunk();
 
+  let published = 0;
+
   for (const body of allTopicBodies()) {
     if (await exists(body.title)) continue;
-    await publish({
+    const ok = await publish({
       title: body.title,
       summary: body.summary,
       content: injectLinks(body.content),
@@ -210,15 +208,26 @@ async function main() {
       source_name: 'LaneCash Desk',
       image_url: coverForTitle(body.title, body.category),
     });
+    if (ok) published++;
   }
 
   const titles = await loadTitles();
-  const batch = pickBatch(BATCH, titles);
-  console.log('[pulse-a] catalog', CATALOG.length, 'picked', batch.length);
+  console.log('[pulse-a] existing titles in DB:', titles.size);
+  console.log('[pulse-a] catalog size:', CATALOG.length);
 
-  let published = 0;
+  const batch = pickBatch(BATCH, titles);
+  console.log('[pulse-a] picked this run:', batch.length, batch.map((b) => b.key).join(', ') || '(none)');
+
+  if (batch.length === 0) {
+    console.warn('[pulse-a] WARNING: catalog exhausted — every base title already exists.');
+    console.warn('[pulse-a] Expanding with weekly angle variants…');
+  }
+
   for (const item of batch) {
-    if (await exists(item.title)) continue;
+    if (await exists(item.title)) {
+      console.log('[pulse-a] skip exists:', item.title);
+      continue;
+    }
     const exp = expandItem(item);
     const ok = await publish({
       title: exp.title,
@@ -235,10 +244,16 @@ async function main() {
       titles.add(item.title);
     }
   }
+
   console.log('[pulse-a] done published', published);
+  if (published === 0) {
+    console.error('[pulse-a] ZERO published this run. Catalog may be exhausted or all inserts failed.');
+    // Non-zero exit so GitHub shows failure instead of silent green
+    process.exit(2);
+  }
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error('[pulse-a] FATAL', e);
   process.exit(1);
 });
