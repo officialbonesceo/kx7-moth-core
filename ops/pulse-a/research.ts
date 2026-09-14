@@ -1,6 +1,6 @@
 /**
  * Lightweight free research: DuckDuckGo + Wikipedia (+ tool-focused queries).
- * No paid Google API. Fresh query strings each run; caller dedupes titles in D1.
+ * Avoids forex-trading framing; focuses on skills, safety, hustles, crypto hygiene.
  */
 
 export type ResearchHit = {
@@ -17,14 +17,14 @@ export type ResearchPack = {
 };
 
 const SEED_QUERIES = [
-  'free tools to make money online with only a phone',
-  'beginner side hustles online no investment',
-  'how to start freelancing with a smartphone',
-  'affiliate marketing for beginners free methods',
+  'free tools to make money online with only a phone educational',
+  'beginner side hustles online skills no investment hype',
+  'how to start freelancing with a smartphone beginner',
+  'affiliate marketing for beginners honest disclosures',
   'avoid online job scams telegram fake recruitment',
-  'USDT P2P safety tips for beginners',
+  'USDT P2P safety tips for beginners not trading signals',
   'content creation CapCut Canva beginner workflow',
-  'dropshipping product validation checklist',
+  'dropshipping product validation checklist beginner',
   'build email list from zero free tools',
   'remote work scams how to verify employers',
   'digital product ideas for beginners small scope',
@@ -33,6 +33,9 @@ const SEED_QUERIES = [
   'budgeting system weekly for irregular income',
   'airdrop crypto safety never share seed phrase',
 ];
+
+const BLOCK =
+  /\b(forex|fx trading|currency trading|binary options|prop firm challenge|signal group profit|guaranteed pips)\b/i;
 
 function daySalt() {
   return Math.floor(Date.now() / 86400000);
@@ -44,14 +47,12 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
-/** Rotate queries so each run is not identical */
 export function pickQueries(n: number): string[] {
   const salt = daySalt();
   const hour = new Date().getUTCHours();
   const ranked = [...SEED_QUERIES].sort(
     (a, b) => hash(a + salt + hour) - hash(b + salt + hour)
   );
-  // slight freshness: append year + "beginner guide"
   return ranked.slice(0, n).map((q) => `${q} ${new Date().getUTCFullYear()} beginner`);
 }
 
@@ -81,7 +82,10 @@ function stripHtml(s: string) {
     .trim();
 }
 
-/** DuckDuckGo HTML results (no API key) */
+function cleanHits(hits: ResearchHit[]): ResearchHit[] {
+  return hits.filter((h) => !BLOCK.test(`${h.title} ${h.snippet}`));
+}
+
 export async function searchDuckDuckGo(query: string, limit = 5): Promise<ResearchHit[]> {
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
   const html = await fetchText(url);
@@ -90,17 +94,16 @@ export async function searchDuckDuckGo(query: string, limit = 5): Promise<Resear
   const re =
     /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:class="result__snippet"[^>]*>([\s\S]*?)<\/a>|class="result__snippet"[^>]*>([\s\S]*?)<\/td>)/gi;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) && hits.length < limit) {
+  while ((m = re.exec(html)) && hits.length < limit * 2) {
     const href = m[1];
     const title = stripHtml(m[2] || '');
     const snippet = stripHtml(m[3] || m[4] || '');
     if (!title || !href) continue;
     hits.push({ title, snippet, url: href, source: 'duckduckgo' });
   }
-  // Fallback simpler parse
   if (!hits.length) {
     const simple = /class="result__a"[^>]*href="([^"]+)"[^>]*>([^<]+)/gi;
-    while ((m = simple.exec(html)) && hits.length < limit) {
+    while ((m = simple.exec(html)) && hits.length < limit * 2) {
       hits.push({
         title: stripHtml(m[2]),
         snippet: '',
@@ -109,10 +112,9 @@ export async function searchDuckDuckGo(query: string, limit = 5): Promise<Resear
       });
     }
   }
-  return hits;
+  return cleanHits(hits).slice(0, limit);
 }
 
-/** Wikipedia opensearch + summary */
 export async function searchWikipedia(query: string, limit = 3): Promise<ResearchHit[]> {
   try {
     const openUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(
@@ -133,7 +135,6 @@ export async function searchWikipedia(query: string, limit = 3): Promise<Researc
         source: 'wikipedia',
       });
     }
-    // Enrich first with extract
     if (titles[0]) {
       const sumUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
         titles[0].replace(/ /g, '_')
@@ -146,7 +147,7 @@ export async function searchWikipedia(query: string, limit = 3): Promise<Researc
         } catch {}
       }
     }
-    return hits;
+    return cleanHits(hits);
   } catch {
     return [];
   }
@@ -160,7 +161,7 @@ export async function researchTopic(query: string): Promise<ResearchPack> {
     searchDuckDuckGo(toolQuery, 4),
   ]);
   const hits = [...ddg, ...wiki].slice(0, 8);
-  const toolHits = tools.map((t) => ({ ...t, source: 'tools' as const }));
+  const toolHits = cleanHits(tools).map((t) => ({ ...t, source: 'tools' as const }));
   console.log(
     `[research] q="${query.slice(0, 60)}" hits=${hits.length} tools=${toolHits.length}`
   );
@@ -168,7 +169,12 @@ export async function researchTopic(query: string): Promise<ResearchPack> {
 }
 
 export function packToContext(pack: ResearchPack): string {
-  const lines: string[] = [`Research query: ${pack.query}`, '', 'Sources:'];
+  const lines: string[] = [
+    `Research query: ${pack.query}`,
+    'Note: Write educational content only. Do not teach forex/FX trading or promise profits.',
+    '',
+    'Sources:',
+  ];
   for (const h of pack.hits.slice(0, 6)) {
     lines.push(`- (${h.source}) ${h.title}: ${h.snippet.slice(0, 220)} [${h.url}]`);
   }

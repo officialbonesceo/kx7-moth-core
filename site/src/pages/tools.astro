@@ -10,14 +10,15 @@ const jsonLd = [
     applicationCategory: 'FinanceApplication',
     operatingSystem: 'Any',
     url: `${origin}/tools`,
-    description: 'Free Naira converter, USDT price, fee calculator, crypto news, and transaction safety helper.',
+    description:
+      'Educational tools: crypto price estimates, fee calculator, crypto news, and transaction safety helper. Not financial advice.',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'NGN' },
   },
 ];
 ---
 <Base
-  title="Free Naira & Crypto Calculators — LaneCash Tools"
-  description="Free tools: NGN converter, USDT price in Naira, fee calculator, crypto news, and tx/address safety links."
+  title="Money Tools — LaneCash"
+  description="Educational tools: crypto estimates, fee impact, news, and tx safety checks. Not financial advice."
   jsonLd={jsonLd}
 >
   <div class="disclaimer-banner">
@@ -27,44 +28,23 @@ const jsonLd = [
 
   <section class="hero">
     <h1>Money tools</h1>
-    <p>Prices, fees, news, and safety checks — free and mobile-first.</p>
+    <p>Fees, crypto estimates, news, and safety checks — educational only.</p>
   </section>
 
   <div class="calc-tabs" role="tablist">
-    <button type="button" class="chip active" data-tab="fx">Currency</button>
-    <button type="button" class="chip" data-tab="crypto">Crypto</button>
+    <button type="button" class="chip active" data-tab="crypto">Crypto</button>
     <button type="button" class="chip" data-tab="fee">Fees</button>
     <button type="button" class="chip" data-tab="hustle">Hustle</button>
     <button type="button" class="chip" data-tab="news">News</button>
     <button type="button" class="chip" data-tab="safety">Tx safety</button>
   </div>
 
-  <div class="calc-panel" id="panel-fx">
+  <div class="calc-panel" id="panel-crypto">
     <div class="calc-card">
-      <h3>Naira currency converter</h3>
-      <label for="fxAmount">Amount</label>
-      <input id="fxAmount" type="number" inputmode="decimal" value="10000" min="0" step="any" />
-      <div class="calc-row">
-        <div>
-          <label for="fxFrom">From</label>
-          <select id="fxFrom"><option selected>NGN</option><option>USD</option><option>EUR</option><option>GBP</option></select>
-        </div>
-        <button type="button" class="save-btn" id="fxSwap" style="align-self:end">⇄</button>
-        <div>
-          <label for="fxTo">To</label>
-          <select id="fxTo"><option selected>USD</option><option>NGN</option><option>EUR</option><option>GBP</option></select>
-        </div>
-      </div>
-      <button class="save-btn calc-primary" id="fxBtn" type="button">Convert now</button>
-      <div class="calc-result" id="fxOut">—</div>
-      <p class="muted" id="fxNote" style="margin-top:8px;font-size:.75rem"></p>
-    </div>
-  </div>
-
-  <div class="calc-panel" id="panel-crypto" hidden>
-    <div class="calc-card">
-      <h3>Crypto price (USD & ₦)</h3>
-      <p class="muted" style="margin:0 0 10px;font-size:.82rem">Cached server price · CoinGecko with Binance fallback</p>
+      <h3>Crypto price estimate (USD & ₦)</h3>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">
+        Public market data only — not a trading signal or financial advice.
+      </p>
       <label for="coin">Coin</label>
       <select id="coin">
         <option value="tether">USDT</option>
@@ -73,7 +53,7 @@ const jsonLd = [
       </select>
       <label for="coinQty">Quantity</label>
       <input id="coinQty" type="number" inputmode="decimal" value="100" min="0" step="any" />
-      <button class="save-btn calc-primary" id="coinBtn" type="button">Get price</button>
+      <button class="save-btn calc-primary" id="coinBtn" type="button">Get estimate</button>
       <div class="calc-result" id="coinOut">—</div>
       <p class="muted" id="coinNote" style="margin-top:8px;font-size:.75rem"></p>
     </div>
@@ -82,6 +62,7 @@ const jsonLd = [
   <div class="calc-panel" id="panel-fee" hidden>
     <div class="calc-card">
       <h3>Fee impact</h3>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">See how a % fee changes what you keep — educational math only.</p>
       <label for="feeAmt">Amount (₦)</label>
       <input id="feeAmt" type="number" inputmode="decimal" value="50000" min="0" />
       <label for="feePct">Fee %</label>
@@ -99,12 +80,13 @@ const jsonLd = [
 
   <div class="calc-panel" id="panel-hustle" hidden>
     <div class="calc-card">
-      <h3>Weekly hustle planner</h3>
+      <h3>Weekly practice planner</h3>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">Plan practice volume — not a promise of earnings.</p>
       <label for="target">Weekly target (₦)</label>
       <input id="target" type="number" value="20000" min="0" />
       <label for="days">Work days / week</label>
       <input id="days" type="number" value="5" min="1" max="7" />
-      <label for="perJob">Pay per job (₦)</label>
+      <label for="perJob">Amount per task (₦)</label>
       <input id="perJob" type="number" value="2000" min="1" />
       <button class="save-btn calc-primary" id="hustleBtn" type="button">Plan my week</button>
       <div class="calc-result" id="hustleOut">—</div>
@@ -113,8 +95,8 @@ const jsonLd = [
 
   <div class="calc-panel" id="panel-news" hidden>
     <div class="calc-card">
-      <h3>Crypto news</h3>
-      <p class="muted" style="margin:0 0 10px;font-size:.82rem">Headlines from public crypto feeds.</p>
+      <h3>Crypto headlines</h3>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">Public headlines only — not trade recommendations.</p>
       <button class="save-btn calc-primary" id="newsBtn" type="button">Refresh news</button>
       <div id="newsList" style="margin-top:12px"></div>
     </div>
@@ -124,7 +106,7 @@ const jsonLd = [
     <div class="calc-card">
       <h3>Tx / address safety helper</h3>
       <p class="muted" style="margin:0 0 10px;font-size:.85rem;line-height:1.45">
-        Paste a <strong>transaction hash</strong> or <strong>wallet address</strong>. Opens the official explorer.
+        Paste a transaction hash or wallet address to open an official explorer. This does not recover funds or prove someone is safe.
       </p>
       <label for="chain">Network</label>
       <select id="chain">
@@ -141,21 +123,17 @@ const jsonLd = [
   </div>
 
   <script is:inline>
-    (function(){
+    (function () {
       var origin = window.location.origin;
-      var FALLBACK = {
-        USD: { NGN: 1600, EUR: 0.92, GBP: 0.78, USD: 1 },
-        NGN: { USD: 1/1600, EUR: 1/1750, GBP: 1/2050, NGN: 1 },
-        EUR: { USD: 1.09, NGN: 1750, GBP: 0.85, EUR: 1 },
-        GBP: { USD: 1.28, NGN: 2050, EUR: 1.17, GBP: 1 }
-      };
 
-      document.querySelectorAll('.calc-tabs .chip').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          document.querySelectorAll('.calc-tabs .chip').forEach(function(b){ b.classList.remove('active'); });
+      document.querySelectorAll('.calc-tabs .chip').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('.calc-tabs .chip').forEach(function (b) {
+            b.classList.remove('active');
+          });
           btn.classList.add('active');
           var tab = btn.getAttribute('data-tab');
-          ['fx','crypto','fee','hustle','news','safety'].forEach(function(id){
+          ['crypto', 'fee', 'hustle', 'news', 'safety'].forEach(function (id) {
             var p = document.getElementById('panel-' + id);
             if (p) p.hidden = id !== tab;
           });
@@ -163,95 +141,110 @@ const jsonLd = [
         });
       });
 
-      async function fx(){
-        var amount = +document.getElementById('fxAmount').value || 0;
-        var from = document.getElementById('fxFrom').value;
-        var to = document.getElementById('fxTo').value;
-        var out = document.getElementById('fxOut');
-        var note = document.getElementById('fxNote');
-        out.textContent = 'Loading…'; note.textContent = '';
-        try {
-          var r = await fetch('https://open.er-api.com/v6/latest/' + from);
-          var j = await r.json();
-          if (j && j.result === 'success' && j.rates && j.rates[to] != null) {
-            var v = amount * j.rates[to];
-            out.textContent = amount.toLocaleString() + ' ' + from + ' ≈ ' + v.toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + to;
-            note.textContent = 'Live FX rate';
-            return;
-          }
-          throw new Error('no');
-        } catch (e) {
-          var rate = (FALLBACK[from] && FALLBACK[from][to]) || 1;
-          out.textContent = amount.toLocaleString() + ' ' + from + ' ≈ ' + (amount*rate).toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + to;
-          note.textContent = 'Estimate only (live FX unavailable).';
-        }
-      }
-
-      async function coin(){
+      async function coin() {
         var id = document.getElementById('coin').value;
         var qty = +document.getElementById('coinQty').value || 0;
         var out = document.getElementById('coinOut');
         var note = document.getElementById('coinNote');
-        out.textContent = 'Loading…'; note.textContent = '';
+        out.textContent = 'Loading…';
+        note.textContent = '';
         try {
-          var r = await fetch(origin + '/api/crypto/price?id=' + encodeURIComponent(id) + '&qty=' + encodeURIComponent(qty));
+          var r = await fetch(
+            origin +
+              '/api/crypto/price?id=' +
+              encodeURIComponent(id) +
+              '&qty=' +
+              encodeURIComponent(qty)
+          );
           var j = await r.json();
-          out.textContent = qty + ' ≈ $' + Number(j.total_usd).toLocaleString(undefined,{maximumFractionDigits:2}) +
-            ' · ₦' + Number(j.total_ngn).toLocaleString(undefined,{maximumFractionDigits:0});
-          note.textContent = 'Source: ' + (j.source || 'api') + (j.cached ? ' (cached)' : '');
+          out.textContent =
+            qty +
+            ' ≈ $' +
+            Number(j.total_usd).toLocaleString(undefined, { maximumFractionDigits: 2 }) +
+            ' · ₦' +
+            Number(j.total_ngn).toLocaleString(undefined, { maximumFractionDigits: 0 });
+          note.textContent =
+            'Estimate · source: ' + (j.source || 'api') + (j.cached ? ' (cached)' : '') + ' · not financial advice';
         } catch (e) {
-          out.textContent = 'Could not load price';
+          out.textContent = 'Could not load estimate';
           note.textContent = 'Try again in a moment';
         }
       }
 
-      function fee(){
+      function fee() {
         var amt = +document.getElementById('feeAmt').value || 0;
         var pct = +document.getElementById('feePct').value || 0;
-        var f = amt * (pct/100);
-        document.getElementById('feeOut').textContent = 'Fee ₦' + f.toLocaleString(undefined,{maximumFractionDigits:2}) + ' · You keep ₦' + (amt-f).toLocaleString(undefined,{maximumFractionDigits:2});
+        var f = amt * (pct / 100);
+        document.getElementById('feeOut').textContent =
+          'Fee ₦' +
+          f.toLocaleString(undefined, { maximumFractionDigits: 2 }) +
+          ' · Left ₦' +
+          (amt - f).toLocaleString(undefined, { maximumFractionDigits: 2 });
       }
 
-      function hustle(){
+      function hustle() {
         var target = +document.getElementById('target').value || 0;
         var days = Math.max(1, +document.getElementById('days').value || 1);
         var per = Math.max(1, +document.getElementById('perJob').value || 1);
         var jobs = Math.ceil(target / per);
         var jobsPerDay = Math.ceil(jobs / days);
-        document.getElementById('hustleOut').textContent = '~' + jobs + ' jobs/week · ~' + jobsPerDay + '/day · ₦' + Math.round(target/days).toLocaleString() + '/day';
+        document.getElementById('hustleOut').textContent =
+          '~' +
+          jobs +
+          ' tasks/week · ~' +
+          jobsPerDay +
+          '/day · target ₦' +
+          Math.round(target / days).toLocaleString() +
+          '/day (practice math only)';
       }
 
-      async function loadNews(){
+      async function loadNews() {
         var box = document.getElementById('newsList');
         box.innerHTML = '<p class="muted">Loading…</p>';
         try {
           var r = await fetch(origin + '/api/crypto/news');
           var j = await r.json();
           var items = j.items || [];
-          if (!items.length) { box.innerHTML = '<p class="muted">No headlines right now.</p>'; return; }
-          box.innerHTML = items.map(function(it){
-            var href = it.url || '#';
-            if (href.charAt(0) === '/') href = origin + href;
-            return '<a class="card" style="grid-template-columns:1fr;margin-bottom:8px" href="' + href + '" target="_blank" rel="noopener noreferrer">' +
-              '<div class="card-main"><span class="pill">' + (it.source||'News') + '</span>' +
-              '<h3 style="font-size:.9rem">' + (it.title||'') + '</h3></div></a>';
-          }).join('');
+          if (!items.length) {
+            box.innerHTML = '<p class="muted">No headlines right now.</p>';
+            return;
+          }
+          box.innerHTML = items
+            .map(function (it) {
+              var href = it.url || '#';
+              if (href.charAt(0) === '/') href = origin + href;
+              return (
+                '<a class="card" style="grid-template-columns:1fr;margin-bottom:8px" href="' +
+                href +
+                '" target="_blank" rel="noopener noreferrer">' +
+                '<div class="card-main"><span class="pill">' +
+                (it.source || 'News') +
+                '</span>' +
+                '<h3 style="font-size:.9rem">' +
+                (it.title || '') +
+                '</h3></div></a>'
+              );
+            })
+            .join('');
         } catch (e) {
           box.innerHTML = '<p class="muted">News temporarily unavailable.</p>';
         }
       }
 
-      function openTx(){
+      function openTx() {
         var chain = document.getElementById('chain').value;
         var q = (document.getElementById('txInput').value || '').trim();
         var out = document.getElementById('txOut');
-        if (!q || q.length < 6) { out.textContent = 'Paste a full tx hash or address'; return; }
+        if (!q || q.length < 6) {
+          out.textContent = 'Paste a full tx hash or address';
+          return;
+        }
         var isTx = /^0x([a-fA-F0-9]{64})$/.test(q) || /^[a-fA-F0-9]{64}$/.test(q);
         var bases = {
           eth: { tx: 'https://etherscan.io/tx/', addr: 'https://etherscan.io/address/' },
           bsc: { tx: 'https://bscscan.com/tx/', addr: 'https://bscscan.com/address/' },
           polygon: { tx: 'https://polygonscan.com/tx/', addr: 'https://polygonscan.com/address/' },
-          tron: { tx: 'https://tronscan.org/#/transaction/', addr: 'https://tronscan.org/#/address/' }
+          tron: { tx: 'https://tronscan.org/#/transaction/', addr: 'https://tronscan.org/#/address/' },
         };
         var b = bases[chain] || bases.eth;
         var url;
@@ -262,21 +255,21 @@ const jsonLd = [
         window.open(url, '_blank', 'noopener,noreferrer');
       }
 
-      document.getElementById('fxBtn').onclick = fx;
       document.getElementById('coinBtn').onclick = coin;
       document.getElementById('feeBtn').onclick = fee;
       document.getElementById('hustleBtn').onclick = hustle;
       document.getElementById('newsBtn').onclick = loadNews;
       document.getElementById('txBtn').onclick = openTx;
-      document.getElementById('fxSwap').onclick = function(){
-        var a = document.getElementById('fxFrom'), b = document.getElementById('fxTo');
-        var t = a.value; a.value = b.value; b.value = t; fx();
-      };
-      document.querySelectorAll('.fee-presets .chip').forEach(function(b){
-        b.addEventListener('click', function(){ document.getElementById('feePct').value = b.getAttribute('data-fee'); fee(); });
+      document.querySelectorAll('.fee-presets .chip').forEach(function (b) {
+        b.addEventListener('click', function () {
+          document.getElementById('feePct').value = b.getAttribute('data-fee');
+          fee();
+        });
       });
 
-      fx(); coin(); fee(); hustle();
+      coin();
+      fee();
+      hustle();
     })();
   </script>
 </Base>
