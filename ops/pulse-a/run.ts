@@ -1,16 +1,14 @@
 /**
- * pulse-a — 1 researched+AI post per run (templates only if AI fails).
- * Educational content only — not financial advice.
+ * pulse-a — AI-only: research → rewrite → publish (1 post/run).
+ * NO template/catalog fallback. If AI fails, the job fails.
+ * Educational only — not financial advice.
  */
-import { allTopicBodies } from './topics';
-import { expandItem, pickBatch, CATALOG } from './catalog';
 import { pickQueries, researchTopic, packToContext } from './research';
 import { rewriteWithAi } from './ai';
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
 const CF_D1_DATABASE_ID = process.env.CF_D1_DATABASE_ID || '';
-const BATCH = 1; // always one post per run
 
 type Category = 'money' | 'opportunities' | 'scams' | 'guides';
 
@@ -30,6 +28,16 @@ let HAS_AUTHOR_TEAM = true;
 
 const DISCLAIMER_HTML =
   '<h2>Disclaimer</h2><p>This guide is <strong>educational only</strong>. It is <strong>not financial, investment, tax, or legal advice</strong>. Nothing here promises income or returns. Verify tools yourself and never risk money you cannot afford to lose.</p>';
+
+/** Fingerprints of the old expandItem / catalog templates */
+const TEMPLATE_FINGERPRINTS = [
+  '%Write a test budget before you start%',
+  '%Do the smallest proof action in 48 hours%',
+  '%Do I have a kill switch if results stay flat%',
+  '%Start here (basics)%Master these points before advanced tactics%',
+  '%Reject upfront job fees, guaranteed-return apps, fake airdrop%',
+  '%What good looks like in 7 and 30 days%',
+];
 
 function slugify(t: string) {
   return t
@@ -64,7 +72,7 @@ function coverForTitle(title: string, category: string) {
   const t = `${title} ${category}`.toLowerCase();
   if (category === 'scams' || /scam|fraud|phish|telegram/.test(t)) return '/covers/scams.svg';
   if (/crypto|usdt|bitcoin|airdrop|wallet|p2p|token/.test(t)) return '/covers/crypto.svg';
-  if (/hustle|freelance|content|youtube|tiktok|affiliate|drop|creator|skill/.test(t))
+  if (/hustle|freelance|content|youtube|tiktok|affiliate|drop|creator|skill|algorithm|shorts|reels/.test(t))
     return '/covers/hustle.svg';
   if (category === 'money' || /budget|fee|naira|payment|price/.test(t)) return '/covers/money.svg';
   return '/covers/fallback.svg';
@@ -109,6 +117,26 @@ async function ensureSchema() {
   console.log('[pulse-a] HAS_AUTHOR_TEAM', HAS_AUTHOR_TEAM);
 }
 
+/** Remove old template/catalog posts that mixed generic checklists into every topic */
+async function purgeTemplateArticles() {
+  console.log('[pulse-a] purging old template/catalog articles…');
+  let removed = 0;
+  for (const fp of TEMPLATE_FINGERPRINTS) {
+    const r = await d1(`DELETE FROM articles WHERE content LIKE ?`, [fp]);
+    if (r) removed++;
+  }
+  // Also drop pure desk templates that never went through AI+research
+  await d1(
+    `DELETE FROM articles WHERE source_name = ? OR source_name = ? OR source_name IS NULL`,
+    ['LaneCash Desk', 'LaneCash Desk']
+  );
+  await d1(`DELETE FROM articles WHERE source_name NOT LIKE ? AND source_name NOT LIKE ?`, [
+    '%AI%',
+    '%research%',
+  ]);
+  console.log('[pulse-a] template purge pass done (fingerprints touched:', removed, ')');
+}
+
 async function loadTitles(): Promise<Set<string>> {
   const data = await d1(`SELECT title FROM articles LIMIT 1000`);
   const rows = data?.result?.[0]?.results || data?.results || [];
@@ -139,7 +167,7 @@ async function publish(draft: ArticleDraft) {
         draft.image_url || null,
         draft.reading_minutes,
         draft.author_team || 'LaneCash Desk',
-        draft.source_name || 'LaneCash Desk',
+        draft.source_name || 'Educational AI+research',
         draft.source_url || null,
       ]
     );
@@ -164,26 +192,37 @@ async function publish(draft: ArticleDraft) {
 }
 
 async function publishOneFromResearch(titles: Set<string>): Promise<boolean> {
-  const queries = pickQueries(3); // try up to 3 queries until one publishes
+  const queries = pickQueries(5);
   for (const q of queries) {
     try {
       console.log('[pulse-a] research', q);
       const pack = await researchTopic(q);
       if (!pack.hits.length && !pack.tools.length) {
-        console.warn('[pulse-a] no hits');
+        console.warn('[pulse-a] no research hits');
         continue;
       }
       const ctx = packToContext(pack);
       const seedTitle = pack.hits[0]?.title || q;
       const ai = await rewriteWithAi(ctx, seedTitle);
       if (!ai) {
-        console.warn('[pulse-a] AI failed for query');
+        console.warn('[pulse-a] AI failed for this query');
         continue;
       }
+
+      // Reject residual template-looking AI output
+      if (
+        /smallest proof action in 48 hours/i.test(ai.contentHtml) ||
+        /kill switch if results stay flat/i.test(ai.contentHtml)
+      ) {
+        console.warn('[pulse-a] rejected template-like AI output');
+        continue;
+      }
+
       if ((await exists(ai.title)) || titles.has(ai.title)) {
         ai.title = `${ai.title} (${new Date().toISOString().slice(0, 10)})`;
         if (await exists(ai.title)) continue;
       }
+
       const ok = await publish({
         title: ai.title,
         summary: ai.summary,
@@ -206,60 +245,22 @@ async function publishOneFromResearch(titles: Set<string>): Promise<boolean> {
   return false;
 }
 
-async function publishOneTemplate(titles: Set<string>): Promise<boolean> {
-  for (const body of allTopicBodies()) {
-    if (titles.has(body.title) || (await exists(body.title))) continue;
-    const ok = await publish({
-      title: body.title,
-      summary: body.summary,
-      content: injectLinks(body.content),
-      category: body.category as Category,
-      reading_minutes: 12,
-      author_team: body.author_team,
-      source_name: 'LaneCash Desk',
-      image_url: coverForTitle(body.title, body.category),
-    });
-    if (ok) return true;
-  }
-  const batch = pickBatch(1, titles);
-  for (const item of batch) {
-    if (await exists(item.title)) continue;
-    const exp = expandItem(item);
-    const ok = await publish({
-      title: exp.title,
-      summary: exp.summary,
-      content: injectLinks(exp.content),
-      category: exp.category,
-      reading_minutes: 10,
-      author_team: exp.author_team,
-      source_name: 'LaneCash Desk',
-      image_url: coverForTitle(exp.title, exp.category),
-    });
-    if (ok) return true;
-  }
-  console.log('[pulse-a] catalog size', CATALOG.length);
-  return false;
-}
-
 async function main() {
-  console.log('[pulse-a] start 1 post/run · educational only (not financial advice)');
+  console.log('[pulse-a] AI-only mode · 1 post/run · no template fallback');
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
   }
   await ensureSchema();
+  await purgeTemplateArticles();
+
   const titles = await loadTitles();
-  console.log('[pulse-a] existing titles', titles.size);
+  console.log('[pulse-a] titles remaining after purge', titles.size);
 
-  let ok = await publishOneFromResearch(titles);
-  if (!ok) {
-    console.warn('[pulse-a] AI path produced 0 — template fallback');
-    ok = await publishOneTemplate(titles);
-  }
-
+  const ok = await publishOneFromResearch(titles);
   console.log('[pulse-a] done published', ok ? 1 : 0);
   if (!ok) {
-    console.error('[pulse-a] ZERO published');
+    console.error('[pulse-a] ZERO published — AI/research failed (no silent template fill)');
     process.exit(2);
   }
 }
