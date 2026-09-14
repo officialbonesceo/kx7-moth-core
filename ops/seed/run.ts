@@ -1,5 +1,6 @@
-/** Seed/upsert 30 series articles — replaces short versions by slug */
-import { ARTICLES } from './articles30';
+/** Upsert 30 long-form series articles into D1 */
+import { DATA } from './data';
+import { expand } from './expand';
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
@@ -47,34 +48,35 @@ async function main() {
   await d1(`ALTER TABLE articles ADD COLUMN source_url TEXT`).catch(() => {});
 
   let ok = 0;
-  for (const a of ARTICLES) {
-    const id = 'seed_' + a.slug.replace(/[^a-z0-9]/g, '').slice(0, 24);
+  for (const meta of DATA) {
+    const content = expand(meta);
+    const id = 'seed_' + meta.slug.replace(/[^a-z0-9]/g, '').slice(0, 24);
     try {
-      await d1(`DELETE FROM articles WHERE slug = ? OR id = ?`, [a.slug, id]);
+      await d1(`DELETE FROM articles WHERE slug = ? OR id = ?`, [meta.slug, id]);
       await d1(
         `INSERT INTO articles (id, slug, title, summary, content, category, image_url, reading_minutes, status, author_team, source_name, source_url, published_at, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, NULL, datetime('now'), datetime('now'), datetime('now'))`,
         [
           id,
-          a.slug,
-          a.title,
-          a.summary,
-          a.content,
-          a.category,
-          cover(a.category, a.title),
-          a.reading_minutes,
+          meta.slug,
+          meta.title,
+          meta.summary,
+          content,
+          meta.category,
+          cover(meta.category, meta.title),
+          meta.reading_minutes,
           'LaneCash Desk',
           'LaneCash',
         ]
       );
-      console.log('upserted', a.slug, 'chars', a.content.length);
+      console.log('upserted', meta.slug, 'chars', content.length);
       ok++;
     } catch (e) {
-      console.error('fail', a.slug, e);
+      console.error('fail', meta.slug, e);
     }
   }
-  console.log(`seed done upserted=${ok} total=${ARTICLES.length}`);
-  if (ok < ARTICLES.length) process.exit(2);
+  console.log(`seed done upserted=${ok}/${DATA.length}`);
+  if (ok < DATA.length) process.exit(2);
 }
 
 main().catch((e) => {
