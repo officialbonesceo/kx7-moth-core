@@ -22,6 +22,7 @@ const path = Astro.url.pathname;
 const origin = Astro.url.origin;
 const canonicalUrl = canonical || `${origin}${path}`;
 const ogImage = image || `${origin}/og-default.svg`;
+const rssUrl = `${origin}/rss.xml`;
 const defaultLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
@@ -75,6 +76,7 @@ if (db) {
     <meta name="theme-color" content="#000000" id="metaThemeColor" />
     <meta name="robots" content={noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large'} />
     <link rel="canonical" href={canonicalUrl} />
+    <link rel="alternate" type="application/rss+xml" title="LaneCash RSS" href={rssUrl} />
     <Fragment set:html={verifyHtml} />
     <meta property="og:site_name" content="LaneCash" />
     <meta property="og:locale" content="en_NG" />
@@ -170,7 +172,7 @@ if (db) {
     <main class="wrap">
       <slot />
       <div class="footer-note">
-        <a href="/about">About</a> · <a href="/disclaimer">Disclaimer</a> · LaneCash
+        <a href="/about">About</a> · <a href="/disclaimer">Disclaimer</a> · <a href="/rss.xml">RSS</a> · LaneCash
       </div>
     </main>
 
@@ -213,7 +215,6 @@ if (db) {
           });
         } catch (e) {}
 
-        // Unique visitor: at most once per 6 hours on this device (client + server dedup)
         var SIX_H = 6 * 60 * 60 * 1000;
         var lastVisit = Number(localStorage.getItem('lc_visit_at') || 0);
         var now = Date.now();
@@ -222,7 +223,6 @@ if (db) {
           window.LC.beacon('visit');
         }
 
-        // Pageviews: at most one counted load per path per 30 minutes (stops refresh spam)
         try {
           var pathKey = 'lc_pv_' + location.pathname;
           var lastPv = Number(localStorage.getItem(pathKey) || 0);
