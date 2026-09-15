@@ -2,7 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import SocialBar from '../../components/SocialBar.astro';
 import AdSlot from '../../components/AdSlot.astro';
-import { getArticleBySlug, bumpViews } from '../../lib/db';
+import { getArticleBySlug, getRelatedArticles, bumpViews } from '../../lib/db';
 import { coverFor } from '../../lib/images';
 import { teamFor } from '../../lib/socials';
 
@@ -11,9 +11,13 @@ export const prerender = false;
 const { slug } = Astro.params;
 const db = Astro.locals.runtime?.env?.DB;
 let article: any = null;
+let related: any[] = [];
 try {
   article = slug && db ? await getArticleBySlug(db, slug) : null;
-  if (article && db) await bumpViews(db, article.id);
+  if (article && db) {
+    await bumpViews(db, article.id);
+    related = await getRelatedArticles(db, article.slug, article.category, 6);
+  }
 } catch (e) {
   console.error('[article]', e);
 }
@@ -64,13 +68,7 @@ const jsonLd = {
         <span id="saveLabel">Save</span>
       </button>
     </div>
-    {article.source_url && showSource ? (
-      <a class="source-pill" href={article.source_url} target="_blank" rel="noopener noreferrer">
-        Source: {sourceLabel}
-      </a>
-    ) : (
-      <span class="source-pill" style="opacity:.85">Source: LaneCash</span>
-    )}
+    <span class="source-pill" style="opacity:.85">Source: {sourceLabel}</span>
   </div>
 
   <div class="share-bar" aria-label="Share this guide">
@@ -86,10 +84,23 @@ const jsonLd = {
   </div>
 
   <AdSlot />
-
   <article class="prose" set:html={article.content} />
-
   <AdSlot />
+
+  {related.length > 0 && (
+    <section class="related-block" aria-label="Related guides">
+      <h2 class="related-title">Related guides</h2>
+      <div class="related-list">
+        {related.map((r) => (
+          <a class="related-card" href={`/article/${r.slug}`}>
+            <span class="related-cat">{r.category}</span>
+            <span class="related-name">{r.title}</span>
+            {r.summary && <span class="related-sum">{r.summary}</span>}
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
 
   <div class="share-bar" aria-label="Share again">
     <div class="share-title">Found this useful? Share it</div>
@@ -102,12 +113,20 @@ const jsonLd = {
   </div>
 
   <SocialBar />
+  <style>
+    .related-block{margin:28px 0 12px}
+    .related-title{font-size:1.15rem;font-weight:800;margin:0 0 12px}
+    .related-list{display:grid;gap:10px}
+    .related-card{display:block;padding:14px;border-radius:14px;border:1px solid rgba(128,128,128,.25);background:rgba(128,128,128,.06);text-decoration:none;color:inherit}
+    .related-cat{display:inline-block;font-size:.68rem;font-weight:700;text-transform:uppercase;opacity:.7;margin-bottom:6px}
+    .related-name{display:block;font-weight:700;line-height:1.35;margin-bottom:4px}
+    .related-sum{display:block;font-size:.85rem;opacity:.75;line-height:1.4}
+  </style>
   <script is:inline define:vars={{ slug: article.slug, path: `/article/${article.slug}`, title: article.title, summary: article.summary, category: article.category, pageUrl, shareText }}>
     window.LC?.track(path, 'read');
     const cache = window.LC.get('lc_article_cache', {});
     cache[slug] = { title, summary, category };
     window.LC.set('lc_article_cache', cache);
-
     const btn = document.getElementById('saveBtn');
     const label = document.getElementById('saveLabel');
     const saved = window.LC.get('lc_saved', []);
@@ -127,7 +146,6 @@ const jsonLd = {
       window.LC.set('lc_saved', s.slice(0, 100));
       window.LC.track(path, 'save');
     });
-
     const text = encodeURIComponent(shareText);
     const url = encodeURIComponent(pageUrl);
     const map = [

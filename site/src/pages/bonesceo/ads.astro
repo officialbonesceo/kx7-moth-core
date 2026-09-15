@@ -9,13 +9,34 @@ let authed = Astro.cookies.get('lc_admin')?.value === '1';
 let error = '';
 let notice = '';
 let script = '';
+let googleMeta = '';
+let bingMeta = '';
+let yandexMeta = '';
+let extraHead = '';
 
-if (db) {
-  try {
-    const row = await db.prepare(`SELECT value FROM settings WHERE key = ?`).bind('ad_monetag_inpage').first();
-    if (row?.value) script = String(row.value);
-  } catch {}
+async function loadSettings() {
+  if (!db) return;
+  const keys = [
+    'ad_monetag_inpage',
+    'verify_google_meta',
+    'verify_bing_meta',
+    'verify_yandex_meta',
+    'verify_extra_head',
+  ];
+  for (const key of keys) {
+    try {
+      const row = await db.prepare(`SELECT value FROM settings WHERE key = ?`).bind(key).first();
+      if (!row?.value) continue;
+      const v = String(row.value);
+      if (key === 'ad_monetag_inpage') script = v;
+      if (key === 'verify_google_meta') googleMeta = v;
+      if (key === 'verify_bing_meta') bingMeta = v;
+      if (key === 'verify_yandex_meta') yandexMeta = v;
+      if (key === 'verify_extra_head') extraHead = v;
+    } catch {}
+  }
 }
+await loadSettings();
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
@@ -33,20 +54,36 @@ if (Astro.request.method === 'POST') {
         maxAge: 60 * 60 * 12,
       });
     } else error = 'Invalid login';
-  } else if (authed && action === 'save_ads' && db) {
-    const value = String(form.get('ad_monetag_inpage') || '');
-    await db
-      .prepare(
-        `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-      )
-      .bind('ad_monetag_inpage', value)
-      .run();
-    script = value;
-    notice = 'Monetag in-page script saved. Public pages load it from /api/ads.';
-  } else if (authed && action === 'clear_ads' && db) {
-    await db.prepare(`DELETE FROM settings WHERE key = ?`).bind('ad_monetag_inpage').run();
-    script = '';
-    notice = 'Ad script cleared.';
+  } else if (authed && db) {
+    async function save(key: string, value: string) {
+      await db
+        .prepare(
+          `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+        )
+        .bind(key, value)
+        .run();
+    }
+    if (action === 'save_ads') {
+      script = String(form.get('ad_monetag_inpage') || '');
+      await save('ad_monetag_inpage', script);
+      notice = 'Monetag script saved.';
+    }
+    if (action === 'clear_ads') {
+      await db.prepare(`DELETE FROM settings WHERE key = ?`).bind('ad_monetag_inpage').run();
+      script = '';
+      notice = 'Ad script cleared.';
+    }
+    if (action === 'save_verify') {
+      googleMeta = String(form.get('verify_google_meta') || '').trim();
+      bingMeta = String(form.get('verify_bing_meta') || '').trim();
+      yandexMeta = String(form.get('verify_yandex_meta') || '').trim();
+      extraHead = String(form.get('verify_extra_head') || '').trim();
+      await save('verify_google_meta', googleMeta);
+      await save('verify_bing_meta', bingMeta);
+      await save('verify_yandex_meta', yandexMeta);
+      await save('verify_extra_head', extraHead);
+      notice = 'Verification tags saved. They appear in the public site head after deploy/cache refresh.';
+    }
   }
 }
 ---
@@ -56,52 +93,68 @@ if (Astro.request.method === 'POST') {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>Ads · LaneCash Admin</title>
+  <title>Ads &amp; Verify · LaneCash</title>
   <style>
     body{margin:0;background:#070707;color:#fff;font-family:Inter,system-ui,sans-serif;padding:20px}
-    .card{background:#121212;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;max-width:720px}
-    textarea{width:100%;min-height:160px;background:#0a0a0a;border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;padding:12px;font:12px/1.4 ui-monospace,monospace}
+    .card{background:#121212;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;max-width:720px;margin-bottom:16px}
+    textarea,input{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;padding:12px;font:12px/1.4 ui-monospace,monospace;margin:6px 0}
+    textarea{min-height:120px}
     button{background:#22c55e;color:#04140a;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;margin-right:8px;margin-top:10px}
     button.ghost{background:transparent;color:#9ca3af;border:1px solid rgba(255,255,255,.12)}
     .ok{color:#86efac}.err{color:#f87171}.muted{color:#9ca3af;font-size:.85rem}
-    a{color:#22c55e}
-    input{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;padding:11px;margin:6px 0}
+    a{color:#22c55e}h1{margin:0 0 8px}h2{margin:0 0 8px;font-size:1.05rem}
+    label{display:block;color:#9ca3af;font-size:.78rem;margin-top:10px}
   </style>
 </head>
 <body>
   {!authed ? (
     <div class="card">
-      <h1>Ads admin</h1>
+      <h1>Ads &amp; verification</h1>
       {error && <p class="err">{error}</p>}
       <form method="POST">
         <input type="hidden" name="action" value="login" />
-        <label class="muted">Email</label>
+        <label>Email</label>
         <input name="email" type="email" required />
-        <label class="muted">Password</label>
+        <label>Password</label>
         <input name="password" type="password" required />
         <button type="submit">Unlock</button>
       </form>
       <p class="muted"><a href="/bonesceo/admin">Full admin</a></p>
     </div>
   ) : (
-    <div class="card">
-      <h1>Monetag · in-page banner</h1>
-      <p class="muted">Paste the full in-page / banner script Monetag gives you (usually a script tag). Saved to settings and served at /api/ads for the public site.</p>
-      {notice && <p class="ok">{notice}</p>}
-      <form method="POST">
-        <input type="hidden" name="action" value="save_ads" />
-        <textarea name="ad_monetag_inpage" placeholder="&lt;script src=...&gt;&lt;/script&gt;">{script}</textarea>
-        <button type="submit">Save script</button>
-      </form>
-      <form method="POST" style="display:inline">
-        <input type="hidden" name="action" value="clear_ads" />
-        <button type="submit" class="ghost">Clear</button>
-      </form>
-      <p class="muted" style="margin-top:14px">
-        <a href="/bonesceo/admin">← Admin home</a> ·
-        After save, hard-refresh a public article to see the slot load.
-      </p>
-    </div>
+    <>
+      {notice && <div class="card ok">{notice}</div>}
+      <div class="card">
+        <h1>Monetag in-page banner</h1>
+        <p class="muted">Paste the full script tag Monetag gives you for in-page / banner.</p>
+        <form method="POST">
+          <input type="hidden" name="action" value="save_ads" />
+          <textarea name="ad_monetag_inpage" placeholder="&lt;script ...&gt;">{script}</textarea>
+          <button type="submit">Save ad script</button>
+        </form>
+        <form method="POST" style="display:inline">
+          <input type="hidden" name="action" value="clear_ads" />
+          <button type="submit" class="ghost">Clear ads</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Search / site verification</h2>
+        <p class="muted">Paste only the content token or the full meta tag Google, Bing, or Yandex give you. Saved tags are injected on every public page head.</p>
+        <form method="POST">
+          <input type="hidden" name="action" value="save_verify" />
+          <label>Google Search Console — meta content or full meta tag</label>
+          <input name="verify_google_meta" value={googleMeta} placeholder="google-site-verification=... or full &lt;meta ...&gt;" />
+          <label>Bing Webmaster — meta content or full meta tag</label>
+          <input name="verify_bing_meta" value={bingMeta} placeholder="msvalidate.01=... or full meta" />
+          <label>Yandex — meta content or full meta tag (optional)</label>
+          <input name="verify_yandex_meta" value={yandexMeta} placeholder="optional" />
+          <label>Extra head HTML (other verifiers, one meta per line)</label>
+          <textarea name="verify_extra_head" placeholder="&lt;meta name=... content=...&gt;">{extraHead}</textarea>
+          <button type="submit">Save verification</button>
+        </form>
+      </div>
+      <p class="muted"><a href="/bonesceo/admin">← Admin home</a></p>
+    </>
   )}
 </body>
 </html>
