@@ -35,6 +35,36 @@ const defaultLd = {
   },
 };
 const ld = jsonLd || defaultLd;
+
+// Verification meta from admin settings (server-side so Google can see them)
+let verifyHtml = '';
+const db = Astro.locals.runtime?.env?.DB;
+if (db) {
+  try {
+    const keys = ['verify_google_meta', 'verify_bing_meta', 'verify_yandex_meta', 'verify_extra_head'] as const;
+    for (const key of keys) {
+      const row = await db.prepare(`SELECT value FROM settings WHERE key = ?`).bind(key).first();
+      const raw = row?.value ? String(row.value).trim() : '';
+      if (!raw) continue;
+      if (key === 'verify_extra_head') {
+        verifyHtml += raw + '\n';
+        continue;
+      }
+      if (/<meta/i.test(raw)) {
+        verifyHtml += raw + '\n';
+      } else if (key === 'verify_google_meta') {
+        const content = raw.replace(/^google-site-verification=/i, '').replace(/["']/g, '');
+        verifyHtml += `<meta name="google-site-verification" content="${content}" />\n`;
+      } else if (key === 'verify_bing_meta') {
+        const content = raw.replace(/^msvalidate\.01=/i, '').replace(/["']/g, '');
+        verifyHtml += `<meta name="msvalidate.01" content="${content}" />\n`;
+      } else if (key === 'verify_yandex_meta') {
+        const content = raw.replace(/["']/g, '');
+        verifyHtml += `<meta name="yandex-verification" content="${content}" />\n`;
+      }
+    }
+  } catch {}
+}
 ---
 <!doctype html>
 <html lang="en">
@@ -46,6 +76,7 @@ const ld = jsonLd || defaultLd;
     <meta name="theme-color" content="#000000" id="metaThemeColor" />
     <meta name="robots" content={noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large'} />
     <link rel="canonical" href={canonicalUrl} />
+    <Fragment set:html={verifyHtml} />
     <meta property="og:site_name" content="LaneCash" />
     <meta property="og:locale" content="en_NG" />
     <meta property="og:type" content={type} />
