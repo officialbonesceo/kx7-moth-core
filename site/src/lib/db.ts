@@ -39,7 +39,6 @@ async function safeFirst<T = any>(db: D1Database, sql: string, binds: any[] = []
 }
 
 export async function getArticles(db: D1Database, limit = 12, category?: string, offset = 0) {
-  // SELECT * avoids crashing if optional columns (author_team, etc.) are missing
   if (category) {
     return safeAll<Article>(
       db,
@@ -73,6 +72,32 @@ export async function getArticleBySlug(db: D1Database, slug: string) {
     `SELECT * FROM articles WHERE slug = ? AND status = 'published' LIMIT 1`,
     [slug]
   );
+}
+
+/** Related posts: same category first, then latest others — exclude current slug */
+export async function getRelatedArticles(db: D1Database, slug: string, category: string, limit = 6) {
+  const same = await safeAll<Article>(
+    db,
+    `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at FROM articles
+     WHERE status = 'published' AND category = ? AND slug != ?
+     ORDER BY published_at DESC LIMIT ?`,
+    [category, slug, limit]
+  );
+  let results = same.results || [];
+  if (results.length < limit) {
+    const need = limit - results.length;
+    const exclude = [slug, ...results.map((r) => r.slug)];
+    const placeholders = exclude.map(() => '?').join(',');
+    const more = await safeAll<Article>(
+      db,
+      `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at FROM articles
+       WHERE status = 'published' AND slug NOT IN (${placeholders})
+       ORDER BY published_at DESC LIMIT ?`,
+      [...exclude, need]
+    );
+    results = results.concat(more.results || []);
+  }
+  return results.slice(0, limit);
 }
 
 export async function searchArticles(db: D1Database, q: string, limit = 20) {
