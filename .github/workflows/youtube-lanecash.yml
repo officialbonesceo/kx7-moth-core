@@ -1,0 +1,58 @@
+name: youtube-lanecash
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: Video title
+        required: true
+      script:
+        description: Spoken script (plain text)
+        required: true
+      privacy:
+        description: public | unlisted | private
+        default: unlisted
+
+jobs:
+  render-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+          pip install edge-tts
+      - name: render
+        env:
+          EDGE_TTS_VOICE: en-US-GuyNeural
+        run: |
+          echo "${{ inputs.title }}" > /tmp/title.txt
+          printf '%s\n' "${{ inputs.script }}" > /tmp/script.txt
+          bash ops/youtube/render.sh /tmp/title.txt /tmp/script.txt /tmp/out.mp4
+      - name: upload
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          if [ -z "$YOUTUBE_REFRESH_TOKEN" ]; then
+            echo "No YOUTUBE_REFRESH_TOKEN — video rendered only"
+            ls -la /tmp/out.mp4
+            exit 0
+          fi
+          DESC="Educational only — not financial advice.
+Full guide: https://lanecash.name.ng
+LaneCash"
+          node ops/youtube/upload.mjs /tmp/out.mp4 "${{ inputs.title }}" "$DESC" "${{ inputs.privacy }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lanecash-video
+          path: /tmp/out.mp4

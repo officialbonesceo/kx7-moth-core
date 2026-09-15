@@ -2,7 +2,6 @@ name: pulse-a
 
 on:
   schedule:
-    # Twice daily UTC 06:00 and 18:00 ≈ 07:00 and 19:00 WAT
     - cron: "0 6,18 * * *"
   workflow_dispatch:
 
@@ -14,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
       - name: install
         run: npm install
       - name: execute pulse-a
@@ -23,5 +22,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_D1_DATABASE_ID: ${{ secrets.CF_D1_DATABASE_ID }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PULSE_BATCH: "1"
         run: npm run pulse-a
