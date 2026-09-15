@@ -36,7 +36,6 @@ const defaultLd = {
 };
 const ld = jsonLd || defaultLd;
 
-// Verification meta from admin settings (server-side so Google can see them)
 let verifyHtml = '';
 const db = Astro.locals.runtime?.env?.DB;
 if (db) {
@@ -112,13 +111,23 @@ if (db) {
         },
         get(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?d:v;}catch{return d}},
         set(k,v){try{localStorage.setItem(k, JSON.stringify(v))}catch{}},
+        deviceId(){
+          try {
+            var id = localStorage.getItem('lc_device_id');
+            if (!id) {
+              id = 'd_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+              localStorage.setItem('lc_device_id', id);
+            }
+            return id;
+          } catch { return ''; }
+        },
         track(path, event){
           const ev=this.get('lc_events',[]); ev.push({path,event,ts:Date.now()}); this.set('lc_events', ev.slice(-200));
           const counts=this.get('lc_interest',{}); counts[path]=(counts[path]||0)+1; this.set('lc_interest', counts);
         },
         beacon(type){
           try{
-            const body=JSON.stringify({type});
+            const body=JSON.stringify({type: type, device: this.deviceId()});
             if(navigator.sendBeacon) navigator.sendBeacon('/api/beacon', new Blob([body],{type:'application/json'}));
             else fetch('/api/beacon',{method:'POST',headers:{'content-type':'application/json'},body,keepalive:true});
           }catch{}
@@ -203,9 +212,28 @@ if (db) {
             if ((localStorage.getItem('lc_theme') || 'system') === 'system') window.LC.applyTheme('system');
           });
         } catch (e) {}
-        const day=new Date().toISOString().slice(0,10);
-        if(window.LC.get('lc_visit_day','')!==day){ window.LC.set('lc_visit_day', day); window.LC.beacon('visit'); }
-        window.LC.beacon('pageview');
+
+        // Unique visitor: at most once per 6 hours on this device (client + server dedup)
+        var SIX_H = 6 * 60 * 60 * 1000;
+        var lastVisit = Number(localStorage.getItem('lc_visit_at') || 0);
+        var now = Date.now();
+        if (!lastVisit || now - lastVisit >= SIX_H) {
+          localStorage.setItem('lc_visit_at', String(now));
+          window.LC.beacon('visit');
+        }
+
+        // Pageviews: at most one counted load per path per 30 minutes (stops refresh spam)
+        try {
+          var pathKey = 'lc_pv_' + location.pathname;
+          var lastPv = Number(localStorage.getItem(pathKey) || 0);
+          if (!lastPv || now - lastPv >= 30 * 60 * 1000) {
+            localStorage.setItem(pathKey, String(now));
+            window.LC.beacon('pageview');
+          }
+        } catch (e) {
+          window.LC.beacon('pageview');
+        }
+
         if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function(){});
       })();
     </script>
