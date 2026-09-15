@@ -74,7 +74,6 @@ export async function getArticleBySlug(db: D1Database, slug: string) {
   );
 }
 
-/** Related posts: same category first, then latest others — exclude current slug */
 export async function getRelatedArticles(db: D1Database, slug: string, category: string, limit = 6) {
   const same = await safeAll<Article>(
     db,
@@ -109,10 +108,10 @@ export async function searchArticles(db: D1Database, q: string, limit = 20) {
   );
 }
 
+/** Real article views: +1 per open, no fake boost */
 export async function bumpViews(db: D1Database, id: string) {
-  if (Math.random() > 0.3) return;
   try {
-    await db.prepare(`UPDATE articles SET views = COALESCE(views,0) + 3 WHERE id = ?`).bind(id).run();
+    await db.prepare(`UPDATE articles SET views = COALESCE(views, 0) + 1 WHERE id = ?`).bind(id).run();
   } catch (e) {
     console.error('[db] bumpViews', e);
   }
