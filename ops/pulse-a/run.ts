@@ -1,9 +1,8 @@
 /**
- * pulse-a — research (best effort) → rewrite → publish 1 post.
- * Public source label: LaneCash only (no model names on site).
+ * pulse-a — research → rewrite → publish 1 post (quality gated).
  */
 import { pickQueries, researchTopic, packToContext } from './research';
-import { rewriteWithAi } from './ai';
+import { rewriteWithAi, looksLikeLeak } from './ai';
 import { markdownToHtml } from './format';
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
@@ -58,11 +57,15 @@ function polishContent(content: string) {
   return out;
 }
 
+function plainLen(html: string) {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().length;
+}
+
 function coverForTitle(title: string, category: string) {
   const t = `${title} ${category}`.toLowerCase();
   if (category === 'scams' || /scam|fraud|phish|telegram/.test(t)) return '/covers/scams.svg';
   if (/crypto|usdt|bitcoin|airdrop|wallet|p2p|token/.test(t)) return '/covers/crypto.svg';
-  if (/hustle|freelance|content|youtube|tiktok|affiliate|drop|creator|skill|algorithm|shorts|reels|digital product/.test(t))
+  if (/hustle|freelance|content|youtube|tiktok|affiliate|drop|creator|skill|algorithm|shorts|reels|digital product|remote/.test(t))
     return '/covers/hustle.svg';
   if (category === 'money' || /budget|fee|naira|payment|price/.test(t)) return '/covers/money.svg';
   return '/covers/fallback.svg';
@@ -108,13 +111,18 @@ async function ensureSchema() {
 }
 
 async function purgeBadFormatting() {
-  // Remove posts that still show raw markdown walls
   await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%**Step %']);
   await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%## %']);
   await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Unlock your Creativity%']);
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Okay, I need to%']);
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Okay I need to%']);
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%First, I\'ll%']);
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%as an AI%']);
+  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Data Clean Room%']);
   await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%AI%']);
   await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%research%']);
-  console.log('[pulse-a] cleared poorly formatted / labeled posts');
+  await d1(`DELETE FROM articles WHERE title = ? AND content LIKE ?`, ['Remote work', '%Okay, I need to%']);
+  console.log('[pulse-a] cleared poorly formatted / leaked posts');
 }
 
 async function loadTitles(): Promise<Set<string>> {
@@ -182,8 +190,10 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
       const ai = await rewriteWithAi(ctx, seedTitle);
       if (!ai) continue;
 
-      if (/\*\*Step/i.test(ai.contentHtml) || /^##\s/m.test(ai.contentHtml)) {
-        ai.contentHtml = polishContent(ai.contentHtml);
+      let content = polishContent(ai.contentHtml);
+      if (looksLikeLeak(content) || plainLen(content) < 1200) {
+        console.warn('[pulse-a] skip low quality');
+        continue;
       }
 
       let title = ai.title.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim();
@@ -195,9 +205,9 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
       const ok = await publish({
         title,
         summary: ai.summary.replace(/\*\*/g, '').trim(),
-        content: polishContent(ai.contentHtml),
+        content,
         category: ai.category,
-        reading_minutes: 8,
+        reading_minutes: Math.max(8, Math.round(plainLen(content) / 180)),
         author_team: 'LaneCash Desk',
         source_name: 'LaneCash',
         source_url: pack.hits[0]?.url || null,
@@ -215,7 +225,7 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
 }
 
 async function main() {
-  console.log('[pulse-a] 1 post/run · public source=LaneCash');
+  console.log('[pulse-a] 1 post/run · quality gated · source=LaneCash');
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);

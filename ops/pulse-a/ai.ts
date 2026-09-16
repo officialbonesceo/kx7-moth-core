@@ -19,15 +19,17 @@ export type AiDraft = {
   model: string;
 };
 
-const SYSTEM = `You are a clear writing coach for beginners learning online skills and money safety.
-Rules:
+const SYSTEM = `You write finished educational articles for LaneCash (Nigeria-friendly money safety and skills).
+HARD RULES:
+- Output ONLY the article. Never write chain-of-thought, planning, "Okay I need to", "First I'll", or meta commentary.
+- Never repeat the same section twice.
 - Educational only. NOT financial advice. No guaranteed income.
 - Stay strictly on the given topic.
-- Use clean HTML only: <h2>, <h3>, <p>, <ul>, <ol>, <li>, <a>. Never use Markdown (# ** -).
-- Short paragraphs. Real steps for this topic only.
-- End with <h2>Disclaimer</h2><p>Educational only — not financial advice.</p>`;
+- Use clean HTML only: h2, h3, p, ul, ol, li, a. Never Markdown (# ** -).
+- Target 900–1600 words of real guidance. Short paragraphs.
+- Prefer practical steps useful in Nigeria / Africa when relevant (banks, mobile money, local job scams) without inventing laws.
+- End once with: <h2>Disclaimer</h2><p>Educational only — not financial advice.</p>`;
 
-/** Only text instruct/chat models — never image/audio/embed/flux */
 const CF_CHAT_MODELS = [
   '@cf/meta/llama-3.1-8b-instruct',
   '@cf/meta/llama-3.2-3b-instruct',
@@ -38,12 +40,7 @@ const CF_CHAT_MODELS = [
   '@cf/microsoft/phi-2',
 ];
 
-const GROQ_MODELS = [
-  'llama-3.1-8b-instant',
-  'llama-3.3-70b-versatile',
-  'gemma2-9b-it',
-];
-
+const GROQ_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it'];
 const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite'];
 
 function isChatModelName(id: string) {
@@ -90,7 +87,7 @@ async function listOpenRouterFreeChat(): Promise<string[]> {
   }
 }
 
-async function cfRun(model: string, prompt: string, maxTokens = 1400): Promise<string | null> {
+async function cfRun(model: string, prompt: string, maxTokens = 2200): Promise<string | null> {
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN) return null;
   try {
     const r = await fetch(
@@ -105,7 +102,7 @@ async function cfRun(model: string, prompt: string, maxTokens = 1400): Promise<s
           ],
           max_tokens: maxTokens,
         }),
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(90000),
       }
     );
     const text = await r.text();
@@ -126,7 +123,7 @@ async function cfRun(model: string, prompt: string, maxTokens = 1400): Promise<s
   }
 }
 
-async function openRouterRun(model: string, prompt: string, maxTokens = 1400): Promise<string | null> {
+async function openRouterRun(model: string, prompt: string, maxTokens = 2200): Promise<string | null> {
   if (!OPENROUTER_API_KEY) return null;
   try {
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -160,7 +157,7 @@ async function openRouterRun(model: string, prompt: string, maxTokens = 1400): P
   }
 }
 
-async function groqRun(model: string, prompt: string, maxTokens = 1400): Promise<string | null> {
+async function groqRun(model: string, prompt: string, maxTokens = 2200): Promise<string | null> {
   if (!GROQ_API_KEY) return null;
   try {
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -177,7 +174,7 @@ async function groqRun(model: string, prompt: string, maxTokens = 1400): Promise
         ],
         max_tokens: maxTokens,
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(90000),
     });
     const text = await r.text();
     if (!r.ok) {
@@ -201,9 +198,9 @@ async function geminiRun(model: string, prompt: string): Promise<string | null> 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: `${SYSTEM}\n\n${prompt}` }] }],
-        generationConfig: { maxOutputTokens: 1400 },
+        generationConfig: { maxOutputTokens: 2200 },
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(90000),
     });
     const text = await r.text();
     if (!r.ok) {
@@ -220,14 +217,33 @@ async function geminiRun(model: string, prompt: string): Promise<string | null> 
 
 function buildPrompt(context: string, partial?: string) {
   if (partial && partial.trim().length > 80) {
-    return `Continue this HTML guide on-topic. Use only HTML tags h2 h3 p ul ol li a. No Markdown.\n\nPartial:\n${partial.slice(0, 5000)}\n\nContext:\n${context.slice(0, 3000)}`;
+    return `Continue the HTML article only. No planning text. HTML tags h2 h3 p ul ol li a only.\n\nPartial:\n${partial.slice(0, 5000)}\n\nContext:\n${context.slice(0, 3000)}`;
   }
-  return `Write one beginner educational guide for the topic below.\n\nFirst lines exactly:\nTITLE: clear title\nSUMMARY: one or two sentences\nCATEGORY: money OR opportunities OR scams OR guides\n\nThen HTML body only (no Markdown):\n- <h2>Start here</h2> with basics for THIS topic\n- <h2>Step-by-step</h2> with <ol><li>…\n- <h2>Tips</h2>\n- <h2>Watch outs</h2> if relevant\n- <h2>Disclaimer</h2><p>Educational only — not financial advice.</p>\n\nContext:\n${context.slice(0, 4500)}`;
+  return `Write one finished beginner educational guide.\n\nFirst lines exactly:\nTITLE: clear specific title\nSUMMARY: one or two sentences\nCATEGORY: money OR opportunities OR scams OR guides\n\nThen HTML body only (no Markdown, no thinking out loud):\n- <h2>Start here</h2>\n- <h2>Step-by-step</h2> with <ol><li>…\n- <h2>Tips</h2>\n- <h2>Watch outs</h2> if relevant\n- <h2>Disclaimer</h2><p>Educational only — not financial advice.</p>\n\nAim for substantial detail (about 1000+ words of real content).\n\nContext:\n${context.slice(0, 4500)}`;
 }
 
-function parseAiOutput(raw: string, fallbackTitle: string): AiDraft {
+export function looksLikeLeak(text: string): boolean {
+  return /okay,?\s+i need to|first,?\s+i('ll| will)|chain-of-thought|as an ai|here is my plan|let me outline|the user has specified|i'll start by outlining/i.test(
+    text
+  );
+}
+
+function parseAiOutput(raw: string, fallbackTitle: string): AiDraft | null {
+  if (looksLikeLeak(raw)) {
+    console.warn('[ai] rejected leak/planning text');
+    return null;
+  }
   const meta = stripMetaLines(raw);
   let html = markdownToHtml(meta.body);
+  if (looksLikeLeak(html)) {
+    console.warn('[ai] rejected leak in html');
+    return null;
+  }
+  const textLen = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().length;
+  if (textLen < 1200) {
+    console.warn('[ai] rejected short draft', textLen);
+    return null;
+  }
   if (!/not financial advice/i.test(html)) {
     html +=
       '<h2>Disclaimer</h2><p>This guide is educational only. It is not financial, investment, or legal advice.</p>';
@@ -250,7 +266,6 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
   let usedModel = '';
   const promptFresh = buildPrompt(context);
 
-  // 1) Groq (daily free, fast)
   for (const model of GROQ_MODELS) {
     if (!GROQ_API_KEY) break;
     console.log('[ai] trying Groq', model);
@@ -258,11 +273,10 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
     if (!out) continue;
     partial = partial ? `${partial}\n${out}` : out;
     usedModel = `groq:${model}`;
-    if (/TITLE:/i.test(partial) && partial.length > 700) break;
+    if (/TITLE:/i.test(partial) && partial.length > 1200 && !looksLikeLeak(partial)) break;
   }
 
-  // 2) Gemini
-  if (partial.length < 500 || !/TITLE:/i.test(partial)) {
+  if (partial.length < 800 || !/TITLE:/i.test(partial) || looksLikeLeak(partial)) {
     for (const model of GEMINI_MODELS) {
       if (!GEMINI_API_KEY) break;
       console.log('[ai] trying Gemini', model);
@@ -270,12 +284,11 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
       if (!out) continue;
       partial = partial ? `${partial}\n${out}` : out;
       usedModel = `gemini:${model}`;
-      if (/TITLE:/i.test(partial) && partial.length > 700) break;
+      if (/TITLE:/i.test(partial) && partial.length > 1200 && !looksLikeLeak(partial)) break;
     }
   }
 
-  // 3) Cloudflare chat-only
-  if (partial.length < 500 || !/TITLE:/i.test(partial)) {
+  if (partial.length < 800 || !/TITLE:/i.test(partial) || looksLikeLeak(partial)) {
     const cfModels = await listCloudflareChatModels();
     for (const model of cfModels) {
       console.log('[ai] trying CF', model);
@@ -283,12 +296,11 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
       if (!out) continue;
       partial = partial ? `${partial}\n${out}` : out;
       usedModel = model;
-      if (/TITLE:/i.test(partial) && partial.length > 700) break;
+      if (/TITLE:/i.test(partial) && partial.length > 1200 && !looksLikeLeak(partial)) break;
     }
   }
 
-  // 4) OpenRouter free chat
-  if (partial.length < 500 || !/TITLE:/i.test(partial)) {
+  if (partial.length < 800 || !/TITLE:/i.test(partial) || looksLikeLeak(partial)) {
     const orModels = await listOpenRouterFreeChat();
     for (const model of orModels.slice(0, 5)) {
       console.log('[ai] trying OR', model);
@@ -296,16 +308,17 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
       if (!out) continue;
       partial = partial ? `${partial}\n${out}` : out;
       usedModel = model;
-      if (/TITLE:/i.test(partial) && partial.length > 700) break;
+      if (/TITLE:/i.test(partial) && partial.length > 1200 && !looksLikeLeak(partial)) break;
     }
   }
 
-  if (!partial || partial.trim().length < 200) {
-    console.error('[ai] all models failed — add GROQ_API_KEY or GEMINI_API_KEY or wait for CF neurons reset');
+  if (!partial || partial.trim().length < 400) {
+    console.error('[ai] all models failed');
     return null;
   }
 
   const draft = parseAiOutput(partial, seedTitle);
+  if (!draft) return null;
   draft.model = usedModel;
   console.log('[ai] draft ok', draft.title.slice(0, 50), 'via', usedModel);
   return draft;
