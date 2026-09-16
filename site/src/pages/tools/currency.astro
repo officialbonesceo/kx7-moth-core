@@ -1,0 +1,269 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const origin = Astro.url.origin;
+const pageUrl = `${origin}/tools/currency`;
+
+/** Popular first — full list loads from API */
+const POPULAR = [
+  'USD', 'NGN', 'EUR', 'GBP', 'GHS', 'KES', 'ZAR', 'CAD', 'AUD',
+  'JPY', 'CNY', 'INR', 'AED', 'SAR', 'CHF', 'XOF', 'XAF',
+];
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'Currency Converter — LaneCash',
+    applicationCategory: 'FinanceApplication',
+    operatingSystem: 'Any',
+    url: pageUrl,
+    description:
+      'Free multi-currency converter with global mid-market style rates including USD, NGN, EUR, GBP and more. Educational estimates only — not official central bank quotes or financial advice.',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'NGN' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'Are LaneCash currency rates official?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'No. Rates are public mid-market style estimates from free data feeds. They are not Central Bank of Nigeria (CBN) official rates and are not a quote from any bank or bureau.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'How many currencies can I convert?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'The tool loads a full global rate table when available (often 150+ codes) and lets you convert between any two listed currencies, with popular pairs such as USD/NGN highlighted.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Will this get me rate-limited?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'LaneCash caches rates on the server for several minutes so many visitors share one upstream request. You can convert freely on the page without hitting the external API on every keystroke.',
+        },
+      },
+    ],
+  },
+];
+---
+
+<Base
+  title="Currency Converter — USD, NGN & Global Rates | LaneCash"
+  description="Convert between global currencies including USD to NGN with free mid-market style estimates. Not CBN official rates. Not financial advice."
+  jsonLd={jsonLd}
+>
+  <div class="disclaimer-banner">
+    <strong>Disclaimer:</strong> Educational mid-market estimates only. Not CBN/official bank rates, not a send-money quote, not financial advice.
+    <a href="/disclaimer">Full disclaimer</a>
+  </div>
+
+  <article class="hero" style="max-width:720px">
+    <p class="muted" style="margin:0 0 8px;font-size:.8rem">
+      <a href="/tools">← Money tools</a>
+      · <a href="/tools/usd-ngn">USD → NGN focus</a>
+    </p>
+    <h1>Global currency converter</h1>
+    <p>
+      Convert <strong>any listed currency</strong> to another using public mid-market style rates
+      (USD, NGN, EUR, GBP, and the full table when available).
+    </p>
+  </article>
+
+  <section class="calc-card" style="max-width:720px;margin:0 auto 24px" aria-labelledby="fx-heading">
+    <h2 id="fx-heading" style="margin-top:0;font-size:1.1rem">Convert</h2>
+
+    <div class="fx-rate-box" style="padding:14px 16px;border-radius:12px;background:var(--card-bg, rgba(0,0,0,.04));margin-bottom:14px">
+      <div class="muted" style="font-size:.75rem;margin-bottom:4px">Live estimate</div>
+      <div id="fxHeadline" style="font-size:1.2rem;font-weight:700">Loading rates…</div>
+      <div id="fxMeta" class="muted" style="font-size:.75rem;margin-top:6px"></div>
+    </div>
+
+    <label for="amount">Amount</label>
+    <input id="amount" type="number" inputmode="decimal" value="1" min="0" step="any" />
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+      <div>
+        <label for="fromCur">From</label>
+        <select id="fromCur"></select>
+      </div>
+      <div>
+        <label for="toCur">To</label>
+        <select id="toCur"></select>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">
+      <button type="button" class="chip" id="swapBtn">Swap</button>
+      <button type="button" class="chip" data-pair="USD|NGN">USD → NGN</button>
+      <button type="button" class="chip" data-pair="EUR|NGN">EUR → NGN</button>
+      <button type="button" class="chip" data-pair="GBP|NGN">GBP → NGN</button>
+      <button type="button" class="chip" data-pair="USD|GHS">USD → GHS</button>
+    </div>
+
+    <button class="save-btn calc-primary" id="fxBtn" type="button">Convert</button>
+    <div class="calc-result" id="fxOut" style="margin-top:12px">—</div>
+
+    <p class="muted" style="font-size:.8rem;line-height:1.5;margin-top:14px">
+      <strong>Full disclaimer:</strong> These numbers are approximate public-market references.
+      Banks, fintech apps, and cash markets add spreads and fees. Parallel (“black market”) rates are
+      <em>not</em> displayed. For Nigeria official reference rates, see
+      <a href="https://www.cbn.gov.ng/rates/ExchRateByCurrency" rel="noopener noreferrer" target="_blank">CBN exchange rates</a>.
+      LaneCash does not buy, sell, or transfer currency.
+    </p>
+  </section>
+
+  <section class="calc-card" style="max-width:720px;margin:0 auto 24px">
+    <h2 style="margin-top:0;font-size:1.05rem">Sample rates (per 1 USD)</h2>
+    <p class="muted" style="font-size:.8rem;margin:0 0 10px">Subset for quick scanning — full list is in the dropdowns.</p>
+    <div id="rateTable" style="font-size:.85rem;line-height:1.6">Loading…</div>
+  </section>
+
+  <section style="max-width:720px;margin:0 auto 32px">
+    <h2 style="font-size:1.15rem">About these rates</h2>
+    <ul style="line-height:1.55;font-size:.95rem">
+      <li>Fetched from free public FX feeds and <strong>cached on our server</strong> (~5 minutes) so the site is not rate-limited on every click.</li>
+      <li>Conversion is done in your browser from that cached table (any → any via USD cross).</li>
+      <li>Educational tool only — pair with <a href="/tools">other money tools</a> and scam guides on LaneCash.</li>
+    </ul>
+  </section>
+
+  <script is:inline define:vars={{ popularJson: JSON.stringify(POPULAR) }}>
+    (function () {
+      var origin = window.location.origin;
+      var popular = JSON.parse(popularJson);
+      var rates = null;
+      var source = '';
+      var date = '';
+
+      function fillSelects(codes) {
+        var from = document.getElementById('fromCur');
+        var to = document.getElementById('toCur');
+        var sorted = codes.slice().sort(function (a, b) {
+          var pa = popular.indexOf(a);
+          var pb = popular.indexOf(b);
+          if (pa >= 0 && pb >= 0) return pa - pb;
+          if (pa >= 0) return -1;
+          if (pb >= 0) return 1;
+          return a.localeCompare(b);
+        });
+        var html = sorted
+          .map(function (c) {
+            return '<option value="' + c + '">' + c + '</option>';
+          })
+          .join('');
+        from.innerHTML = html;
+        to.innerHTML = html;
+        from.value = rates.NGN ? 'USD' : sorted[0];
+        to.value = rates.NGN ? 'NGN' : sorted[1] || sorted[0];
+      }
+
+      function convertAmount(amount, from, to) {
+        if (!rates || !rates[from] || !rates[to]) return null;
+        // rates are vs USD: 1 USD = rates[CODE]
+        var inUsd = from === 'USD' ? amount : amount / rates[from];
+        return inUsd * rates[to];
+      }
+
+      function render() {
+        var amount = +document.getElementById('amount').value || 0;
+        var from = document.getElementById('fromCur').value;
+        var to = document.getElementById('toCur').value;
+        var out = document.getElementById('fxOut');
+        var head = document.getElementById('fxHeadline');
+        var meta = document.getElementById('fxMeta');
+        var result = convertAmount(amount, from, to);
+        var unit = convertAmount(1, from, to);
+        if (result == null || unit == null) {
+          out.textContent = 'Select currencies after rates load';
+          return;
+        }
+        head.textContent =
+          '1 ' + from + ' ≈ ' + unit.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ' + to;
+        meta.textContent =
+          'Source: ' + (source || 'public') + (date ? ' · ' + date : '') + ' · educational estimate';
+        out.textContent =
+          amount.toLocaleString(undefined, { maximumFractionDigits: 4 }) +
+          ' ' +
+          from +
+          ' ≈ ' +
+          result.toLocaleString(undefined, { maximumFractionDigits: 4 }) +
+          ' ' +
+          to;
+      }
+
+      function renderTable() {
+        var box = document.getElementById('rateTable');
+        if (!rates) {
+          box.textContent = '—';
+          return;
+        }
+        var show = popular.filter(function (c) {
+          return c !== 'USD' && rates[c];
+        });
+        box.innerHTML = show
+          .map(function (c) {
+            return (
+              '<div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(127,127,127,.2);padding:4px 0">' +
+              '<span>1 USD → ' +
+              c +
+              '</span><strong>' +
+              Number(rates[c]).toLocaleString(undefined, { maximumFractionDigits: 4 }) +
+              '</strong></div>'
+            );
+          })
+          .join('');
+      }
+
+      async function load() {
+        try {
+          var r = await fetch(origin + '/api/fx/rates');
+          var j = await r.json();
+          rates = j.rates || null;
+          source = j.source || '';
+          date = j.date || '';
+          if (!rates || !Object.keys(rates).length) throw new Error('empty');
+          fillSelects(Object.keys(rates));
+          render();
+          renderTable();
+        } catch (e) {
+          document.getElementById('fxHeadline').textContent = 'Rates unavailable';
+          document.getElementById('fxMeta').textContent = 'Try again in a moment.';
+          document.getElementById('rateTable').textContent = 'Could not load rate table.';
+        }
+      }
+
+      document.getElementById('fxBtn').onclick = render;
+      document.getElementById('swapBtn').onclick = function () {
+        var a = document.getElementById('fromCur');
+        var b = document.getElementById('toCur');
+        var t = a.value;
+        a.value = b.value;
+        b.value = t;
+        render();
+      };
+      document.querySelectorAll('[data-pair]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var p = btn.getAttribute('data-pair').split('|');
+          if (rates && rates[p[0]] && rates[p[1]]) {
+            document.getElementById('fromCur').value = p[0];
+            document.getElementById('toCur').value = p[1];
+            render();
+          }
+        });
+      });
+      document.getElementById('amount').addEventListener('input', render);
+      document.getElementById('fromCur').addEventListener('change', render);
+      document.getElementById('toCur').addEventListener('change', render);
+
+      load();
+    })();
+  </script>
+</Base>

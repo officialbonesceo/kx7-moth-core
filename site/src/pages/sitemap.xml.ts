@@ -11,6 +11,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     '/disclaimer',
     '/tools',
     '/tools/usd-ngn',
+    '/tools/currency',
     '/search',
   ];
   let articlePaths: { loc: string; lastmod?: string }[] = [];
