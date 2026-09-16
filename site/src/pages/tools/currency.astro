@@ -4,12 +4,6 @@ import Base from '../../layouts/Base.astro';
 const origin = Astro.url.origin;
 const pageUrl = `${origin}/tools/currency`;
 
-/** Popular first — full list loads from API */
-const POPULAR = [
-  'USD', 'NGN', 'EUR', 'GBP', 'GHS', 'KES', 'ZAR', 'CAD', 'AUD',
-  'JPY', 'CNY', 'INR', 'AED', 'SAR', 'CHF', 'XOF', 'XAF',
-];
-
 const jsonLd = [
   {
     '@context': 'https://schema.org',
@@ -135,10 +129,10 @@ const jsonLd = [
     </ul>
   </section>
 
-  <script is:inline define:vars={{ popularJson: JSON.stringify(POPULAR) }}>
+  <script is:inline>
     (function () {
       var origin = window.location.origin;
-      var popular = JSON.parse(popularJson);
+      var popular = ['USD', 'NGN', 'EUR', 'GBP', 'GHS', 'KES', 'ZAR', 'CAD', 'AUD', 'JPY', 'CNY', 'INR', 'AED', 'SAR', 'CHF', 'XOF', 'XAF'];
       var rates = null;
       var source = '';
       var date = '';
@@ -167,7 +161,6 @@ const jsonLd = [
 
       function convertAmount(amount, from, to) {
         if (!rates || !rates[from] || !rates[to]) return null;
-        // rates are vs USD: 1 USD = rates[CODE]
         var inUsd = from === 'USD' ? amount : amount / rates[from];
         return inUsd * rates[to];
       }
