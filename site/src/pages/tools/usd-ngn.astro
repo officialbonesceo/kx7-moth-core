@@ -1,0 +1,197 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const origin = Astro.url.origin;
+const pageUrl = `${origin}/tools/usd-ngn`;
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'USD to NGN Converter — LaneCash',
+    applicationCategory: 'FinanceApplication',
+    operatingSystem: 'Any',
+    url: pageUrl,
+    description:
+      'Free USD to Nigerian Naira (NGN) converter using public mid-market rate estimates. Educational only — not CBN official rates or financial advice.',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'NGN' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'What is the USD to NGN rate on LaneCash?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'LaneCash shows a public mid-market estimate of how many Nigerian Naira equal one US Dollar. It is not the official Central Bank of Nigeria (CBN) rate and is for education only.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Is this the black market or parallel rate?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'No. This tool uses public mid-market style feeds. Parallel or street rates differ by location and provider. Always verify with a licensed operator before sending money.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'How often is the rate updated?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Rates are fetched from public APIs and cached briefly on the server. Refresh the page for a newer estimate. Values can lag real markets.',
+        },
+      },
+    ],
+  },
+];
+---
+
+<Base
+  title="USD to NGN Today — Dollar to Naira Converter | LaneCash"
+  description="Convert US Dollars (USD) to Nigerian Naira (NGN) with a free educational mid-market estimate. Not CBN official rates. Not financial advice."
+  jsonLd={jsonLd}
+>
+  <div class="disclaimer-banner">
+    <strong>Disclaimer:</strong> Mid-market style estimate only — not CBN official, not a quote to send money, not financial advice.
+    <a href="/disclaimer">Full disclaimer</a>
+  </div>
+
+  <article class="hero" style="max-width:720px">
+    <p class="muted" style="margin:0 0 8px;font-size:.8rem">
+      <a href="/tools">← Money tools</a>
+    </p>
+    <h1>USD to NGN converter</h1>
+    <p>
+      See an estimated <strong>US Dollar to Nigerian Naira</strong> rate and convert any amount.
+      Built for quick checks while you read LaneCash guides — not a bank or bureau de change.
+    </p>
+  </article>
+
+  <section class="calc-card" style="max-width:720px;margin:0 auto 24px" aria-labelledby="fx-heading">
+    <h2 id="fx-heading" style="margin-top:0;font-size:1.1rem">Convert USD → NGN</h2>
+
+    <div class="fx-rate-box" style="padding:14px 16px;border-radius:12px;background:var(--card-bg, rgba(0,0,0,.04));margin-bottom:14px">
+      <div class="muted" style="font-size:.75rem;margin-bottom:4px">Estimated mid-market</div>
+      <div id="fxHeadline" style="font-size:1.35rem;font-weight:700">1 USD ≈ ₦—</div>
+      <div id="fxMeta" class="muted" style="font-size:.75rem;margin-top:6px">Loading rate…</div>
+    </div>
+
+    <label for="usdAmount">Amount (USD)</label>
+    <input id="usdAmount" type="number" inputmode="decimal" value="1" min="0" step="any" />
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+      <button type="button" class="chip" data-amt="1">$1</button>
+      <button type="button" class="chip" data-amt="10">$10</button>
+      <button type="button" class="chip" data-amt="50">$50</button>
+      <button type="button" class="chip" data-amt="100">$100</button>
+      <button type="button" class="chip" data-amt="500">$500</button>
+    </div>
+
+    <button class="save-btn calc-primary" id="fxBtn" type="button">Convert</button>
+    <div class="calc-result" id="fxOut" style="margin-top:12px">—</div>
+
+    <p class="muted" style="font-size:.8rem;line-height:1.5;margin-top:14px">
+      For official reference rates see the
+      <a href="https://www.cbn.gov.ng/rates/ExchRateByCurrency" rel="noopener noreferrer" target="_blank">Central Bank of Nigeria</a>.
+      Parallel market prices vary and are not shown here.
+    </p>
+  </section>
+
+  <section style="max-width:720px;margin:0 auto 32px" class="prose-tools">
+    <h2 style="font-size:1.15rem">How to use this USD to Naira tool</h2>
+    <ol style="line-height:1.55;font-size:.95rem">
+      <li>Enter the dollar amount you want to convert (or tap a quick amount).</li>
+      <li>Read the estimated naira total and the per-dollar rate.</li>
+      <li>Treat the number as a <strong>guide only</strong> — banks, fintechs, and cash markets use different spreads.</li>
+    </ol>
+
+    <h2 style="font-size:1.15rem">USD to NGN — what this is not</h2>
+    <ul style="line-height:1.55;font-size:.95rem">
+      <li>Not the official CBN published rate.</li>
+      <li>Not a promise of the rate you will get when sending or receiving money.</li>
+      <li>Not investment, FX trading, or “black market” advice.</li>
+    </ul>
+
+    <h2 style="font-size:1.15rem">Related on LaneCash</h2>
+    <p style="font-size:.95rem;line-height:1.55">
+      Pair rate checks with scam awareness:
+      <a href="/article/scam-list-task-apps-pay-to-withdraw">task apps that charge to withdraw</a>,
+      <a href="/article/signal-groups-and-paid-tips-red-flags">paid signal groups</a>,
+      and other <a href="/tools">money tools</a>.
+    </p>
+  </section>
+
+  <script is:inline>
+    (function () {
+      var origin = window.location.origin;
+      var rate = 0;
+
+      function fmtNgn(n) {
+        return '₦' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+      }
+
+      function render(amount) {
+        var out = document.getElementById('fxOut');
+        if (!rate) {
+          out.textContent = 'Rate unavailable — try again';
+          return;
+        }
+        var total = rate * amount;
+        out.textContent =
+          '$' +
+          Number(amount).toLocaleString(undefined, { maximumFractionDigits: 2 }) +
+          ' ≈ ' +
+          fmtNgn(total);
+      }
+
+      async function load() {
+        var head = document.getElementById('fxHeadline');
+        var meta = document.getElementById('fxMeta');
+        var amount = +document.getElementById('usdAmount').value || 1;
+        head.textContent = '1 USD ≈ ₦…';
+        meta.textContent = 'Loading rate…';
+        try {
+          var r = await fetch(origin + '/api/fx/usd-ngn?amount=' + encodeURIComponent(amount));
+          var j = await r.json();
+          rate = Number(j.usd_ngn) || 0;
+          if (!rate) throw new Error('no rate');
+          head.textContent =
+            '1 USD ≈ ₦' + rate.toLocaleString(undefined, { maximumFractionDigits: 2 });
+          meta.textContent =
+            'Source: ' +
+            (j.source || 'public feed') +
+            (j.date ? ' · ' + j.date : '') +
+            (j.cached ? ' · cached' : '') +
+            ' · educational estimate';
+          render(amount);
+        } catch (e) {
+          head.textContent = '1 USD ≈ ₦—';
+          meta.textContent = 'Could not load rate. Try again shortly.';
+          document.getElementById('fxOut').textContent = '—';
+        }
+      }
+
+      document.getElementById('fxBtn').onclick = function () {
+        var amount = +document.getElementById('usdAmount').value || 0;
+        if (rate) render(amount);
+        else load();
+      };
+
+      document.querySelectorAll('[data-amt]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.getElementById('usdAmount').value = btn.getAttribute('data-amt');
+          if (rate) render(+btn.getAttribute('data-amt'));
+        });
+      });
+
+      document.getElementById('usdAmount').addEventListener('change', function () {
+        if (rate) render(+document.getElementById('usdAmount').value || 0);
+      });
+
+      load();
+    })();
+  </script>
+</Base>

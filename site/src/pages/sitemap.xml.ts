@@ -4,9 +4,15 @@ import { getArticles } from '../lib/db';
 export const prerender = false;
 
 export const GET: APIRoute = async ({ locals, url }) => {
-  // Always use the host the visitor actually opened (custom domain or pages.dev)
   const origin = url.origin;
-  const staticPaths = ['/', '/about', '/disclaimer', '/tools', '/search'];
+  const staticPaths = [
+    '/',
+    '/about',
+    '/disclaimer',
+    '/tools',
+    '/tools/usd-ngn',
+    '/search',
+  ];
   let articlePaths: { loc: string; lastmod?: string }[] = [];
 
   try {
