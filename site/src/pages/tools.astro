@@ -11,14 +11,14 @@ const jsonLd = [
     operatingSystem: 'Any',
     url: `${origin}/tools`,
     description:
-      'Educational tools: global currency converter, USD to NGN, crypto price estimates, fee calculator, crypto news, and transaction safety helper. Not financial advice.',
+      'Educational tools: any-to-any currency converter (USD, NGN, KWD, EUR…), crypto estimates, fees, news, tx safety. Not financial advice.',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'NGN' },
   },
 ];
 ---
 <Base
   title="Money Tools — Currency, Crypto & Fees | LaneCash"
-  description="Educational tools: global FX converter, USD to Naira, crypto estimates, fee impact, news, and tx safety checks. Not financial advice."
+  description="Educational tools: global FX converter (USD, NGN, KWD…), crypto estimates, fee impact, news, and tx safety. Not financial advice."
   jsonLd={jsonLd}
 >
   <div class="disclaimer-banner">
@@ -31,20 +31,12 @@ const jsonLd = [
     <p>FX, fees, crypto estimates, news, and safety checks — educational only.</p>
   </section>
 
-  <div style="max-width:720px;margin:0 auto 20px;display:grid;gap:12px">
-    <a class="calc-card" href="/tools/currency" style="display:block;text-decoration:none;color:inherit">
-      <h3 style="margin:0 0 6px">Global currency converter</h3>
-      <p class="muted" style="margin:0;font-size:.85rem;line-height:1.45">
-        USD, NGN, EUR, GBP and full rate table — mid-market estimates, not official bank quotes.
-      </p>
-    </a>
-    <a class="calc-card" href="/tools/usd-ngn" style="display:block;text-decoration:none;color:inherit">
-      <h3 style="margin:0 0 6px">USD to NGN focus</h3>
-      <p class="muted" style="margin:0;font-size:.85rem;line-height:1.45">
-        Dollar → Naira quick page for Nigeria-focused searches.
-      </p>
-    </a>
-  </div>
+  <a class="calc-card" href="/tools/usd-ngn" style="display:block;max-width:720px;margin:0 auto 20px;text-decoration:none;color:inherit">
+    <h3 style="margin:0 0 6px">Currency converter (any → any)</h3>
+    <p class="muted" style="margin:0;font-size:.85rem;line-height:1.45">
+      USD, NGN, KWD, EUR, GBP, AED and more — mid-market estimates, not bank or CBN quotes.
+    </p>
+  </a>
 
   <div class="calc-tabs" role="tablist">
     <button type="button" class="chip active" data-tab="crypto">Crypto</button>
