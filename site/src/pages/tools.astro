@@ -11,14 +11,14 @@ const jsonLd = [
     operatingSystem: 'Any',
     url: `${origin}/tools`,
     description:
-      'Educational tools: crypto price estimates, fee calculator, crypto news, and transaction safety helper. Not financial advice.',
+      'Educational tools: USD to NGN converter, crypto price estimates, fee calculator, crypto news, and transaction safety helper. Not financial advice.',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'NGN' },
   },
 ];
 ---
 <Base
-  title="Money Tools — LaneCash"
-  description="Educational tools: crypto estimates, fee impact, news, and tx safety checks. Not financial advice."
+  title="Money Tools — USD to NGN, Crypto & Fees | LaneCash"
+  description="Educational tools: USD to Naira converter, crypto estimates, fee impact, news, and tx safety checks. Not financial advice."
   jsonLd={jsonLd}
 >
   <div class="disclaimer-banner">
@@ -28,8 +28,15 @@ const jsonLd = [
 
   <section class="hero">
     <h1>Money tools</h1>
-    <p>Fees, crypto estimates, news, and safety checks — educational only.</p>
+    <p>USD–NGN, fees, crypto estimates, news, and safety checks — educational only.</p>
   </section>
+
+  <a class="calc-card" href="/tools/usd-ngn" style="display:block;max-width:720px;margin:0 auto 20px;text-decoration:none;color:inherit">
+    <h3 style="margin:0 0 6px">USD to NGN converter</h3>
+    <p class="muted" style="margin:0;font-size:.85rem;line-height:1.45">
+      Dollar to Naira mid-market style estimate — free, educational, not CBN official rates.
+    </p>
+  </a>
 
   <div class="calc-tabs" role="tablist">
     <button type="button" class="chip active" data-tab="crypto">Crypto</button>
