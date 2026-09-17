@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 
 const origin = Astro.url.origin;
+const SMARTLINK = 'https://omg10.com/4/11821454';
 const jsonLd = [
   {
     '@context': 'https://schema.org',
@@ -37,6 +38,14 @@ const jsonLd = [
       USD, NGN, KWD, EUR, GBP, AED and more — mid-market estimates, not bank or CBN quotes.
     </p>
   </a>
+
+  <div class="calc-card" style="max-width:720px;margin:0 auto 20px">
+    <h3 style="margin:0 0 6px">Partner offers</h3>
+    <p class="muted" style="margin:0 0 12px;font-size:.85rem;line-height:1.45">
+      Optional third-party offers. LaneCash does not control external pages — review carefully. Not financial advice.
+    </p>
+    <a class="save-btn calc-primary" href={SMARTLINK} target="_blank" rel="noopener noreferrer sponsored">View offers</a>
+  </div>
 
   <div class="calc-tabs" role="tablist">
     <button type="button" class="chip active" data-tab="crypto">Crypto</button>
