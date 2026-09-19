@@ -1,5 +1,6 @@
 /**
- * Delete leaky/thin posts, rewrite Remote work scams guide, add 2 solid articles.
+ * Purge weak AI posts (Google, Remote work, generic summaries),
+ * rewrite real guides. No template spam if AI failed — these are hand-written.
  */
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
@@ -65,6 +66,45 @@ async function upsert(article: {
   console.log(r ? 'OK ' + article.title : 'FAIL ' + article.title, slug);
 }
 
+const YT_SHORTS = `<h2>Start here</h2>
+<p>YouTube Shorts can be a practice ground for short-form video skills. It is not a guaranteed income machine. This guide is about building a realistic posting habit, measuring what works, and avoiding hype that skips the hard parts.</p>
+<p>Educational only — not financial advice and not a promise of views or money.</p>
+
+<h2>What “posting schedule” actually means</h2>
+<p>A schedule is simply: how often you publish, at what times you tend to post, and how you batch filming or editing so you do not burn out in week two. Consistency matters more than copying someone else’s “post 8 times a day” screenshot.</p>
+
+<h2>Step-by-step for beginners</h2>
+<ol>
+<li><strong>Pick one narrow theme.</strong> Phone money tips, scam red flags, CapCut tricks, or campus skills — one lane is easier than “everything viral.”</li>
+<li><strong>Define a sustainable volume.</strong> Three solid Shorts per week beats fourteen thin clips you abandon. Write the number down.</li>
+<li><strong>Batch in sessions.</strong> Film three hooks in one sitting. Edit on a second day. Schedule or upload when your connection is stable.</li>
+<li><strong>Use a simple content calendar.</strong> A notes app or spreadsheet with date, idea, status (idea / filmed / posted) is enough. Paid tools are optional.</li>
+<li><strong>Hook in the first second.</strong> State the problem or promise clearly. Viewers scroll fast; clarity beats fancy intros.</li>
+<li><strong>Keep each Short focused.</strong> One tip, one demo, one warning. Save multi-step tutorials for a series with clear part numbers.</li>
+<li><strong>Post, then engage lightly.</strong> Reply to early comments when you can. Do not obsess over every view spike.</li>
+<li><strong>Review analytics weekly, not hourly.</strong> Which topics retained viewers? Which got clicks on your profile or linked sites? Double down on those angles.</li>
+<li><strong>Protect your energy.</strong> If a schedule causes panic or sleep loss, lower the volume. Burnout kills channels faster than a quiet week.</li>
+</ol>
+
+<h2>Tips that help in practice</h2>
+<ul>
+<li>Vertical 9:16, clear audio, readable on-screen text for silent viewers.</li>
+<li>Reuse one strong tip across formats (Short, carousel note, blog) instead of inventing 30 weak ideas.</li>
+<li>If you promote tools or affiliate links, disclose and only recommend what you understand.</li>
+<li>Trend audio is optional; useful information still wins for trust-based niches like money safety.</li>
+</ul>
+
+<h2>Watch outs</h2>
+<ul>
+<li>Courses that guarantee Shorts income or “algorithm secrets” for a high fee.</li>
+<li>Buying fake views or engagement — it trains the wrong signals and can hurt trust.</li>
+<li>Copying another creator’s exact script without adding your own checks or local context.</li>
+<li>Ignoring community guidelines; repeated strikes waste months of work.</li>
+</ul>
+
+<h2>Disclaimer</h2>
+<p>Educational only — not financial advice. Views, subscribers, and revenue are never guaranteed. Platform rules change; verify details in official YouTube help pages.</p>`;
+
 const REMOTE = `<h2>Start here</h2>
 <p>Remote and “work from phone” offers are common in Nigeria and across Africa. Some are real freelance gigs. Many are scams that ask you to pay fees, share OTPs, or “activate” an account before any salary arrives.</p>
 <p>This guide is about <strong>verifying who is hiring you</strong> before you send money or sensitive data. It is educational only — not legal or career advice.</p>
@@ -107,95 +147,33 @@ const REMOTE = `<h2>Start here</h2>
 <h2>Disclaimer</h2>
 <p>This guide is <strong>educational only</strong>. It is not financial, legal, or employment advice. Verify opportunities yourself and never risk money you cannot afford to lose.</p>`;
 
-const AFFILIATE = `<h2>Start here</h2>
-<p>Affiliate marketing means you recommend a product or service and earn a commission if someone buys through your tracking link. It is a real model used by many creators — and also a topic full of “quit your job in 30 days” hype.</p>
-<p>This guide is for beginners who want an honest map: how it works, what to learn first, and which promises to ignore. Educational only — not financial advice.</p>
-
-<h2>How a simple affiliate flow works</h2>
-<ol>
-<li>A company runs an affiliate or referral program.</li>
-<li>You join and receive a unique link or code.</li>
-<li>You publish useful content (review, tutorial, comparison) that includes the link where it genuinely fits.</li>
-<li>If a reader buys within the program rules, you may earn a commission after returns and fraud checks.</li>
-</ol>
-<p>You do not hold inventory. You do hold responsibility for not lying about products.</p>
-
-<h2>Step-by-step starter path</h2>
-<ol>
-<li><strong>Pick a narrow topic you can explain.</strong> Phone photography, budget tools, study apps, or a skill you already practice beats “everything online.”</li>
-<li><strong>Learn one product deeply.</strong> Use it if you can. Take notes on setup, limits, and who it is not for.</li>
-<li><strong>Join official programs only.</strong> Prefer known networks or the brand’s own affiliate page. Avoid random people selling “affiliate slots” for a fee.</li>
-<li><strong>Write for humans first.</strong> Search intent matters: “how to…”, “vs…”, “is it worth it…”. Stuffing links with no help ranks poorly and burns trust.</li>
-<li><strong>Disclose relationships.</strong> Say when a link is affiliate. Clear disclosure builds long-term credibility.</li>
-<li><strong>Track what little traffic you have.</strong> Which posts get clicks? Which offers convert? Kill weak angles early.</li>
-<li><strong>Stay inside program rules.</strong> Brand bidding, spam, or fake urgency can get accounts banned.</li>
-</ol>
-
-<h2>Tips that actually help beginners</h2>
-<ul>
-<li>One useful article beats ten thin listicles.</li>
-<li>Screenshots and honest limits outperform hype thumbnails alone.</li>
-<li>Email or community follow-up only if people opt in — do not buy shady “buyer lists.”</li>
-<li>Combine affiliate with a real skill (editing, support, tutoring) so income is not only commission luck.</li>
-</ul>
-
-<h2>Watch outs and scam patterns</h2>
-<ul>
-<li>Courses that guarantee affiliate income.</li>
-<li>Paying upfront for “secret high-ticket programs” with no verifiable product.</li>
-<li>Fake dashboards showing commissions you cannot withdraw without fees.</li>
-<li>Pressure to recruit a downline more than to help customers.</li>
-</ul>
-
-<h2>Disclaimer</h2>
-<p>Educational only — not financial advice. Commissions are not guaranteed. Programs change rules. Do your own checks before promoting any product.</p>`;
-
-const P2P = `<h2>Start here</h2>
-<p>Peer-to-peer (P2P) crypto trading matches you with another person: you pay naira (or receive naira) while crypto moves on an escrow-style platform — or, in risky cases, through pure chat deals with no protection.</p>
-<p>This guide explains common safety habits and red flags. It is <strong>not</strong> trading advice and not an instruction to break any law. Know your local rules before you touch crypto.</p>
-
-<h2>Why P2P feels convenient — and risky</h2>
-<p>Bank transfers are familiar. Crypto can move fast. Scammers exploit that gap with fake payment screenshots, chargeback-style reversals, impersonation of support, and off-platform deals that remove escrow protection.</p>
-
-<h2>Step-by-step safer habits</h2>
-<ol>
-<li><strong>Prefer reputable platforms with on-platform chat and escrow</strong> over sending money to a stranger’s account from a random Telegram contact.</li>
-<li><strong>Keep the whole deal inside official chat</strong> until release conditions are met. Moving to WhatsApp “for speed” is a frequent trap.</li>
-<li><strong>Verify payment in your real banking app</strong>, not only a picture someone sent. Screenshots are easy to fake.</li>
-<li><strong>Use exact name matching where the platform requires it.</strong> Third-party payments are a common dispute source.</li>
-<li><strong>Start with small amounts</strong> while you learn the flow. Do not “prove trust” with a large first trade.</li>
-<li><strong>Enable strong account security</strong>: unique password, 2FA that is not SMS-only if better options exist, and care with device access.</li>
-<li><strong>Never share codes or seed phrases.</strong> Support will not need your recovery phrase to “unlock” an order.</li>
-<li><strong>Stop if urgency spikes.</strong> Fake time limits and threats are social pressure tools.</li>
-</ol>
-
-<h2>Red flags</h2>
-<ul>
-<li>Trader insists you release crypto before you have independently confirmed funds.</li>
-<li>Requests to pay a “release fee,” “miner fee,” or “tax” to a personal wallet mid-trade.</li>
-<li>Accounts with thin history pushing huge limits immediately.</li>
-<li>Anyone asking for remote control of your phone or bank app.</li>
-<li>Impersonators claiming to be platform support in side chats.</li>
-</ul>
-
-<h2>If something goes wrong</h2>
-<p>Use the platform’s dispute process with evidence. Contact your bank or fintech fraud team if a transfer is involved. Do not pay recovery strangers who message you afterward.</p>
-
-<h2>Disclaimer</h2>
-<p>Educational only — not financial, investment, or legal advice. Crypto and P2P involve a real risk of loss. Follow applicable laws and platform rules. Nothing here promises profit or safety.</p>`;
-
 async function main() {
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('Missing CF credentials');
     process.exit(1);
   }
 
-  // Purge known bad rows
+  // Purge weak / failed-AI rows
+  await d1(`DELETE FROM articles WHERE title = ?`, ['Google']);
+  await d1(`DELETE FROM articles WHERE title = ?`, ['Remote work']);
+  await d1(`DELETE FROM articles WHERE title LIKE ?`, ['Google%']);
+  await d1(`DELETE FROM articles WHERE slug LIKE ?`, ['google-%']);
+  await d1(`DELETE FROM articles WHERE slug LIKE ?`, ['remote-work-%']);
   await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Okay, I need to%']);
   await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Data Clean Room%']);
-  await d1(`DELETE FROM articles WHERE title = ?`, ['Remote work']);
-  await d1(`DELETE FROM articles WHERE title = ?`, ['Digital Product Ideas for Beginners']);
-  console.log('purged leaky/thin titles');
+  await d1(`DELETE FROM articles WHERE summary LIKE ?`, ['A practical beginner guide from LaneCash%']);
+  await d1(`DELETE FROM articles WHERE length(title) < 20`);
+  console.log('purged Google, Remote work, weak titles/summaries');
+
+  await upsert({
+    title: 'YouTube Shorts posting schedule for beginners: realistic habits without the hype',
+    summary:
+      'How to plan a sustainable Shorts cadence, batch content, and review analytics — without guaranteed income claims. Educational only.',
+    content: YT_SHORTS,
+    category: 'guides',
+    image_url: '/covers/hustle.svg',
+    minutes: 12,
+  });
 
   await upsert({
     title: 'Remote job offers on WhatsApp and Telegram: how to verify before you pay',
@@ -204,26 +182,6 @@ async function main() {
     content: REMOTE,
     category: 'scams',
     image_url: '/covers/scams.svg',
-    minutes: 11,
-  });
-
-  await upsert({
-    title: 'Affiliate marketing for beginners: honest steps without the 30-day fantasy',
-    summary:
-      'How affiliate links work, a realistic starter path, disclosures, and scam courses to avoid. Educational only — not financial advice.',
-    content: AFFILIATE,
-    category: 'opportunities',
-    image_url: '/covers/hustle.svg',
-    minutes: 12,
-  });
-
-  await upsert({
-    title: 'P2P crypto safety basics: escrow, screenshots, and pressure plays',
-    summary:
-      'Beginner safety habits for peer-to-peer crypto trades — red flags, off-platform chat risks, and what to do after a loss. Not trading advice.',
-    content: P2P,
-    category: 'scams',
-    image_url: '/covers/crypto.svg',
     minutes: 11,
   });
 
