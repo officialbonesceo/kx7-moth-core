@@ -3,6 +3,7 @@ import Base from '../../layouts/Base.astro';
 import SocialBar from '../../components/SocialBar.astro';
 import AdSlot from '../../components/AdSlot.astro';
 import NativeAd from '../../components/NativeAd.astro';
+import BannerAd from '../../components/BannerAd.astro';
 import { getArticleBySlug, getRelatedArticles, bumpViews } from '../../lib/db';
 import { coverFor } from '../../lib/images';
 import { teamFor } from '../../lib/socials';
@@ -84,8 +85,11 @@ const jsonLd = {
     </div>
   </div>
 
-  {/* Article first — native only after body so users are not blocked by 4x1 stack */}
+  <BannerAd size="320x50" />
+
   <article class="prose" set:html={article.content} />
+
+  <BannerAd size="300x250" />
   <NativeAd />
   <AdSlot />
 

@@ -1,0 +1,69 @@
+---
+/**
+ * Adsterra display banners (highrevenueformat).
+ * size: '320x50' | '300x250'
+ */
+interface Props {
+  size: '320x50' | '300x250';
+  label?: string;
+}
+const { size, label = 'Sponsored' } = Astro.props;
+
+const units: Record<string, { key: string; width: number; height: number }> = {
+  '320x50': { key: '92a48f230bc2d57e0f1f88966d009054', width: 320, height: 50 },
+  '300x250': { key: 'c6d8c050964a59a65e53db7bd5665d8a', width: 300, height: 250 },
+};
+const u = units[size];
+---
+<aside class="lc-banner-wrap" data-size={size} aria-label="Advertisement">
+  <div class="lc-banner-label">{label}</div>
+  <div class="lc-banner-box" style={`width:min(100%,${u.width}px);height:${u.height}px`}>
+    <script is:inline define:vars={{ key: u.key, width: u.width, height: u.height }}>
+      (function () {
+        window.atOptions = {
+          key: key,
+          format: 'iframe',
+          height: height,
+          width: width,
+          params: {},
+        };
+        var s = document.createElement('script');
+        s.src = 'https://www.highrevenueformat.com/' + key + '/invoke.js';
+        s.async = true;
+        document.currentScript.parentNode.appendChild(s);
+      })();
+    </script>
+  </div>
+</aside>
+<style>
+  .lc-banner-wrap {
+    margin: 1rem auto;
+    padding: 0.4rem 0.5rem 0.55rem;
+    border-radius: 12px;
+    border: 1px solid rgba(128, 128, 128, 0.18);
+    background: rgba(128, 128, 128, 0.04);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+  }
+  .lc-banner-label {
+    align-self: flex-start;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.45;
+    margin-bottom: 0.3rem;
+  }
+  .lc-banner-box {
+    max-width: 100%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lc-banner-box :global(iframe) {
+    max-width: 100% !important;
+  }
+</style>

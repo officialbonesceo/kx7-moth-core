@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Pagination from '../components/Pagination.astro';
 import NativeAd from '../components/NativeAd.astro';
+import BannerAd from '../components/BannerAd.astro';
 import { getArticles } from '../lib/db';
 import { coverFor, svgCover } from '../lib/images';
 import { teamFor } from '../lib/socials';
@@ -64,6 +65,8 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
     <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing">Money</a>
   </div>
 
+  <BannerAd size="320x50" />
+
   {showCryptoNews && (
     <div class="calc-card" style="margin-bottom:12px">
       <div class="section-head" style="margin:0 0 8px">
@@ -82,7 +85,12 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
   <section class="feed" id="feed">
     {articles.length ? articles.map((a, i) => (
       <>
-        {i === mid && <NativeAd />}
+        {i === mid && (
+          <>
+            <BannerAd size="300x250" />
+            <NativeAd />
+          </>
+        )}
         <a
           class="card"
           href={`/article/${a.slug}`}
