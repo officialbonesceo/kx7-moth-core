@@ -116,7 +116,6 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
       </>
     )) : (!dbError && <div class="empty">No articles yet.</div>)}
   </section>
-  <NativeAd />
   <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
   <script is:inline define:vars={{ showCryptoNews, isForYou }}>
     (function(){

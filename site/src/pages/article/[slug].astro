@@ -84,12 +84,9 @@ const jsonLd = {
     </div>
   </div>
 
-  {/* High-intent: under title / before body (Adsterra mid-page native) */}
+  {/* One native zone per page (unique container id). Mid-content = high conversion. */}
   <NativeAd />
-  <AdSlot />
   <article class="prose" set:html={article.content} />
-  {/* After article — bottom native */}
-  <NativeAd />
   <AdSlot />
 
   {related.length > 0 && (
