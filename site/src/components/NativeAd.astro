@@ -1,38 +1,51 @@
 ---
 /**
- * Adsterra Native Banner (Profitablerate / pl domain).
- * Placement: mid-content / under title / bottom — looks like feed cards.
- * Mobile-first: default 4x1-style container; network decides fill.
+ * Adsterra Native — one zone per page.
+ * Default network widget is often 4x1 (four ads). We cap height so it cannot
+ * bury the article. Ask Adsterra manager for 1x1 mobile widget + category blocks.
  */
 interface Props {
   label?: string;
 }
 const { label = 'Sponsored' } = Astro.props;
 ---
-<aside class="lc-native-wrap" aria-label="Sponsored recommendations">
+<aside class="lc-native-wrap" aria-label="Sponsored">
   <div class="lc-native-label">{label}</div>
-  <script async data-cfasync="false" src="https://pl31410848.profitableratecpmnetwork.com/042f79cf7de2f184bf9ee546037cccb6/invoke.js"></script>
-  <div id="container-042f79cf7de2f184bf9ee546037cccb6"></div>
+  <div class="lc-native-clip">
+    <script async data-cfasync="false" src="https://pl31410848.profitableratecpmnetwork.com/042f79cf7de2f184bf9ee546037cccb6/invoke.js"></script>
+    <div id="container-042f79cf7de2f184bf9ee546037cccb6"></div>
+  </div>
 </aside>
 <style>
   .lc-native-wrap {
-    margin: 1.1rem 0 1.25rem;
-    padding: 0.65rem 0.75rem 0.85rem;
-    border-radius: 14px;
-    border: 1px solid rgba(128, 128, 128, 0.22);
-    background: rgba(128, 128, 128, 0.06);
+    margin: 1.25rem 0;
+    padding: 0.5rem 0.65rem 0.65rem;
+    border-radius: 12px;
+    border: 1px solid rgba(128, 128, 128, 0.2);
+    background: rgba(128, 128, 128, 0.05);
     overflow: hidden;
-    min-height: 80px;
   }
   .lc-native-label {
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    opacity: 0.55;
-    margin-bottom: 0.45rem;
+    opacity: 0.5;
+    margin-bottom: 0.35rem;
   }
-  .lc-native-wrap :global(#container-042f79cf7de2f184bf9ee546037cccb6) {
-    min-height: 60px;
+  /* Cap so a 4-tile native stack cannot push the whole article down */
+  .lc-native-clip {
+    max-height: 220px;
+    overflow: hidden;
+    position: relative;
+  }
+  @media (min-width: 720px) {
+    .lc-native-clip {
+      max-height: 180px;
+    }
+  }
+  .lc-native-wrap :global(#container-042f79cf7de2f184bf9ee546037cccb6),
+  .lc-native-wrap :global(#container-042f79cf7de2f184bf9ee546037cccb6 *) {
+    max-width: 100% !important;
   }
 </style>

@@ -84,9 +84,9 @@ const jsonLd = {
     </div>
   </div>
 
-  {/* One native zone per page (unique container id). Mid-content = high conversion. */}
-  <NativeAd />
+  {/* Article first — native only after body so users are not blocked by 4x1 stack */}
   <article class="prose" set:html={article.content} />
+  <NativeAd />
   <AdSlot />
 
   {related.length > 0 && (
