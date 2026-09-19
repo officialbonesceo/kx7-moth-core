@@ -17,6 +17,18 @@ export type Article = {
   published_at?: string;
 };
 
+/** Never surface failed AI one-word titles or generic stubs */
+const QUALITY_WHERE = `
+  status = 'published'
+  AND length(trim(title)) >= 20
+  AND lower(trim(title)) NOT IN ('google', 'remote work', 'affiliate', 'crypto', 'scam', 'guide', 'article')
+  AND (summary IS NULL OR summary NOT LIKE 'A practical beginner guide from LaneCash%')
+  AND (content IS NULL OR (
+    content NOT LIKE '%Okay, I need to%'
+    AND content NOT LIKE '%Data Clean Room%'
+  ))
+`;
+
 async function safeAll<T = any>(db: D1Database, sql: string, binds: any[] = []) {
   try {
     const stmt = db.prepare(sql);
@@ -42,13 +54,13 @@ export async function getArticles(db: D1Database, limit = 12, category?: string,
   if (category) {
     return safeAll<Article>(
       db,
-      `SELECT * FROM articles WHERE status = 'published' AND category = ? ORDER BY published_at DESC LIMIT ? OFFSET ?`,
+      `SELECT * FROM articles WHERE ${QUALITY_WHERE} AND category = ? ORDER BY published_at DESC LIMIT ? OFFSET ?`,
       [category, limit, offset]
     );
   }
   return safeAll<Article>(
     db,
-    `SELECT * FROM articles WHERE status = 'published' ORDER BY published_at DESC LIMIT ? OFFSET ?`,
+    `SELECT * FROM articles WHERE ${QUALITY_WHERE} ORDER BY published_at DESC LIMIT ? OFFSET ?`,
     [limit, offset]
   );
 }
@@ -57,19 +69,22 @@ export async function countArticles(db: D1Database, category?: string) {
   if (category) {
     const row = await safeFirst<{ c: number }>(
       db,
-      `SELECT COUNT(*) as c FROM articles WHERE status = 'published' AND category = ?`,
+      `SELECT COUNT(*) as c FROM articles WHERE ${QUALITY_WHERE} AND category = ?`,
       [category]
     );
     return row?.c || 0;
   }
-  const row = await safeFirst<{ c: number }>(db, `SELECT COUNT(*) as c FROM articles WHERE status = 'published'`);
+  const row = await safeFirst<{ c: number }>(
+    db,
+    `SELECT COUNT(*) as c FROM articles WHERE ${QUALITY_WHERE}`
+  );
   return row?.c || 0;
 }
 
 export async function getArticleBySlug(db: D1Database, slug: string) {
   return safeFirst<Article>(
     db,
-    `SELECT * FROM articles WHERE slug = ? AND status = 'published' LIMIT 1`,
+    `SELECT * FROM articles WHERE slug = ? AND ${QUALITY_WHERE} LIMIT 1`,
     [slug]
   );
 }
@@ -78,7 +93,7 @@ export async function getRelatedArticles(db: D1Database, slug: string, category:
   const same = await safeAll<Article>(
     db,
     `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at FROM articles
-     WHERE status = 'published' AND category = ? AND slug != ?
+     WHERE ${QUALITY_WHERE} AND category = ? AND slug != ?
      ORDER BY published_at DESC LIMIT ?`,
     [category, slug, limit]
   );
@@ -90,7 +105,7 @@ export async function getRelatedArticles(db: D1Database, slug: string, category:
     const more = await safeAll<Article>(
       db,
       `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at FROM articles
-       WHERE status = 'published' AND slug NOT IN (${placeholders})
+       WHERE ${QUALITY_WHERE} AND slug NOT IN (${placeholders})
        ORDER BY published_at DESC LIMIT ?`,
       [...exclude, need]
     );
@@ -103,12 +118,11 @@ export async function searchArticles(db: D1Database, q: string, limit = 20) {
   const like = `%${q.replace(/[%_]/g, '')}%`;
   return safeAll<Article>(
     db,
-    `SELECT * FROM articles WHERE status = 'published' AND (title LIKE ? OR summary LIKE ?) ORDER BY published_at DESC LIMIT ?`,
+    `SELECT * FROM articles WHERE ${QUALITY_WHERE} AND (title LIKE ? OR summary LIKE ?) ORDER BY published_at DESC LIMIT ?`,
     [like, like, limit]
   );
 }
 
-/** Real article views: +1 per open, no fake boost */
 export async function bumpViews(db: D1Database, id: string) {
   try {
     await db.prepare(`UPDATE articles SET views = COALESCE(views, 0) + 1 WHERE id = ?`).bind(id).run();

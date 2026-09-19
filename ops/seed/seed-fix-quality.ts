@@ -1,6 +1,5 @@
 /**
- * Purge weak AI posts (Google, Remote work, generic summaries),
- * rewrite real guides. No template spam if AI failed — these are hand-written.
+ * Aggressive purge of weak AI posts + restore solid guides.
  */
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
@@ -153,17 +152,26 @@ async function main() {
     process.exit(1);
   }
 
-  // Purge weak / failed-AI rows
-  await d1(`DELETE FROM articles WHERE title = ?`, ['Google']);
-  await d1(`DELETE FROM articles WHERE title = ?`, ['Remote work']);
-  await d1(`DELETE FROM articles WHERE title LIKE ?`, ['Google%']);
-  await d1(`DELETE FROM articles WHERE slug LIKE ?`, ['google-%']);
-  await d1(`DELETE FROM articles WHERE slug LIKE ?`, ['remote-work-%']);
-  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Okay, I need to%']);
-  await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Data Clean Room%']);
-  await d1(`DELETE FROM articles WHERE summary LIKE ?`, ['A practical beginner guide from LaneCash%']);
-  await d1(`DELETE FROM articles WHERE length(title) < 20`);
-  console.log('purged Google, Remote work, weak titles/summaries');
+  const purges: [string, any[]][] = [
+    [`DELETE FROM articles WHERE title = ?`, ['Google']],
+    [`DELETE FROM articles WHERE title = ?`, ['Remote work']],
+    [`DELETE FROM articles WHERE title = ?`, ['Remote Work']],
+    [`DELETE FROM articles WHERE lower(trim(title)) = ?`, ['google']],
+    [`DELETE FROM articles WHERE lower(trim(title)) = ?`, ['remote work']],
+    [`DELETE FROM articles WHERE title LIKE ?`, ['Google%']],
+    [`DELETE FROM articles WHERE slug LIKE ?`, ['google-%']],
+    [`DELETE FROM articles WHERE slug LIKE ?`, ['remote-work-%']],
+    [`DELETE FROM articles WHERE content LIKE ?`, ['%Okay, I need to%']],
+    [`DELETE FROM articles WHERE content LIKE ?`, ['%Data Clean Room%']],
+    [`DELETE FROM articles WHERE summary LIKE ?`, ['A practical beginner guide from LaneCash%']],
+    [`DELETE FROM articles WHERE length(trim(title)) < 20`, []],
+    [`DELETE FROM articles WHERE reading_minutes > 40 AND length(trim(title)) < 30`, []],
+  ];
+
+  for (const [sql, params] of purges) {
+    await d1(sql, params);
+  }
+  console.log('purged weak / Google / Remote work rows');
 
   await upsert({
     title: 'YouTube Shorts posting schedule for beginners: realistic habits without the hype',
