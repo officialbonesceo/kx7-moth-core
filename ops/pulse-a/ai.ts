@@ -1,6 +1,7 @@
 /**
  * AI rewrite: text chat models only.
  * Order: Groq → Gemini → Cloudflare chat → OpenRouter :free
+ * FAIL CLOSED: never return a draft that fails quality gates.
  */
 import { markdownToHtml, stripMetaLines } from './format';
 
@@ -28,24 +29,43 @@ HARD RULES:
 - Use clean HTML only: h2, h3, p, ul, ol, li, a. Never Markdown (# ** -).
 - Target 900–1600 words of real guidance. Short paragraphs.
 - Prefer practical steps useful in Nigeria / Africa when relevant (banks, mobile money, local job scams) without inventing laws.
+- TITLE must be specific (at least 8 words). Never single-word titles like "Google" or "Remote work".
 - End once with: <h2>Disclaimer</h2><p>Educational only — not financial advice.</p>`;
 
 const CF_CHAT_MODELS = [
   '@cf/meta/llama-3.1-8b-instruct',
   '@cf/meta/llama-3.2-3b-instruct',
-  '@cf/meta/llama-3-8b-instruct',
-  '@cf/qwen/qwen1.5-7b-chat-awq',
-  '@cf/mistral/mistral-7b-instruct-v0.2',
-  '@cf/google/gemma-7b-it',
-  '@cf/microsoft/phi-2',
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+  '@cf/qwen/qwen2.5-7b-instruct',
 ];
 
 const GROQ_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it'];
 const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite'];
 
+/** Titles that mean the model failed to invent a real headline */
+const BANNED_TITLES = new Set(
+  [
+    'google',
+    'remote work',
+    'affiliate',
+    'crypto',
+    'scam',
+    'guide',
+    'article',
+    'untitled',
+    'post',
+    'youtube',
+    'tiktok',
+    'facebook',
+    'instagram',
+    'telegram',
+    'whatsapp',
+  ].map((s) => s.toLowerCase())
+);
+
 function isChatModelName(id: string) {
   const n = id.toLowerCase();
-  if (/flux|whisper|embed|bge|resnet|detect|segment|speech|tts|asr|diffusion|stable-diffusion|llama-guard|smart-turn|rerank/.test(n))
+  if (/flux|whisper|embed|bge|resnet|detect|segment|speech|tts|asr|diffusion|stable-diffusion|llama-guard|smart-turn|rerank|lora$/.test(n))
     return false;
   return /instruct|chat|gemma|llama|mistral|qwen|phi|gpt-oss/.test(n) || n.includes('text');
 }
@@ -219,13 +239,44 @@ function buildPrompt(context: string, partial?: string) {
   if (partial && partial.trim().length > 80) {
     return `Continue the HTML article only. No planning text. HTML tags h2 h3 p ul ol li a only.\n\nPartial:\n${partial.slice(0, 5000)}\n\nContext:\n${context.slice(0, 3000)}`;
   }
-  return `Write one finished beginner educational guide.\n\nFirst lines exactly:\nTITLE: clear specific title\nSUMMARY: one or two sentences\nCATEGORY: money OR opportunities OR scams OR guides\n\nThen HTML body only (no Markdown, no thinking out loud):\n- <h2>Start here</h2>\n- <h2>Step-by-step</h2> with <ol><li>…\n- <h2>Tips</h2>\n- <h2>Watch outs</h2> if relevant\n- <h2>Disclaimer</h2><p>Educational only — not financial advice.</p>\n\nAim for substantial detail (about 1000+ words of real content).\n\nContext:\n${context.slice(0, 4500)}`;
+  return `Write one finished beginner educational guide.\n\nFirst lines exactly:\nTITLE: clear specific title (minimum 8 words, never a single brand name)\nSUMMARY: one or two sentences that state the real topic\nCATEGORY: money OR opportunities OR scams OR guides\n\nThen HTML body only (no Markdown, no thinking out loud):\n- <h2>Start here</h2>\n- <h2>Step-by-step</h2> with <ol><li>…\n- <h2>Tips</h2>\n- <h2>Watch outs</h2> if relevant\n- <h2>Disclaimer</h2><p>Educational only — not financial advice.</p>\n\nAim for substantial detail (about 1000+ words of real content). Do not paste the same section twice.\n\nContext:\n${context.slice(0, 4500)}`;
 }
 
 export function looksLikeLeak(text: string): boolean {
-  return /okay,?\s+i need to|first,?\s+i('ll| will)|chain-of-thought|as an ai|here is my plan|let me outline|the user has specified|i'll start by outlining/i.test(
+  return /okay,?\s+i need to|first,?\s+i('ll| will)|chain-of-thought|as an ai|here is my plan|let me outline|the user has specified|i'll start by outlining|data clean room/i.test(
     text
   );
+}
+
+function hasDuplicatedBlock(html: string): boolean {
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (plain.length < 800) return false;
+  const half = Math.floor(plain.length / 2);
+  const a = plain.slice(0, half);
+  const b = plain.slice(half);
+  // crude: large overlap of first 200 chars of each half appearing twice
+  const sample = a.slice(40, 240);
+  if (sample.length < 80) return false;
+  const first = plain.indexOf(sample);
+  const second = plain.indexOf(sample, first + sample.length);
+  return second > 0;
+}
+
+export function isWeakTitle(title: string): boolean {
+  const t = title.replace(/\s+/g, ' ').trim();
+  if (t.length < 28) return true;
+  if (t.split(/\s+/).length < 6) return true;
+  if (BANNED_TITLES.has(t.toLowerCase())) return true;
+  if (/^(google|remote work|affiliate marketing|crypto|scam|guide)$/i.test(t)) return true;
+  if (/practical beginner guide from lanecash/i.test(t)) return true;
+  return false;
+}
+
+export function isWeakSummary(summary: string): boolean {
+  const s = summary.replace(/\s+/g, ' ').trim();
+  if (s.length < 40) return true;
+  if (/^a practical beginner guide from lanecash/i.test(s)) return true;
+  return false;
 }
 
 function parseAiOutput(raw: string, fallbackTitle: string): AiDraft | null {
@@ -239,8 +290,12 @@ function parseAiOutput(raw: string, fallbackTitle: string): AiDraft | null {
     console.warn('[ai] rejected leak in html');
     return null;
   }
+  if (hasDuplicatedBlock(html)) {
+    console.warn('[ai] rejected duplicated body');
+    return null;
+  }
   const textLen = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().length;
-  if (textLen < 1200) {
+  if (textLen < 1800) {
     console.warn('[ai] rejected short draft', textLen);
     return null;
   }
@@ -248,12 +303,27 @@ function parseAiOutput(raw: string, fallbackTitle: string): AiDraft | null {
     html +=
       '<h2>Disclaimer</h2><p>This guide is educational only. It is not financial, investment, or legal advice.</p>';
   }
+
+  let title = (meta.title || '').replace(/^#+\s*/, '').replace(/\*\*/g, '').trim().slice(0, 140);
+  if (!title || isWeakTitle(title)) {
+    // Never fall back to a weak seed like "Google"
+    if (fallbackTitle && !isWeakTitle(fallbackTitle)) title = fallbackTitle.slice(0, 140);
+    else {
+      console.warn('[ai] rejected weak/missing title', title || '(empty)');
+      return null;
+    }
+  }
+
+  let summary = (meta.summary || '').replace(/\*\*/g, '').trim().slice(0, 280);
+  if (isWeakSummary(summary)) {
+    console.warn('[ai] rejected weak summary');
+    return null;
+  }
+
   const cat = (meta.category || 'guides').toLowerCase() as AiDraft['category'];
   return {
-    title: (meta.title || fallbackTitle).replace(/^#+\s*/, '').trim().slice(0, 140),
-    summary: (meta.summary || 'A practical beginner guide from LaneCash. Educational only — not financial advice.')
-      .trim()
-      .slice(0, 280),
+    title,
+    summary,
     contentHtml: html,
     category: ['money', 'opportunities', 'scams', 'guides'].includes(cat) ? cat : 'guides',
     author_team: 'LaneCash Desk',
@@ -273,10 +343,10 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
     if (!out) continue;
     partial = partial ? `${partial}\n${out}` : out;
     usedModel = `groq:${model}`;
-    if (/TITLE:/i.test(partial) && partial.length > 1200 && !looksLikeLeak(partial)) break;
+    if (/TITLE:/i.test(partial) && partial.length > 1500 && !looksLikeLeak(partial)) break;
   }
 
-  if (partial.length < 800 || !/TITLE:/i.test(partial) || looksLikeLeak(partial)) {
+  if (partial.length < 1000 || !/TITLE:/i.test(partial) || looksLikeLeak(partial)) {
     for (const model of GEMINI_MODELS) {
       if (!GEMINI_API_KEY) break;
       console.log('[ai] trying Gemini', model);
@@ -284,11 +354,11 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
       if (!out) continue;
       partial = partial ? `${partial}\n${out}` : out;
       usedModel = `gemini:${model}`;
-      if (/TITLE:/i.test(partial) && partial.length > 1200 && !looksLikeLeak(partial)) break;
+      if (/TITLE:/i.test(partial) && partial.length > 1500 && !looksLikeLeak(partial)) break;
     }
   }
 
-  if (partial.length < 800 || !/TITLE:/i.test(partial) || looksLikeLeak(partial)) {
+  if (partial.length < 1000 || !/TITLE:/i.test(partial) || looksLikeLeak(partial)) {
     const cfModels = await listCloudflareChatModels();
     for (const model of cfModels) {
       console.log('[ai] trying CF', model);
@@ -296,11 +366,11 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
       if (!out) continue;
       partial = partial ? `${partial}\n${out}` : out;
       usedModel = model;
-      if (/TITLE:/i.test(partial) && partial.length > 1200 && !looksLikeLeak(partial)) break;
+      if (/TITLE:/i.test(partial) && partial.length > 1500 && !looksLikeLeak(partial)) break;
     }
   }
 
-  if (partial.length < 800 || !/TITLE:/i.test(partial) || looksLikeLeak(partial)) {
+  if (partial.length < 1000 || !/TITLE:/i.test(partial) || looksLikeLeak(partial)) {
     const orModels = await listOpenRouterFreeChat();
     for (const model of orModels.slice(0, 5)) {
       console.log('[ai] trying OR', model);
@@ -308,18 +378,21 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
       if (!out) continue;
       partial = partial ? `${partial}\n${out}` : out;
       usedModel = model;
-      if (/TITLE:/i.test(partial) && partial.length > 1200 && !looksLikeLeak(partial)) break;
+      if (/TITLE:/i.test(partial) && partial.length > 1500 && !looksLikeLeak(partial)) break;
     }
   }
 
-  if (!partial || partial.trim().length < 400) {
-    console.error('[ai] all models failed');
+  if (!partial || partial.trim().length < 800) {
+    console.error('[ai] all models failed — fail closed (no publish)');
     return null;
   }
 
   const draft = parseAiOutput(partial, seedTitle);
-  if (!draft) return null;
+  if (!draft) {
+    console.error('[ai] draft failed quality gates — fail closed');
+    return null;
+  }
   draft.model = usedModel;
-  console.log('[ai] draft ok', draft.title.slice(0, 50), 'via', usedModel);
+  console.log('[ai] draft ok', draft.title.slice(0, 60), 'via', usedModel);
   return draft;
 }

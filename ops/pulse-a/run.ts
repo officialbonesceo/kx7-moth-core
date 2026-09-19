@@ -1,8 +1,8 @@
 /**
- * pulse-a — research → rewrite → publish 1 post (quality gated).
+ * pulse-a — research → rewrite → publish 1 post (quality gated, fail-closed).
  */
 import { pickQueries, researchTopic, packToContext } from './research';
-import { rewriteWithAi, looksLikeLeak } from './ai';
+import { rewriteWithAi, looksLikeLeak, isWeakTitle, isWeakSummary } from './ai';
 import { markdownToHtml } from './format';
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
@@ -121,8 +121,12 @@ async function purgeBadFormatting() {
   await d1(`DELETE FROM articles WHERE content LIKE ?`, ['%Data Clean Room%']);
   await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%AI%']);
   await d1(`DELETE FROM articles WHERE source_name LIKE ?`, ['%research%']);
-  await d1(`DELETE FROM articles WHERE title = ? AND content LIKE ?`, ['Remote work', '%Okay, I need to%']);
-  console.log('[pulse-a] cleared poorly formatted / leaked posts');
+  await d1(`DELETE FROM articles WHERE title = ?`, ['Google']);
+  await d1(`DELETE FROM articles WHERE title = ?`, ['Remote work']);
+  await d1(`DELETE FROM articles WHERE title LIKE ?`, ['Google%']);
+  await d1(`DELETE FROM articles WHERE length(title) < 20`);
+  await d1(`DELETE FROM articles WHERE summary LIKE ?`, ['A practical beginner guide from LaneCash%']);
+  console.log('[pulse-a] cleared poorly formatted / weak-title posts');
 }
 
 async function loadTitles(): Promise<Set<string>> {
@@ -138,6 +142,11 @@ async function exists(title: string) {
 }
 
 async function publish(draft: ArticleDraft) {
+  if (isWeakTitle(draft.title) || isWeakSummary(draft.summary) || plainLen(draft.content) < 1800) {
+    console.error('[pulse-a] refuse publish — failed final quality gate');
+    return false;
+  }
+
   const id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const slug = `${slugify(draft.title) || 'article'}-${id.slice(-5)}`;
 
@@ -188,18 +197,25 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
       const ctx = packToContext(pack);
       const seedTitle = pack.hits[0]?.title || q;
       const ai = await rewriteWithAi(ctx, seedTitle);
-      if (!ai) continue;
+      if (!ai) {
+        console.warn('[pulse-a] AI returned null — skip (fail closed)');
+        continue;
+      }
 
       let content = polishContent(ai.contentHtml);
-      if (looksLikeLeak(content) || plainLen(content) < 1200) {
-        console.warn('[pulse-a] skip low quality');
+      if (looksLikeLeak(content) || plainLen(content) < 1800) {
+        console.warn('[pulse-a] skip low quality body');
+        continue;
+      }
+      if (isWeakTitle(ai.title) || isWeakSummary(ai.summary)) {
+        console.warn('[pulse-a] skip weak title/summary');
         continue;
       }
 
       let title = ai.title.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim();
       if ((await exists(title)) || titles.has(title)) {
         title = `${title} (${new Date().toISOString().slice(0, 10)})`;
-        if (await exists(title)) continue;
+        if (await exists(title) || isWeakTitle(title)) continue;
       }
 
       const ok = await publish({
@@ -207,7 +223,7 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
         summary: ai.summary.replace(/\*\*/g, '').trim(),
         content,
         category: ai.category,
-        reading_minutes: Math.max(8, Math.round(plainLen(content) / 180)),
+        reading_minutes: Math.max(8, Math.min(22, Math.round(plainLen(content) / 900))),
         author_team: 'LaneCash Desk',
         source_name: 'LaneCash',
         source_url: pack.hits[0]?.url || null,
@@ -225,7 +241,7 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
 }
 
 async function main() {
-  console.log('[pulse-a] 1 post/run · quality gated · source=LaneCash');
+  console.log('[pulse-a] 1 post/run · fail-closed quality gates · source=LaneCash');
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
@@ -239,7 +255,7 @@ async function main() {
   const ok = await publishOne(titles);
   console.log('[pulse-a] done published', ok ? 1 : 0);
   if (!ok) {
-    console.error('[pulse-a] ZERO published');
+    console.error('[pulse-a] ZERO published (AI failed quality — correct behavior)');
     process.exit(2);
   }
 }
