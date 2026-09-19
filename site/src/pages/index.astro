@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import Pagination from '../components/Pagination.astro';
+import NativeAd from '../components/NativeAd.astro';
 import { getArticles } from '../lib/db';
 import { coverFor, svgCover } from '../lib/images';
 import { teamFor } from '../lib/socials';
@@ -43,6 +44,7 @@ try {
 const totalPages = Math.max(1, Math.ceil(total / perPage));
 const showCryptoNews = tab === 'crypto' || tab === 'all';
 const isForYou = tab === 'all';
+const mid = Math.min(3, Math.max(1, articles.length - 1));
 ---
 <Base title="LaneCash — Stay Sharp. Get Ahead." description="Practical money skills: crypto safety, content systems, affiliate, dropshipping, scam alerts, and calculators.">
   <div class="disclaimer-banner">
@@ -78,43 +80,46 @@ const isForYou = tab === 'all';
   </div>
   {dbError && <div class="empty">Temporary issue loading posts. Retry shortly.</div>}
   <section class="feed" id="feed">
-    {articles.length ? articles.map((a) => (
-      <a
-        class="card"
-        href={`/article/${a.slug}`}
-        data-path={`/article/${a.slug}`}
-        data-slug={a.slug}
-        data-title={a.title}
-        data-category={a.category}
-        data-summary={a.summary}
-      >
-        <div class="card-main">
-          <span class={`pill ${a.category}`}>{a.category}</span>
-          <h3>{a.title}</h3>
-          <p>{a.summary}</p>
-          <div class="card-meta">
-            <span>{a.author_team || teamFor(a.category, a.title)} · {a.reading_minutes || 8} min</span>
-            <span class="save-inline" data-slug={a.slug}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h10a1 1 0 0 1 1 1v17l-6-3.5L6 21V4a1 1 0 0 1 1-1z"/></svg>
-              Save
-            </span>
+    {articles.length ? articles.map((a, i) => (
+      <>
+        {i === mid && <NativeAd />}
+        <a
+          class="card"
+          href={`/article/${a.slug}`}
+          data-path={`/article/${a.slug}`}
+          data-slug={a.slug}
+          data-title={a.title}
+          data-category={a.category}
+          data-summary={a.summary}
+        >
+          <div class="card-main">
+            <span class={`pill ${a.category}`}>{a.category}</span>
+            <h3>{a.title}</h3>
+            <p>{a.summary}</p>
+            <div class="card-meta">
+              <span>{a.author_team || teamFor(a.category, a.title)} · {a.reading_minutes || 8} min</span>
+              <span class="save-inline" data-slug={a.slug}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h10a1 1 0 0 1 1 1v17l-6-3.5L6 21V4a1 1 0 0 1 1-1z"/></svg>
+                Save
+              </span>
+            </div>
           </div>
-        </div>
-        <img
-          class="card-thumb"
-          src={coverFor(a)}
-          alt=""
-          loading="lazy"
-          data-fallback={svgCover(a)}
-          onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')||'/covers/fallback.svg'"
-        />
-      </a>
+          <img
+            class="card-thumb"
+            src={coverFor(a)}
+            alt=""
+            loading="lazy"
+            data-fallback={svgCover(a)}
+            onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')||'/covers/fallback.svg'"
+          />
+        </a>
+      </>
     )) : (!dbError && <div class="empty">No articles yet.</div>)}
   </section>
+  <NativeAd />
   <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
   <script is:inline define:vars={{ showCryptoNews, isForYou }}>
     (function(){
-      // Cache-based For You ranking — no extra DB reads
       if (isForYou) {
         var feed = document.getElementById('feed');
         if (feed) {
@@ -128,7 +133,6 @@ const isForYou = tab === 'all';
             var s = 0;
             s += (interest[path] || 0) * 5;
             if (saved.indexOf(slug) >= 0) s += 8;
-            // interest path keywords → topic boost
             var keys = Object.keys(interest);
             for (var i = 0; i < keys.length; i++) {
               var k = keys[i].toLowerCase();

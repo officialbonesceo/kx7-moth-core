@@ -1,0 +1,38 @@
+---
+/**
+ * Adsterra Native Banner (Profitablerate / pl domain).
+ * Placement: mid-content / under title / bottom — looks like feed cards.
+ * Mobile-first: default 4x1-style container; network decides fill.
+ */
+interface Props {
+  label?: string;
+}
+const { label = 'Sponsored' } = Astro.props;
+---
+<aside class="lc-native-wrap" aria-label="Sponsored recommendations">
+  <div class="lc-native-label">{label}</div>
+  <script async data-cfasync="false" src="https://pl31410848.profitableratecpmnetwork.com/042f79cf7de2f184bf9ee546037cccb6/invoke.js"></script>
+  <div id="container-042f79cf7de2f184bf9ee546037cccb6"></div>
+</aside>
+<style>
+  .lc-native-wrap {
+    margin: 1.1rem 0 1.25rem;
+    padding: 0.65rem 0.75rem 0.85rem;
+    border-radius: 14px;
+    border: 1px solid rgba(128, 128, 128, 0.22);
+    background: rgba(128, 128, 128, 0.06);
+    overflow: hidden;
+    min-height: 80px;
+  }
+  .lc-native-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.55;
+    margin-bottom: 0.45rem;
+  }
+  .lc-native-wrap :global(#container-042f79cf7de2f184bf9ee546037cccb6) {
+    min-height: 60px;
+  }
+</style>
