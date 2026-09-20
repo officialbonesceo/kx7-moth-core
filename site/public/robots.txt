@@ -4,5 +4,4 @@ Allow: /
 Disallow: /bonesceo/
 Disallow: /api/
 
-# Prefer dynamic /robots.txt (uses current host). This file is a fallback only.
-Sitemap: /sitemap.xml
+Sitemap: https://lanecash.name.ng/sitemap.xml
