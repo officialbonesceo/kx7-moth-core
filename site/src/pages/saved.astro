@@ -1,8 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
+import BannerAd from '../components/BannerAd.astro';
 ---
 <Base title="Saved — LaneCash" description="Your saved LaneCash guides." noindex={true}>
   <section class="hero"><h1>Saved</h1><p>Stored on this device.</p></section>
+  <BannerAd size="320x50" />
   <div id="savedList" class="feed"></div>
   <script is:inline>
     (function(){

@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import SocialBar from '../components/SocialBar.astro';
+import BannerAd from '../components/BannerAd.astro';
 ---
 <Base title="Profile — LaneCash" description="Your LaneCash activity and alert preferences." noindex={true}>
   <section class="hero"><h1>Profile</h1><p>Your activity and alert preferences on this device.</p></section>
@@ -10,6 +11,8 @@ import SocialBar from '../components/SocialBar.astro';
     <p class="muted" id="statsLine">—</p>
     <p class="muted" id="interestLine">—</p>
   </div>
+
+  <BannerAd size="320x50" />
 
   <div class="calc-card" style="margin-bottom:12px">
     <h3>Notifications</h3>

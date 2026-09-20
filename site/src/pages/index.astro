@@ -1,7 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
 import Pagination from '../components/Pagination.astro';
-import NativeAd from '../components/NativeAd.astro';
 import BannerAd from '../components/BannerAd.astro';
 import { getArticles } from '../lib/db';
 import { coverFor, svgCover } from '../lib/images';
@@ -65,6 +64,7 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
     <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing">Money</a>
   </div>
 
+  {/* One slim banner — same for every home tab */}
   <BannerAd size="320x50" />
 
   {showCryptoNews && (
@@ -86,10 +86,9 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
     {articles.length ? articles.map((a, i) => (
       <>
         {i === mid && (
-          <>
+          <div class="mid-ad-wrap" style="max-height:280px;overflow:hidden;margin:8px 0">
             <BannerAd size="300x250" />
-            <NativeAd />
-          </>
+          </div>
         )}
         <a
           class="card"

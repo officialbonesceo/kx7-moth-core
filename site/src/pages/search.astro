@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import BannerAd from '../components/BannerAd.astro';
 import { searchArticles } from '../lib/db';
 import { coverFor } from '../lib/images';
 const q = (Astro.url.searchParams.get('q') || '').trim();
@@ -16,6 +17,7 @@ if (db && q.length > 1) {
     <input name="q" value={q} placeholder="Search money, USDT, POS, scams..." />
     <button type="submit">Go</button>
   </form>
+  <BannerAd size="320x50" />
   <section class="feed">
     {q && !results.length && <div class="empty">No results for “{q}”.</div>}
     {results.map((a) => (

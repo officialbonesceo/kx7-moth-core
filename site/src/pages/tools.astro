@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import BannerAd from '../components/BannerAd.astro';
 
 const origin = Astro.url.origin;
 const SMARTLINK = 'https://omg10.com/4/11821454';
@@ -32,6 +33,8 @@ const jsonLd = [
     <p>FX, fees, crypto estimates, news, and safety checks — educational only.</p>
   </section>
 
+  <BannerAd size="320x50" />
+
   <a class="calc-card" href="/tools/usd-ngn" style="display:block;max-width:720px;margin:0 auto 20px;text-decoration:none;color:inherit">
     <h3 style="margin:0 0 6px">Currency converter (any → any)</h3>
     <p class="muted" style="margin:0;font-size:.85rem;line-height:1.45">
@@ -45,6 +48,10 @@ const jsonLd = [
       Optional third-party offers. LaneCash does not control external pages — review carefully. Not financial advice.
     </p>
     <a class="save-btn calc-primary" href={SMARTLINK} target="_blank" rel="noopener noreferrer sponsored">View offers</a>
+  </div>
+
+  <div style="max-width:720px;margin:0 auto 16px;max-height:280px;overflow:hidden">
+    <BannerAd size="300x250" />
   </div>
 
   <div class="calc-tabs" role="tablist">
