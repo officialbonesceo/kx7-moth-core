@@ -1,0 +1,35 @@
+---
+const title = Astro.props.title || 'Get money tips by email';
+---
+<section class="calc-card" style="margin:12px 0" id="lcNl">
+  <h2 style="font-size:1rem;margin:0 0 6px">{title}</h2>
+  <p class="muted" style="font-size:.8rem;margin:0 0 10px">Occasional guides only. No spam.</p>
+  <form id="lcNlForm" style="display:flex;flex-wrap:wrap;gap:8px">
+    <input type="email" name="email" required placeholder="you@email.com" autocomplete="email" style="flex:1;min-width:12rem;background:#0a0a0a;border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;padding:11px;font:inherit" />
+    <button type="submit" style="background:#22c55e;color:#04140a;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer">Subscribe</button>
+  </form>
+  <p id="lcNlMsg" class="muted" style="font-size:.78rem;margin:8px 0 0"></p>
+</section>
+<script is:inline>
+  (function () {
+    var form = document.getElementById('lcNlForm');
+    var msg = document.getElementById('lcNlMsg');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var email = new FormData(form).get('email');
+      msg.textContent = 'Saving…';
+      fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: email }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          msg.textContent = j.ok ? 'Subscribed.' : (j.error === 'newsletter_off' ? 'List paused.' : 'Could not subscribe.');
+          if (j.ok) form.reset();
+        })
+        .catch(function () { msg.textContent = 'Network error'; });
+    });
+  })();
+</script>
