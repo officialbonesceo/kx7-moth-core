@@ -34,22 +34,71 @@ const showSource =
   !/ai|openrouter|cloudflare|model|research\s*\(/i.test(rawSource);
 const sourceLabel = showSource ? rawSource : 'LaneCash';
 
-/** Split long HTML into up to 3 parts at block boundaries for mid-article banners */
-function splitContent(html: string): string[] {
-  const raw = String(html || '');
-  if (raw.length < 600) return [raw];
-  const parts = raw.split(/(?=<h2|<h3|<p)/i).filter(Boolean);
-  if (parts.length < 5) return [raw];
-  const third = Math.max(2, Math.floor(parts.length / 3));
-  const twoThird = Math.max(third + 2, Math.floor((parts.length * 2) / 3));
-  return [
-    parts.slice(0, third).join(''),
-    parts.slice(third, twoThird).join(''),
-    parts.slice(twoThird).join(''),
-  ].filter((p) => p && p.trim().length > 0);
+/** ~150 words between mid-article ads; max 3 slots; never cluster at top */
+const WORDS_PER_AD = 150;
+const MAX_MID_ADS = 3;
+const MIN_WORDS_BEFORE_FIRST = 100;
+
+function wordCount(html: string): number {
+  const text = String(html || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return 0;
+  return text.split(' ').filter(Boolean).length;
 }
 
-const chunks = splitContent(article.content || '');
+type Chunk = { html: string; adAfter?: '320x50' | '300x250' };
+
+function splitByWordBudget(html: string): Chunk[] {
+  const raw = String(html || '');
+  const total = wordCount(raw);
+  if (total < MIN_WORDS_BEFORE_FIRST + 40) return [{ html: raw }];
+
+  const parts = raw.split(/(?=<h2|<h3|<p|<ul|<ol|<li)/i).filter((p) => p && p.trim());
+  if (parts.length < 2) return [{ html: raw }];
+
+  const out: Chunk[] = [];
+  let buf = '';
+  let wordsInBuf = 0;
+  let adsPlaced = 0;
+  let wordsSinceAd = 0;
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const w = wordCount(part);
+    buf += part;
+    wordsInBuf += w;
+    wordsSinceAd += w;
+
+    const isLast = i === parts.length - 1;
+    const canAd =
+      !isLast &&
+      adsPlaced < MAX_MID_ADS &&
+      wordsInBuf >= MIN_WORDS_BEFORE_FIRST &&
+      wordsSinceAd >= WORDS_PER_AD;
+
+    if (canAd || isLast) {
+      const size: '320x50' | '300x250' = adsPlaced % 2 === 0 ? '320x50' : '300x250';
+      out.push({
+        html: buf,
+        adAfter: canAd ? size : undefined,
+      });
+      if (canAd) {
+        adsPlaced++;
+        wordsSinceAd = 0;
+      }
+      buf = '';
+      wordsInBuf = 0;
+    }
+  }
+
+  if (buf.trim()) out.push({ html: buf });
+  return out.length ? out : [{ html: raw }];
+}
+
+const chunks = splitByWordBudget(article.content || '');
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -101,24 +150,22 @@ const jsonLd = {
     </div>
   </div>
 
-  {chunks.map((chunk, i) => (
+  {chunks.map((chunk) => (
     <>
       <article class="prose prose-read">
-        <Fragment set:html={chunk} />
+        <Fragment set:html={chunk.html} />
       </article>
-      {i < chunks.length - 1 && (
+      {chunk.adAfter && (
         <div class="mid-ad-wrap" aria-label="Sponsored">
-          <BannerAd size={i === 0 ? '320x50' : '300x250'} />
+          <BannerAd size={chunk.adAfter} />
         </div>
       )}
     </>
   ))}
 
-  {chunks.length <= 1 && (
-    <div class="mid-ad-wrap" aria-label="Sponsored">
-      <BannerAd size="300x250" />
-    </div>
-  )}
+  <div class="mid-ad-wrap" aria-label="Sponsored" style="margin-top:1.5rem">
+    <BannerAd size="300x250" />
+  </div>
 
   <SocialBar />
 
