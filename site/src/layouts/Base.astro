@@ -20,7 +20,8 @@ const {
 } = Astro.props;
 const path = Astro.url.pathname;
 const origin = Astro.url.origin;
-const canonicalUrl = canonical || `${origin}${path}`;
+// Never put ?tab= / ?page= into the default canonical
+const canonicalUrl = canonical || `${origin}${path === '/' ? '/' : path}`;
 const ogImage = image || `${origin}/og-default.svg`;
 const rssUrl = `${origin}/rss.xml`;
 const defaultLd = {
@@ -74,7 +75,7 @@ if (db) {
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#000000" id="metaThemeColor" />
-    <meta name="robots" content={noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large'} />
+    <meta name="robots" content={noindex ? 'noindex,follow' : 'index,follow,max-image-preview:large'} />
     <link rel="canonical" href={canonicalUrl} />
     <link rel="alternate" type="application/rss+xml" title="LaneCash RSS" href={rssUrl} />
     <Fragment set:html={verifyHtml} />
