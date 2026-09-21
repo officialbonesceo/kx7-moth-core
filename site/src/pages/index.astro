@@ -15,6 +15,11 @@ const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
 const perPage = 10;
 const offset = (page - 1) * perPage;
 
+// Tab/filter and deep pagination are UI only — do not compete with / in Google
+const isFilterView = tab !== 'all' || page > 1;
+const origin = Astro.url.origin;
+const cleanHome = `${origin}/`;
+
 let articles: any[] = [];
 let total = 0;
 let dbError = '';
@@ -47,7 +52,12 @@ const showCryptoNews = tab === 'crypto' || tab === 'all';
 const isForYou = tab === 'all';
 const mid = Math.min(3, Math.max(1, articles.length - 1));
 ---
-<Base title="LaneCash — Stay Sharp. Get Ahead." description="Practical money skills: crypto safety, content systems, affiliate, dropshipping, scam alerts, and calculators.">
+<Base
+  title="LaneCash — Stay Sharp. Get Ahead."
+  description="Practical money skills: crypto safety, content systems, affiliate, dropshipping, scam alerts, and calculators."
+  canonical={cleanHome}
+  noindex={isFilterView}
+>
   <div class="disclaimer-banner">
     <strong>Disclaimer:</strong> Educational content only — not financial advice.
     <a href="/disclaimer">Read full disclaimer</a>
@@ -59,10 +69,10 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
   </section>
   <div class="chips">
     <a class={`chip ${tab==='all'?'active':''}`} href="/">★ For You</a>
-    <a class={`chip ${tab==='crypto'?'active':''}`} href="/?tab=crypto">Crypto</a>
-    <a class={`chip ${tab==='hustles'?'active':''}`} href="/?tab=hustles">Daily Hustles</a>
-    <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams">Scam Alerts</a>
-    <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing">Money</a>
+    <a class={`chip ${tab==='crypto'?'active':''}`} href="/?tab=crypto" rel="nofollow">Crypto</a>
+    <a class={`chip ${tab==='hustles'?'active':''}`} href="/?tab=hustles" rel="nofollow">Daily Hustles</a>
+    <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams" rel="nofollow">Scam Alerts</a>
+    <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing" rel="nofollow">Money</a>
   </div>
 
   <BannerAd size="320x50" />
