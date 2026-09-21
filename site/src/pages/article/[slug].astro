@@ -34,20 +34,22 @@ const showSource =
   !/ai|openrouter|cloudflare|model|research\s*\(/i.test(rawSource);
 const sourceLabel = showSource ? rawSource : 'LaneCash';
 
-/** Split HTML into two halves at a block boundary for one mid-article banner */
-function splitContent(html: string): { first: string; second: string } {
+/** Split long HTML into up to 3 parts at block boundaries for mid-article banners */
+function splitContent(html: string): string[] {
   const raw = String(html || '');
-  if (raw.length < 800) return { first: raw, second: '' };
+  if (raw.length < 600) return [raw];
   const parts = raw.split(/(?=<h2|<h3|<p)/i).filter(Boolean);
-  if (parts.length < 4) return { first: raw, second: '' };
-  const mid = Math.max(2, Math.floor(parts.length / 2));
-  return {
-    first: parts.slice(0, mid).join(''),
-    second: parts.slice(mid).join(''),
-  };
+  if (parts.length < 5) return [raw];
+  const third = Math.max(2, Math.floor(parts.length / 3));
+  const twoThird = Math.max(third + 2, Math.floor((parts.length * 2) / 3));
+  return [
+    parts.slice(0, third).join(''),
+    parts.slice(third, twoThird).join(''),
+    parts.slice(twoThird).join(''),
+  ].filter((p) => p && p.trim().length > 0);
 }
 
-const { first: contentFirst, second: contentSecond } = splitContent(article.content || '');
+const chunks = splitContent(article.content || '');
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -99,23 +101,20 @@ const jsonLd = {
     </div>
   </div>
 
-  <article class="prose prose-read">
-    <Fragment set:html={contentFirst} />
-  </article>
+  {chunks.map((chunk, i) => (
+    <>
+      <article class="prose prose-read">
+        <Fragment set:html={chunk} />
+      </article>
+      {i < chunks.length - 1 && (
+        <div class="mid-ad-wrap" aria-label="Sponsored">
+          <BannerAd size={i === 0 ? '320x50' : '300x250'} />
+        </div>
+      )}
+    </>
+  ))}
 
-  {contentSecond && (
-    <div class="mid-ad-wrap" aria-label="Sponsored">
-      <BannerAd size="300x250" />
-    </div>
-  )}
-
-  {contentSecond && (
-    <article class="prose prose-read">
-      <Fragment set:html={contentSecond} />
-    </article>
-  )}
-
-  {!contentSecond && (
+  {chunks.length <= 1 && (
     <div class="mid-ad-wrap" aria-label="Sponsored">
       <BannerAd size="300x250" />
     </div>
