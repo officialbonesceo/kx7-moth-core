@@ -15,7 +15,6 @@ const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
 const perPage = 10;
 const offset = (page - 1) * perPage;
 
-// Tab/filter and deep pagination are UI only — do not compete with / in Google
 const isFilterView = tab !== 'all' || page > 1;
 const origin = Astro.url.origin;
 const cleanHome = `${origin}/`;
@@ -26,6 +25,7 @@ let dbError = '';
 
 try {
   if (db) {
+    // Always newest first from DB
     const res = await getArticles(db, 120);
     let all = res.results || [];
     if (tab !== 'all') {
@@ -68,7 +68,7 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
     <p>Money skills, creator systems, crypto safety & scam alerts.</p>
   </section>
   <div class="chips">
-    <a class={`chip ${tab==='all'?'active':''}`} href="/">★ For You</a>
+    <a class={`chip ${tab==='all'?'active':''}`} href="/">★ Latest</a>
     <a class={`chip ${tab==='crypto'?'active':''}`} href="/?tab=crypto" rel="nofollow">Crypto</a>
     <a class={`chip ${tab==='hustles'?'active':''}`} href="/?tab=hustles" rel="nofollow">Daily Hustles</a>
     <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams" rel="nofollow">Scam Alerts</a>
@@ -89,7 +89,7 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
   )}
 
   <div class="section-head">
-    <h2>{isForYou ? 'For You' : 'Top Picks'}</h2>
+    <h2>Latest guides</h2>
     <a href="/tools">Money tools ›</a>
   </div>
   {dbError && <div class="empty">Temporary issue loading posts. Retry shortly.</div>}
@@ -135,35 +135,16 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
     )) : (!dbError && <div class="empty">No articles yet.</div>)}
   </section>
   <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
-  <script is:inline define:vars={{ showCryptoNews, isForYou }}>
+  <script is:inline define:vars={{ showCryptoNews }}>
     (function(){
-      if (isForYou) {
-        var feed = document.getElementById('feed');
-        if (feed) {
-          var interest = (window.LC && window.LC.get('lc_interest', {})) || {};
-          var saved = (window.LC && window.LC.get('lc_saved', [])) || [];
-          var cards = Array.prototype.slice.call(feed.querySelectorAll('.card'));
-          function score(card) {
-            var path = card.getAttribute('data-path') || '';
-            var slug = card.getAttribute('data-slug') || '';
-            var text = ((card.getAttribute('data-title') || '') + ' ' + (card.getAttribute('data-summary') || '') + ' ' + (card.getAttribute('data-category') || '')).toLowerCase();
-            var s = 0;
-            s += (interest[path] || 0) * 5;
-            if (saved.indexOf(slug) >= 0) s += 8;
-            var keys = Object.keys(interest);
-            for (var i = 0; i < keys.length; i++) {
-              var k = keys[i].toLowerCase();
-              var w = interest[keys[i]] || 0;
-              if (/scam|phish|fraud/.test(k) && /scam|phish|fraud|telegram/.test(text)) s += w * 2;
-              if (/crypto|usdt|bitcoin|airdrop/.test(k) && /crypto|usdt|bitcoin|airdrop|wallet/.test(text)) s += w * 2;
-              if (/affiliate|drop|youtube|tiktok|content|hustle|freelance/.test(k) && /affiliate|drop|youtube|tiktok|content|hustle|freelance/.test(text)) s += w * 2;
-            }
-            return s;
-          }
-          cards.sort(function(a, b) { return score(b) - score(a); });
-          cards.forEach(function(c) { feed.appendChild(c); });
-        }
-      }
+      // Newest-first stays as server rendered. Interest only mild-highlights cards (no full re-sort).
+      try {
+        var interest = (window.LC && window.LC.get('lc_interest', {})) || {};
+        document.querySelectorAll('.card').forEach(function(c){
+          var path = c.getAttribute('data-path') || '';
+          if ((interest[path] || 0) >= 2) c.classList.add('card-interest');
+        });
+      } catch (e) {}
 
       document.querySelectorAll('.card').forEach(function(c){
         c.addEventListener('click', function(){
