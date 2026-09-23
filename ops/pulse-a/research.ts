@@ -16,24 +16,49 @@ export type ResearchPack = {
   tools: ResearchHit[];
 };
 
+/** Broad earning spheres — rotate so we are not stuck on dropshipping/affiliate */
 const SEED_QUERIES = [
-  'free tools to make money online with only a phone',
-  'beginner side hustles online skills no investment hype',
-  'how to start freelancing with a smartphone',
-  'affiliate marketing for beginners honest disclosures',
-  'avoid online job scams telegram fake recruitment',
-  'USDT P2P safety tips for beginners',
-  'content creation CapCut Canva beginner workflow',
-  'dropshipping product validation checklist',
-  'build email list from zero free tools',
-  'remote work scams how to verify employers',
-  'digital product ideas for beginners small scope',
-  'TikTok organic growth tips for new accounts',
-  'YouTube Shorts beginner posting schedule',
-  'YouTube algorithm basics retention hooks for beginners',
-  'budgeting system weekly for irregular income',
-  'airdrop crypto safety never share seed phrase',
+  // Music / audio
+  'how musicians make money online phone recording Nigeria beginners',
+  'sell beats online beginner guide honest costs',
+  'music streaming royalties basics for independent artists',
+  'avoid pay for plays and fake playlist promotion scams',
+  // Writing / ghostwriting
+  'ghostwriting for beginners how to find first clients',
+  'freelance writing rates for beginners Nigeria',
+  'newsletter ghostwriting skills and portfolio tips',
+  'essay writing job scams students should avoid',
+  // Tutoring / education services
+  'online tutoring WAEC JAMB subjects how to start',
+  'teach online with phone Zoom Google Meet beginner setup',
+  // VA / admin / design
+  'virtual assistant skills list for beginners',
+  'Canva freelancing first client package pricing',
+  'social media management for small businesses realistic scope',
+  // Phone video / creative
+  'CapCut phone editing client offers realistic pricing',
+  'faceless YouTube research and scripting workflow beginners',
+  // Scams (keep but rotate)
+  'telegram remote job activation fee scams 2026',
+  'fake investment apps deposit ladder how to walk away',
+  'crypto recovery agent scams after a loss',
+  // Money literacy (not only crypto)
+  'budgeting for irregular income Nigeria weekly system',
+  'Opay Moniepoint Kuda small business payout comparison',
+  'POS agent banking real costs float and fees Nigeria',
+  // Creator systems (limited)
+  'YouTube Shorts retention basics without income promises',
+  'email list building free tools honest expectations',
+  // Dropshipping / affiliate — capped presence in pool
+  'dropshipping product validation checklist before ads',
+  'affiliate marketing disclosures FTC style for beginners',
+  // Campus-adjacent hustles
+  'student side hustles that do not need inventory',
+  'SIWES stipend myths and payment scams students face',
 ];
+
+const OVERUSED =
+  /\b(drop\s*ship|dropshipping|affiliate marketing|airdrop|product validation checklist)\b/i;
 
 const BLOCK =
   /\b(forex|fx trading|currency trading|binary options|prop firm challenge|guaranteed pips)\b/i;
@@ -48,13 +73,18 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
+/** Prefer broader spheres; de-prioritize overused dropship/affiliate most days */
 export function pickQueries(n: number): string[] {
   const salt = daySalt();
   const hour = new Date().getUTCHours();
-  const ranked = [...SEED_QUERIES].sort(
-    (a, b) => hash(a + salt + hour) - hash(b + salt + hour)
-  );
-  // Keep queries short — long tails hurt search APIs
+  const ranked = [...SEED_QUERIES].sort((a, b) => {
+    const ha = hash(a + salt + hour);
+    const hb = hash(b + salt + hour);
+    // Soft penalty for overused themes so they appear less often
+    const pa = OVERUSED.test(a) ? ha + 500000 : ha;
+    const pb = OVERUSED.test(b) ? hb + 500000 : hb;
+    return pa - pb;
+  });
   return ranked.slice(0, n);
 }
 
@@ -74,27 +104,10 @@ async function fetchJson(url: string, timeoutMs = 12000): Promise<any | null> {
   }
 }
 
-async function fetchText(url: string, timeoutMs = 12000): Promise<string | null> {
-  try {
-    const r = await fetch(url, {
-      headers: {
-        'User-Agent': 'LaneCashBot/1.0 (educational)',
-        Accept: 'text/html,application/xml,application/json',
-      },
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!r.ok) return null;
-    return await r.text();
-  } catch {
-    return null;
-  }
-}
-
 function cleanHits(hits: ResearchHit[]): ResearchHit[] {
   return hits.filter((h) => h.title && !BLOCK.test(`${h.title} ${h.snippet}`));
 }
 
-/** DuckDuckGo Instant Answer API (JSON, works server-side) */
 export async function searchDuckDuckGo(query: string, limit = 5): Promise<ResearchHit[]> {
   const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
   const data = await fetchJson(url);
@@ -156,7 +169,6 @@ export async function searchWikipedia(query: string, limit = 4): Promise<Researc
         source: 'wikipedia',
       });
     }
-    // Enrich first result
     if (titles[0]) {
       const sum = await fetchJson(
         `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titles[0].replace(/ /g, '_'))}`
@@ -169,7 +181,6 @@ export async function searchWikipedia(query: string, limit = 4): Promise<Researc
   }
 }
 
-/** Simple wiki search via media API as extra signal */
 async function searchWikipediaFulltext(query: string, limit = 3): Promise<ResearchHit[]> {
   const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
     query
@@ -217,6 +228,8 @@ export function packToContext(pack: ResearchPack): string {
     `Primary topic / query: ${pack.query}`,
     'Write ONLY about this topic. Educational content. Not financial advice.',
     'Do not invent unrelated crypto deposit or airdrop sections unless the topic is about those risks.',
+    'Do not pivot into dropshipping or affiliate marketing unless the query is explicitly about those.',
+    'Stay in the sphere of the query (music, writing, tutoring, VA, design, scams, budgeting, etc.).',
     '',
   ];
   if (pack.hits.length) {
