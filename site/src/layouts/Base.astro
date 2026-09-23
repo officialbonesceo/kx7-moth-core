@@ -20,10 +20,10 @@ const {
 } = Astro.props;
 const path = Astro.url.pathname;
 const origin = Astro.url.origin;
-// Never put ?tab= / ?page= into the default canonical
 const canonicalUrl = canonical || `${origin}${path === '/' ? '/' : path}`;
 const ogImage = image || `${origin}/og-default.svg`;
 const rssUrl = `${origin}/rss.xml`;
+const year = new Date().getFullYear();
 const defaultLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
@@ -175,7 +175,15 @@ if (db) {
       <div class="footer-note">
         <a href="/about">About</a> · <a href="/disclaimer">Disclaimer</a> · <a href="/rss.xml">RSS</a>
         · <a href="https://www.youtube.com/@only_lanecash" rel="noopener noreferrer" target="_blank">YouTube</a>
-        · LaneCash
+      </div>
+      <div class="meziem-foot" aria-label="Studio">
+        <span class="meziem-logo" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.15"/>
+            <path d="M8 22V10l8 8 8-8v12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span class="meziem-text">© {year} LaneCash · <strong>Meziem</strong></span>
       </div>
     </main>
 
@@ -201,6 +209,27 @@ if (db) {
     </nav>
 
     <div class="toast" id="toast"></div>
+    <style is:global>
+      .meziem-foot {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        margin: 0.35rem 0 1.25rem;
+        padding-bottom: 0.25rem;
+        font-size: 0.72rem;
+        opacity: 0.72;
+        letter-spacing: 0.02em;
+      }
+      .meziem-logo {
+        display: inline-flex;
+        color: inherit;
+      }
+      .meziem-text strong {
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+    </style>
     <script is:inline>
       (function(){
         var order = ['system','light','dark'];
