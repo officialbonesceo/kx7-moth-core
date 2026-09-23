@@ -1,0 +1,91 @@
+---
+import Base from '../../layouts/Base.astro';
+
+export const prerender = true;
+const origin = 'https://lanecash.name.ng';
+---
+<Base
+  title="Money tools — LaneCash"
+  description="Currency converters, USD–NGN, and a light crypto headline pulse. Educational tools only."
+  canonical={`${origin}/tools`}
+>
+  <a class="chip" href="/" style="margin:8px 0 12px;display:inline-flex">← Home</a>
+  <section class="hero" style="padding-bottom:8px">
+    <h1>Money tools</h1>
+    <p>Converters and a short crypto pulse. Not financial advice.</p>
+  </section>
+
+  <div class="section-head">
+    <h2>Calculators</h2>
+  </div>
+  <div class="feed" style="margin-bottom:16px">
+    <a class="card" href="/tools/currency">
+      <div class="card-main">
+        <span class="pill money">FX</span>
+        <h3>Any-to-any currency</h3>
+        <p>Convert between major currencies with cached rates.</p>
+      </div>
+    </a>
+    <a class="card" href="/tools/usd-ngn">
+      <div class="card-main">
+        <span class="pill money">NGN</span>
+        <h3>USD → NGN</h3>
+        <p>Quick dollar to naira estimate for everyday planning.</p>
+      </div>
+    </a>
+  </div>
+
+  <div class="calc-card" id="cryptoPulseCard">
+    <div class="section-head" style="margin:0 0 8px">
+      <h2 style="font-size:1rem">Crypto pulse</h2>
+      <span class="muted" style="font-size:.75rem">Headlines · not advice</span>
+    </div>
+    <div id="toolsCryptoNews" class="muted" style="font-size:.85rem">Loading market headlines…</div>
+  </div>
+
+  <p class="muted" style="font-size:.8rem;margin-top:16px">
+    Pulse is loaded in the browser from public feeds. It is not indexed as original LaneCash journalism.
+  </p>
+
+  <script is:inline>
+    (async function () {
+      var box = document.getElementById('toolsCryptoNews');
+      var card = document.getElementById('cryptoPulseCard');
+      if (!box) return;
+      var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 8000);
+      try {
+        var r = await fetch('/api/crypto/news', ctrl ? { signal: ctrl.signal } : undefined);
+        clearTimeout(to);
+        if (!r.ok) throw new Error('bad status');
+        var j = await r.json();
+        var items = (j.items || []).slice(0, 8);
+        if (!items.length) {
+          box.textContent = 'No headlines right now. Try again later.';
+          return;
+        }
+        box.innerHTML = items
+          .map(function (it) {
+            var title = String(it.title || '').replace(/</g, '<');
+            var src = String(it.source || '').replace(/</g, '<');
+            var url = String(it.url || '#').replace(/"/g, '');
+            return (
+              '<div style="padding:8px 0;border-bottom:1px solid rgba(127,127,127,.15)">' +
+              '<a href="' +
+              url +
+              '" target="_blank" rel="noopener noreferrer" style="font-weight:700;font-size:.88rem">' +
+              title +
+              '</a>' +
+              '<div class="muted" style="font-size:.72rem;margin-top:2px">' +
+              src +
+              '</div></div>'
+            );
+          })
+          .join('');
+      } catch (e) {
+        clearTimeout(to);
+        box.textContent = 'Headlines unavailable right now.';
+      }
+    })();
+  </script>
+</Base>
