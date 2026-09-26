@@ -9,6 +9,9 @@ const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
 const CF_D1_DATABASE_ID = process.env.CF_D1_DATABASE_ID || '';
 
+/** Min plain-text length after HTML strip (was 1800 — free models rarely cleared it) */
+const MIN_BODY_CHARS = 1100;
+
 type Category = 'money' | 'opportunities' | 'scams' | 'guides';
 
 interface ArticleDraft {
@@ -65,7 +68,9 @@ function coverForTitle(title: string, category: string) {
   const t = `${title} ${category}`.toLowerCase();
   if (category === 'scams' || /scam|fraud|phish|telegram/.test(t)) return '/covers/scams.svg';
   if (/crypto|usdt|bitcoin|airdrop|wallet|p2p|token/.test(t)) return '/covers/crypto.svg';
-  if (/hustle|freelance|content|youtube|tiktok|affiliate|drop|creator|skill|algorithm|shorts|reels|digital product|remote/.test(t))
+  if (/music|beat|song|audio|spotify|ghostwrit|tutoring|tutor|canva|capcut|virtual assistant|freelance/.test(t))
+    return '/covers/hustle.svg';
+  if (/hustle|content|youtube|tiktok|affiliate|drop|creator|skill|algorithm|shorts|reels|digital product|remote/.test(t))
     return '/covers/hustle.svg';
   if (category === 'money' || /budget|fee|naira|payment|price/.test(t)) return '/covers/money.svg';
   return '/covers/fallback.svg';
@@ -142,7 +147,7 @@ async function exists(title: string) {
 }
 
 async function publish(draft: ArticleDraft) {
-  if (isWeakTitle(draft.title) || isWeakSummary(draft.summary) || plainLen(draft.content) < 1800) {
+  if (isWeakTitle(draft.title) || isWeakSummary(draft.summary) || plainLen(draft.content) < MIN_BODY_CHARS) {
     console.error('[pulse-a] refuse publish — failed final quality gate');
     return false;
   }
@@ -189,7 +194,7 @@ async function publish(draft: ArticleDraft) {
 }
 
 async function publishOne(titles: Set<string>): Promise<boolean> {
-  const queries = pickQueries(5);
+  const queries = pickQueries(8);
   for (const q of queries) {
     try {
       console.log('[pulse-a] topic', q);
@@ -203,8 +208,8 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
       }
 
       let content = polishContent(ai.contentHtml);
-      if (looksLikeLeak(content) || plainLen(content) < 1800) {
-        console.warn('[pulse-a] skip low quality body');
+      if (looksLikeLeak(content) || plainLen(content) < MIN_BODY_CHARS) {
+        console.warn('[pulse-a] skip low quality body', plainLen(content));
         continue;
       }
       if (isWeakTitle(ai.title) || isWeakSummary(ai.summary)) {
@@ -215,7 +220,7 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
       let title = ai.title.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim();
       if ((await exists(title)) || titles.has(title)) {
         title = `${title} (${new Date().toISOString().slice(0, 10)})`;
-        if (await exists(title) || isWeakTitle(title)) continue;
+        if ((await exists(title)) || isWeakTitle(title)) continue;
       }
 
       const ok = await publish({
@@ -223,7 +228,7 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
         summary: ai.summary.replace(/\*\*/g, '').trim(),
         content,
         category: ai.category,
-        reading_minutes: Math.max(8, Math.min(22, Math.round(plainLen(content) / 900))),
+        reading_minutes: Math.max(6, Math.min(22, Math.round(plainLen(content) / 900))),
         author_team: 'LaneCash Desk',
         source_name: 'LaneCash',
         source_url: pack.hits[0]?.url || null,
@@ -241,7 +246,7 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
 }
 
 async function main() {
-  console.log('[pulse-a] 1 post/run · fail-closed quality gates · source=LaneCash');
+  console.log('[pulse-a] 1 post/run · fail-closed · min body', MIN_BODY_CHARS);
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
