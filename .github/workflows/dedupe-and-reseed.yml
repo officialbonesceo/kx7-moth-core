@@ -1,0 +1,22 @@
+name: dedupe-and-reseed
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/seed/dedupe-and-reseed.ts'
+      - '.github/workflows/dedupe-and-reseed.yml'
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install
+      - name: dedupe + ensure X seeds
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_D1_DATABASE_ID: ${{ secrets.CF_D1_DATABASE_ID }}
+        run: npx tsx ops/seed/dedupe-and-reseed.ts
