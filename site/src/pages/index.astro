@@ -26,14 +26,27 @@ try {
   if (db) {
     const res = await getArticles(db, 120);
     let all = res.results || [];
+    // Dedupe near-identical titles on the feed (unicode quotes etc.)
+    const seen = new Set<string>();
+    all = all.filter((a) => {
+      const k = String(a.title || '')
+        .toLowerCase()
+        .normalize('NFKC')
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201c\u201d]/g, '"')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
     if (tab !== 'all') {
       all = all.filter((a) => {
         const c = (a.category || '').toLowerCase();
         const t = `${a.title} ${a.summary}`.toLowerCase();
-        if (tab === 'crypto') return c === 'opportunities' || /crypto|usdt|bitcoin|token|airdrop|wallet|p2p/.test(t);
-        if (tab === 'hustles') return c === 'guides' || /hustle|earn|freelance|side|content|tiktok|youtube|affiliate|drop/.test(t);
-        if (tab === 'scams') return c === 'scams' || /scam|fraud|ponzi|phish|telegram/.test(t);
-        if (tab === 'investing') return c === 'money' || /invest|budget|price|fee|bank|naira|loan|wallet|payment/.test(t);
+        if (tab === 'scams') return c === 'scams' || /scam|fraud|phish|telegram|fake|bvn|activation fee/.test(t);
+        if (tab === 'money') return c === 'money' || /budget|naira|fee|bank|wallet|payment|fx|convert/.test(t);
+        if (tab === 'skills') return c === 'guides' || c === 'opportunities' || /canva|tutor|freelance|ghostwrit|design|phone|client/.test(t);
         return true;
       });
     }
@@ -49,8 +62,8 @@ const totalPages = Math.max(1, Math.ceil(total / perPage));
 const mid = Math.min(3, Math.max(1, articles.length - 1));
 ---
 <Base
-  title="LaneCash — Stay Sharp. Get Ahead."
-  description="Practical money skills: crypto safety, content systems, affiliate, dropshipping, scam alerts, and calculators."
+  title="LaneCash — Check the offer before you pay"
+  description="Nigeria-first scam alerts, safe money habits, and practical phone skills. Educational only — not financial advice."
   canonical={cleanHome}
   noindex={isFilterView}
 >
@@ -60,22 +73,44 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
   </div>
 
   <section class="hero">
-    <h1>Stay Sharp. Get Ahead.</h1>
-    <p>Money skills, creator systems, crypto safety & scam alerts.</p>
+    <div class="hero-kicker">Nigeria · Scam defence · Money tools</div>
+    <h1>Check the offer before you pay.</h1>
+    <p>
+      Clear guides on WhatsApp job traps, fake recruitment, naira money habits, and phone skills — without the “get rich” noise.
+    </p>
   </section>
+
+  <div class="tool-strip" aria-label="Quick tools">
+    <a class="tool-card" href="/tools/currency">
+      <strong>Currency</strong>
+      <span>Any-to-any converter</span>
+    </a>
+    <a class="tool-card" href="/tools/usd-ngn">
+      <strong>USD → NGN</strong>
+      <span>Quick naira check</span>
+    </a>
+    <a class="tool-card" href="/?tab=scams" rel="nofollow">
+      <strong>Scam alerts</strong>
+      <span>Patterns to reject</span>
+    </a>
+    <a class="tool-card" href="/tools">
+      <strong>All tools</strong>
+      <span>Fees · calculators</span>
+    </a>
+  </div>
+
   <div class="chips">
     <a class={`chip ${tab==='all'?'active':''}`} href="/">★ Latest</a>
-    <a class={`chip ${tab==='crypto'?'active':''}`} href="/?tab=crypto" rel="nofollow">Crypto</a>
-    <a class={`chip ${tab==='hustles'?'active':''}`} href="/?tab=hustles" rel="nofollow">Daily Hustles</a>
-    <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams" rel="nofollow">Scam Alerts</a>
-    <a class={`chip ${tab==='investing'?'active':''}`} href="/?tab=investing" rel="nofollow">Money</a>
+    <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams" rel="nofollow">Scam alerts</a>
+    <a class={`chip ${tab==='money'?'active':''}`} href="/?tab=money" rel="nofollow">Money habits</a>
+    <a class={`chip ${tab==='skills'?'active':''}`} href="/?tab=skills" rel="nofollow">Phone skills</a>
   </div>
 
   <BannerAd size="320x50" />
 
   <div class="section-head">
-    <h2>Latest guides</h2>
-    <a href="/tools">Money tools ›</a>
+    <h2>{tab === 'scams' ? 'Scam alerts' : tab === 'money' ? 'Money habits' : tab === 'skills' ? 'Phone skills' : 'Latest guides'}</h2>
+    <a href="/search">Search ›</a>
   </div>
   {dbError && <div class="empty">Temporary issue loading posts. Retry shortly.</div>}
   <section class="feed" id="feed">
@@ -112,6 +147,8 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
             src={coverFor(a)}
             alt=""
             loading="lazy"
+            width="110"
+            height="110"
             data-fallback={svgCover(a)}
             onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')||'/covers/fallback.svg'"
           />

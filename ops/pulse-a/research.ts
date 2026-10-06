@@ -1,6 +1,5 @@
 /**
- * Research helpers that work from GitHub Actions (no brittle DDG HTML scrape).
- * Sources: DuckDuckGo Instant Answer JSON, Wikipedia, optional RSS.
+ * Research helpers — niche focused: scam defence, naira money habits, phone skills.
  */
 
 export type ResearchHit = {
@@ -16,52 +15,30 @@ export type ResearchPack = {
   tools: ResearchHit[];
 };
 
-/** Broad earning spheres — rotate so we are not stuck on dropshipping/affiliate */
+/** Narrow LaneCash niche — scam defence + safe money + practical phone skills */
 const SEED_QUERIES = [
-  // Music / audio
-  'how musicians make money online phone recording Nigeria beginners',
-  'sell beats online beginner guide honest costs',
-  'music streaming royalties basics for independent artists',
-  'avoid pay for plays and fake playlist promotion scams',
-  // Writing / ghostwriting
-  'ghostwriting for beginners how to find first clients',
-  'freelance writing rates for beginners Nigeria',
-  'newsletter ghostwriting skills and portfolio tips',
-  'essay writing job scams students should avoid',
-  // Tutoring / education services
-  'online tutoring WAEC JAMB subjects how to start',
-  'teach online with phone Zoom Google Meet beginner setup',
-  // VA / admin / design
-  'virtual assistant skills list for beginners',
-  'Canva freelancing first client package pricing',
-  'social media management for small businesses realistic scope',
-  // Phone video / creative
-  'CapCut phone editing client offers realistic pricing',
-  'faceless YouTube research and scripting workflow beginners',
-  // Scams (keep but rotate)
-  'telegram remote job activation fee scams 2026',
-  'fake investment apps deposit ladder how to walk away',
-  'crypto recovery agent scams after a loss',
-  // Money literacy (not only crypto)
-  'budgeting for irregular income Nigeria weekly system',
-  'Opay Moniepoint Kuda small business payout comparison',
-  'POS agent banking real costs float and fees Nigeria',
-  // Creator systems (limited)
-  'YouTube Shorts retention basics without income promises',
-  'email list building free tools honest expectations',
-  // Dropshipping / affiliate — capped presence in pool
-  'dropshipping product validation checklist before ads',
-  'affiliate marketing disclosures FTC style for beginners',
-  // Campus-adjacent hustles
-  'student side hustles that do not need inventory',
-  'SIWES stipend myths and payment scams students face',
+  'WhatsApp Telegram remote job activation fee scams Nigeria how to verify',
+  'fake FIRS NRS recruitment messages Nigeria how to spot',
+  'fake investment apps deposit ladder trap Nigeria walk away',
+  'crypto recovery agent scams after a loss what to do',
+  'BVN OTP sharing risks job offer Nigeria',
+  'P2P crypto escrow pressure plays beginner safety Nigeria',
+  'fake airdrop comment your wallet traps educational',
+  'weekly budget in naira irregular income beginner system',
+  'Opay Moniepoint Kuda fees for receiving payments Nigeria',
+  'how to verify employer before sharing ID documents Nigeria',
+  'Canva phone flyer service pricing for beginners Nigeria',
+  'online tutoring one subject WAEC JAMB phone setup',
+  'ghostwriting first paid job Nigeria portfolio outreach',
+  'market run personal shopping side income fees trust Nigeria',
+  'paid app testing microtasks vs course access fee scams',
+  'student side income without inventory Nigeria realistic',
+  'how to mute scam recruiters on social media practical',
+  'POS agent float costs and hidden charges Nigeria educational',
 ];
 
-const OVERUSED =
-  /\b(drop\s*ship|dropshipping|affiliate marketing|airdrop|product validation checklist)\b/i;
-
 const BLOCK =
-  /\b(forex|fx trading|currency trading|binary options|prop firm challenge|guaranteed pips)\b/i;
+  /\b(forex signal|binary options|prop firm challenge|guaranteed pips|get rich in 7 days)\b/i;
 
 function daySalt() {
   return Math.floor(Date.now() / 86400000);
@@ -73,18 +50,10 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
-/** Prefer broader spheres; de-prioritize overused dropship/affiliate most days */
 export function pickQueries(n: number): string[] {
   const salt = daySalt();
   const hour = new Date().getUTCHours();
-  const ranked = [...SEED_QUERIES].sort((a, b) => {
-    const ha = hash(a + salt + hour);
-    const hb = hash(b + salt + hour);
-    // Soft penalty for overused themes so they appear less often
-    const pa = OVERUSED.test(a) ? ha + 500000 : ha;
-    const pb = OVERUSED.test(b) ? hb + 500000 : hb;
-    return pa - pb;
-  });
+  const ranked = [...SEED_QUERIES].sort((a, b) => hash(a + salt + hour) - hash(b + salt + hour));
   return ranked.slice(0, n);
 }
 
@@ -227,9 +196,9 @@ export function packToContext(pack: ResearchPack): string {
   const lines: string[] = [
     `Primary topic / query: ${pack.query}`,
     'Write ONLY about this topic. Educational content. Not financial advice.',
-    'Do not invent unrelated crypto deposit or airdrop sections unless the topic is about those risks.',
-    'Do not pivot into dropshipping or affiliate marketing unless the query is explicitly about those.',
-    'Stay in the sphere of the query (music, writing, tutoring, VA, design, scams, budgeting, etc.).',
+    'LaneCash niche: Nigeria scam defence, safe money habits, practical phone skills.',
+    'Do not invent unrelated get-rich schemes. Prefer checklists and red/green flags.',
+    'Use Nigeria-relevant examples when natural (WhatsApp, BVN, naira, Opay) without inventing laws.',
     '',
   ];
   if (pack.hits.length) {

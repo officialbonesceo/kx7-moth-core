@@ -1,14 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="960" viewBox="0 0 960 960">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0a0a0a"/>
-      <stop offset="100%" stop-color="#111827"/>
+      <stop offset="0%" stop-color="#0c1a17"/>
+      <stop offset="100%" stop-color="#071210"/>
     </linearGradient>
   </defs>
-  <rect width="800" height="800" fill="url(#g)"/>
-  <rect x="40" y="40" width="720" height="720" rx="48" fill="#0c0c0c" stroke="#1f2937" stroke-width="2"/>
-  <rect x="320" y="280" width="160" height="160" rx="36" fill="#22c55e"/>
-  <text x="400" y="385" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="96" font-weight="900" fill="#04140a">L</text>
-  <text x="400" y="520" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="42" font-weight="800" fill="#ffffff">Lane<tspan fill="#22c55e">Cash</tspan></text>
-  <text x="400" y="570" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="22" fill="#9ca3af">Stay Sharp. Get Ahead.</text>
+  <rect width="960" height="960" fill="url(#g)"/>
+  <rect x="48" y="48" width="864" height="864" rx="56" fill="#10201c" stroke="#14532d" stroke-width="2"/>
+  <text x="480" y="460" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="64" font-weight="900" fill="#2dd4a0">LC</text>
+  <text x="480" y="540" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="36" font-weight="800" fill="#f0fdf6">LaneCash</text>
+  <text x="480" y="600" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="600" fill="#8ba89c">Check before you pay</text>
 </svg>
