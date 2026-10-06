@@ -1,8 +1,7 @@
 /**
  * AI rewrite: text chat models only.
- * Order: Groq → Gemini → Cloudflare (max 2 models, stop on 429) → OpenRouter free (max 2)
+ * Order: Groq → Gemini → Pollinations → Cloudflare (max 2, stop on 429) → OpenRouter free
  * FAIL CLOSED: never publish leak/planning text.
- * Quota-safe: do not burn daily CF neurons on 12 model retries.
  */
 import { markdownToHtml, stripMetaLines } from './format';
 
@@ -11,6 +10,7 @@ const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY || '';
 
 export type AiDraft = {
   title: string;
@@ -33,16 +33,17 @@ HARD RULES:
 - TITLE must be specific (at least 6 words). Never single-word titles like "Google".
 - End once with: <h2>Disclaimer</h2><p>Educational only — not financial advice.</p>`;
 
-/** Only small, reliable CF chat models — do not auto-scan entire catalog */
 const CF_CHAT_MODELS = ['@cf/meta/llama-3.1-8b-instruct', '@cf/meta/llama-3.2-3b-instruct'];
-
-const GROQ_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const GROQ_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it'];
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
+const POLLINATIONS_MODELS = ['openai', 'openai-fast', 'mistral'];
 
 const OR_FALLBACK = [
-  'meta-llama/llama-3.2-3b-instruct:free',
   'google/gemma-2-9b-it:free',
+  'meta-llama/llama-3.2-3b-instruct:free',
   'qwen/qwen-2.5-7b-instruct:free',
+  'microsoft/phi-3-mini-128k-instruct:free',
+  'huggingface/zephyr-7b-beta:free',
 ];
 
 const BANNED_TITLES = new Set(
@@ -51,8 +52,8 @@ const BANNED_TITLES = new Set(
   )
 );
 
-const MIN_BODY = 1100;
-const GOOD_PARTIAL = 900;
+const MIN_BODY = 1000;
+const GOOD_PARTIAL = 800;
 
 type RunResult = { text: string | null; quota: boolean };
 
@@ -60,7 +61,7 @@ function isChatModelName(id: string) {
   const n = id.toLowerCase();
   if (/flux|whisper|embed|bge|resnet|detect|segment|speech|tts|asr|diffusion|stable-diffusion|llama-guard|rerank|lora$/.test(n))
     return false;
-  return /instruct|chat|gemma|llama|mistral|qwen|phi/.test(n);
+  return /instruct|chat|gemma|llama|mistral|qwen|phi|zephyr|nemotron/.test(n);
 }
 
 async function listOpenRouterFreeChat(): Promise<string[]> {
@@ -75,13 +76,14 @@ async function listOpenRouterFreeChat(): Promise<string[]> {
     const free = (j.data || [])
       .map((m: any) => String(m.id || ''))
       .filter((id: string) => /:free$/i.test(id) && isChatModelName(id));
-    return free.length ? free.slice(0, 3) : OR_FALLBACK;
+    const merged = [...new Set([...free.slice(0, 6), ...OR_FALLBACK])];
+    return merged.length ? merged : OR_FALLBACK;
   } catch {
     return OR_FALLBACK;
   }
 }
 
-async function cfRun(model: string, prompt: string, maxTokens = 1800): Promise<RunResult> {
+async function cfRun(model: string, prompt: string, maxTokens = 2000): Promise<RunResult> {
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN) return { text: null, quota: false };
   try {
     const r = await fetch(
@@ -96,7 +98,7 @@ async function cfRun(model: string, prompt: string, maxTokens = 1800): Promise<R
           ],
           max_tokens: maxTokens,
         }),
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(90000),
       }
     );
     const text = await r.text();
@@ -121,7 +123,7 @@ async function cfRun(model: string, prompt: string, maxTokens = 1800): Promise<R
   }
 }
 
-async function openRouterRun(model: string, prompt: string, maxTokens = 1800): Promise<RunResult> {
+async function openRouterRun(model: string, prompt: string, maxTokens = 2000): Promise<RunResult> {
   if (!OPENROUTER_API_KEY) return { text: null, quota: false };
   try {
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -140,15 +142,16 @@ async function openRouterRun(model: string, prompt: string, maxTokens = 1800): P
         ],
         max_tokens: maxTokens,
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(90000),
     });
     const text = await r.text();
+    // Do not kill whole OR chain on one model 429 — caller may try next model
     if (r.status === 429) {
-      console.warn('[ai] OR rate limited — stop OR chain');
+      console.warn('[ai] OR rate limited', model);
       return { text: null, quota: true };
     }
     if (!r.ok) {
-      console.warn('[ai] OR fail', model, r.status, text.slice(0, 100));
+      console.warn('[ai] OR fail', model, r.status, text.slice(0, 120));
       return { text: null, quota: false };
     }
     const j = JSON.parse(text);
@@ -159,7 +162,7 @@ async function openRouterRun(model: string, prompt: string, maxTokens = 1800): P
   }
 }
 
-async function groqRun(model: string, prompt: string, maxTokens = 1800): Promise<string | null> {
+async function groqRun(model: string, prompt: string, maxTokens = 2000): Promise<string | null> {
   if (!GROQ_API_KEY) return null;
   try {
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -176,11 +179,11 @@ async function groqRun(model: string, prompt: string, maxTokens = 1800): Promise
         ],
         max_tokens: maxTokens,
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(90000),
     });
     const text = await r.text();
     if (!r.ok) {
-      console.warn('[ai] Groq fail', model, r.status, text.slice(0, 100));
+      console.warn('[ai] Groq fail', model, r.status, text.slice(0, 120));
       return null;
     }
     const j = JSON.parse(text);
@@ -200,19 +203,50 @@ async function geminiRun(model: string, prompt: string): Promise<string | null> 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: `${SYSTEM}\n\n${prompt}` }] }],
-        generationConfig: { maxOutputTokens: 1800 },
+        generationConfig: { maxOutputTokens: 2000 },
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(90000),
     });
     const text = await r.text();
     if (!r.ok) {
-      console.warn('[ai] Gemini fail', model, r.status, text.slice(0, 100));
+      console.warn('[ai] Gemini fail', model, r.status, text.slice(0, 120));
       return null;
     }
     const j = JSON.parse(text);
     return j.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || null;
   } catch (e) {
     console.warn('[ai] Gemini error', model, String(e));
+    return null;
+  }
+}
+
+/** Pollinations OpenAI-compatible gateway (optional key). */
+async function pollinationsRun(model: string, prompt: string, maxTokens = 2000): Promise<string | null> {
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (POLLINATIONS_API_KEY) headers.Authorization = `Bearer ${POLLINATIONS_API_KEY}`;
+    const r = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: SYSTEM },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: maxTokens,
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    const text = await r.text();
+    if (!r.ok) {
+      console.warn('[ai] Pollinations fail', model, r.status, text.slice(0, 120));
+      return null;
+    }
+    const j = JSON.parse(text);
+    return j.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    console.warn('[ai] Pollinations error', model, String(e));
     return null;
   }
 }
@@ -295,7 +329,6 @@ function parseAiOutput(raw: string, fallbackTitle: string): AiDraft | null {
 
   let summary = (meta.summary || '').replace(/\*\*/g, '').trim().slice(0, 280);
   if (isWeakSummary(summary)) {
-    // salvage: first 160 chars of plain body
     const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     summary = plain.slice(0, 160);
     if (isWeakSummary(summary)) {
@@ -347,10 +380,21 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
   }
 
   if (!goodEnough(partial)) {
+    for (const model of POLLINATIONS_MODELS) {
+      console.log('[ai] trying Pollinations', model);
+      const out = await pollinationsRun(model, partial ? buildPrompt(context, partial) : promptFresh);
+      if (!out) continue;
+      partial = partial ? `${partial}\n${out}` : out;
+      usedModel = `pollinations:${model}`;
+      if (goodEnough(partial)) break;
+    }
+  }
+
+  if (!goodEnough(partial)) {
     for (const model of CF_CHAT_MODELS) {
       console.log('[ai] trying CF', model);
       const { text, quota } = await cfRun(model, partial ? buildPrompt(context, partial) : promptFresh);
-      if (quota) break; // do not try more CF models today
+      if (quota) break;
       if (!text) continue;
       partial = partial ? `${partial}\n${text}` : text;
       usedModel = model;
@@ -360,10 +404,19 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
 
   if (!goodEnough(partial)) {
     const orModels = await listOpenRouterFreeChat();
-    for (const model of orModels.slice(0, 2)) {
+    let consecutive429 = 0;
+    for (const model of orModels.slice(0, 5)) {
       console.log('[ai] trying OR', model);
       const { text, quota } = await openRouterRun(model, partial ? buildPrompt(context, partial) : promptFresh);
-      if (quota) break;
+      if (quota) {
+        consecutive429++;
+        if (consecutive429 >= 3) {
+          console.warn('[ai] OR multiple 429s — stop OR chain');
+          break;
+        }
+        continue;
+      }
+      consecutive429 = 0;
       if (!text) continue;
       partial = partial ? `${partial}\n${text}` : text;
       usedModel = model;
@@ -371,7 +424,7 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
     }
   }
 
-  if (!partial || partial.trim().length < 600) {
+  if (!partial || partial.trim().length < 500) {
     console.error('[ai] all models failed — fail closed (no publish)');
     return null;
   }
