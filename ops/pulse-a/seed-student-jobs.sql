@@ -1,6 +1,6 @@
 INSERT INTO articles (
   id, slug, title, summary, content, category, image_url, reading_minutes,
-  views, saves, is_featured, status, author_team, source_name, source_url,
+  views, is_featured, status, author_team, source_name,
   published_at, created_at, updated_at
 ) VALUES (
   'art_student_jobs_100l_2026',
@@ -40,12 +40,10 @@ INSERT INTO articles (
   NULL,
   4,
   0,
-  0,
   1,
   'published',
   'LaneCash Desk',
   'LaneCash',
-  NULL,
   datetime('now'),
   datetime('now'),
   datetime('now')
