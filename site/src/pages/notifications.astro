@@ -2,21 +2,22 @@
 import Base from '../layouts/Base.astro';
 ---
 <Base title="Alerts — LaneCash" noindex={true}>
-  <section class="hero">
-    <h1>Alerts</h1>
-    <p>Enable device notifications for LaneCash updates.</p>
+  <section style="padding:12px 0 4px">
+    <div class="hero-kicker" style="display:inline-flex;align-items:center;gap:6px;font-size:.7rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand);background:var(--brand-soft);border-radius:999px;padding:5px 10px;margin-bottom:10px">Stay informed</div>
+    <h1 style="margin:0 0 8px;font-size:1.5rem;font-weight:800;letter-spacing:-.03em">Device alerts</h1>
+    <p class="muted" style="margin:0;line-height:1.5;font-size:.92rem">Get a prompt on this phone when LaneCash publishes guides you care about.</p>
   </section>
 
-  <div class="calc-card" style="margin-bottom:14px">
-    <h3 style="margin:0 0 8px">Push notifications</h3>
-    <p class="muted" style="margin:0 0 12px;line-height:1.5">
-      Your browser will ask permission. Allow it to get alerts on this device.
+  <div class="notify-card">
+    <h3>Push notifications</h3>
+    <p class="muted" style="margin:0 0 14px;line-height:1.55;font-size:.9rem">
+      Your browser will ask permission. Allow notifications for this site — you can turn them off anytime in browser settings.
     </p>
     <button class="save-btn calc-primary" id="pushBtn" type="button">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
       Enable notifications
     </button>
-    <p class="muted" id="pushStatus" style="margin-top:12px;line-height:1.5"></p>
+    <p class="muted" id="pushStatus" style="margin-top:14px;line-height:1.5;font-size:.85rem"></p>
   </div>
 
   <div class="section-head"><h2>Based on what you open</h2></div>
@@ -29,10 +30,10 @@ import Base from '../layouts/Base.astro';
       var top = Object.entries(interest).sort(function(a,b){return b[1]-a[1]}).slice(0,8);
       var box = document.getElementById('nlist');
       if (!top.length) {
-        box.innerHTML = '<div class="empty">Open a few articles to personalize alerts.</div>';
+        box.innerHTML = '<div class="empty">Open a few articles — we will list your top topics here.</div>';
       } else {
         box.innerHTML = top.map(function(row){
-          return '<div class="card" style="grid-template-columns:1fr"><div class="card-main"><h3>' +
+          return '<div class="card" style="grid-template-columns:1fr"><div class="card-main"><h3 style="margin-top:0">' +
             nice(row[0]) + '</h3><p class="muted">Opened ' + row[1] + ' time(s)</p></div></div>';
         }).join('');
       }
@@ -112,7 +113,7 @@ import Base from '../layouts/Base.astro';
           try {
             await reg.showNotification('LaneCash', {
               body: 'Notifications are working on this device.',
-              icon: '/favicon.svg'
+              icon: '/logo.svg'
             });
           } catch (e) {}
         } catch (e) {
@@ -125,7 +126,7 @@ import Base from '../layouts/Base.astro';
 
       document.getElementById('pushBtn').addEventListener('click', enablePush);
       if (window.LC.get('lc_push', false)) {
-        document.getElementById('pushStatus').textContent = 'Alerts were enabled on this device before. Tap the button again if you reinstalled the browser.';
+        document.getElementById('pushStatus').textContent = 'Alerts were enabled on this device before. Tap Enable again if you reinstalled the browser.';
       }
     })();
   </script>

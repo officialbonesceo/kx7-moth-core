@@ -21,12 +21,12 @@ const cleanHome = `${origin}/`;
 let articles: any[] = [];
 let total = 0;
 let dbError = '';
+let heroPool: any[] = [];
 
 try {
   if (db) {
     const res = await getArticles(db, 120);
     let all = res.results || [];
-    // Dedupe near-identical titles on the feed (unicode quotes etc.)
     const seen = new Set<string>();
     all = all.filter((a) => {
       const k = String(a.title || '')
@@ -40,6 +40,12 @@ try {
       seen.add(k);
       return true;
     });
+    // Hero: prefer most-read when views exist, else newest 3
+    heroPool = [...all]
+      .sort((a, b) => Number(b.views || 0) - Number(a.views || 0) || 0)
+      .slice(0, 3);
+    if (heroPool.length < 3) heroPool = all.slice(0, 3);
+
     if (tab !== 'all') {
       all = all.filter((a) => {
         const c = (a.category || '').toLowerCase();
@@ -60,6 +66,7 @@ try {
 }
 const totalPages = Math.max(1, Math.ceil(total / perPage));
 const mid = Math.min(3, Math.max(1, articles.length - 1));
+const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
 ---
 <Base
   title="LaneCash — Check the offer before you pay"
@@ -72,13 +79,40 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
     <a href="/disclaimer">Read full disclaimer</a>
   </div>
 
-  <section class="hero">
-    <div class="hero-kicker">Nigeria · Scam defence · Money tools</div>
-    <h1>Check the offer before you pay.</h1>
-    <p>
-      Clear guides on WhatsApp job traps, fake recruitment, naira money habits, and phone skills — without the “get rich” noise.
-    </p>
-  </section>
+  {showHero && (
+    <div class="hero-carousel" id="homeHero" aria-roledescription="carousel" aria-label="Featured guides">
+      <div class="hero-track" id="homeHeroTrack">
+        {heroPool.map((a) => (
+          <div class="hero-slide" data-type="article">
+            <a href={`/article/${a.slug}`}>
+              <img
+                class="hero-img"
+                src={coverFor(a)}
+                alt=""
+                loading="eager"
+                data-fallback={svgCover(a)}
+                onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')"
+              />
+              <div class="hero-grad"></div>
+              <div class="hero-body">
+                <span class={`hero-pill ${a.category || ''}`}>{a.category || 'guide'}</span>
+                <h2>{a.title}</h2>
+                <p>{a.summary}</p>
+              </div>
+            </a>
+          </div>
+        ))}
+        <div class="hero-slide" data-type="ad">
+          <div class="hero-ad-slide" aria-label="Sponsored">
+            <BannerAd size="300x250" />
+          </div>
+        </div>
+      </div>
+      <button type="button" class="hero-nav prev" id="heroPrev" aria-label="Previous">‹</button>
+      <button type="button" class="hero-nav next" id="heroNext" aria-label="Next">›</button>
+      <div class="hero-dots" id="homeHeroDots"></div>
+    </div>
+  )}
 
   <div class="tool-strip" aria-label="Quick tools">
     <a class="tool-card" href="/tools/currency">
@@ -106,7 +140,7 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
     <a class={`chip ${tab==='skills'?'active':''}`} href="/?tab=skills" rel="nofollow">Phone skills</a>
   </div>
 
-  <BannerAd size="320x50" />
+  {!showHero && <BannerAd size="320x50" />}
 
   <div class="section-head">
     <h2>{tab === 'scams' ? 'Scam alerts' : tab === 'money' ? 'Money habits' : tab === 'skills' ? 'Phone skills' : 'Latest guides'}</h2>
@@ -117,7 +151,7 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
     {articles.length ? articles.map((a, i) => (
       <>
         {i === mid && (
-          <div class="mid-ad-wrap" style="max-height:280px;overflow:hidden;margin:8px 0">
+          <div class="mid-ad-wrap">
             <BannerAd size="300x250" />
           </div>
         )}
@@ -147,18 +181,74 @@ const mid = Math.min(3, Math.max(1, articles.length - 1));
             src={coverFor(a)}
             alt=""
             loading="lazy"
-            width="110"
-            height="110"
+            width="104"
+            height="104"
             data-fallback={svgCover(a)}
-            onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')||'/covers/fallback.svg'"
+            onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')"
           />
         </a>
       </>
     )) : (!dbError && <div class="empty">No articles yet.</div>)}
   </section>
   <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
+
   <script is:inline>
     (function(){
+      /* Home hero carousel: 3 articles + ad, 4s auto, touch swipe */
+      var root = document.getElementById('homeHero');
+      if (root) {
+        var track = document.getElementById('homeHeroTrack');
+        var slides = track ? track.querySelectorAll('.hero-slide') : [];
+        var n = slides.length;
+        var i = 0;
+        var timer = null;
+        var dots = document.getElementById('homeHeroDots');
+        function go(idx){
+          if (!n) return;
+          i = (idx + n) % n;
+          track.style.transform = 'translate3d(' + (-i * 100) + '%,0,0)';
+          if (dots) {
+            var ds = dots.querySelectorAll('.hero-dot');
+            ds.forEach(function(d, j){ d.classList.toggle('active', j === i); });
+          }
+        }
+        if (dots) {
+          for (var d = 0; d < n; d++) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'hero-dot' + (d === 0 ? ' active' : '');
+            b.setAttribute('aria-label', 'Slide ' + (d + 1));
+            (function(idx){ b.addEventListener('click', function(){ go(idx); restart(); }); })(d);
+            dots.appendChild(b);
+          }
+        }
+        function next(){ go(i + 1); }
+        function prev(){ go(i - 1); }
+        function restart(){
+          if (timer) clearInterval(timer);
+          timer = setInterval(next, 4000);
+        }
+        document.getElementById('heroNext')?.addEventListener('click', function(){ next(); restart(); });
+        document.getElementById('heroPrev')?.addEventListener('click', function(){ prev(); restart(); });
+        var startX = 0, dx = 0;
+        root.addEventListener('touchstart', function(e){
+          startX = e.changedTouches[0].clientX; dx = 0;
+          if (timer) clearInterval(timer);
+        }, {passive:true});
+        root.addEventListener('touchmove', function(e){
+          dx = e.changedTouches[0].clientX - startX;
+        }, {passive:true});
+        root.addEventListener('touchend', function(){
+          if (Math.abs(dx) > 40) { if (dx < 0) next(); else prev(); }
+          restart();
+        });
+        restart();
+        document.addEventListener('visibilitychange', function(){
+          if (document.hidden) { if (timer) clearInterval(timer); }
+          else restart();
+        });
+      }
+
       try {
         var interest = (window.LC && window.LC.get('lc_interest', {})) || {};
         document.querySelectorAll('.card').forEach(function(c){
