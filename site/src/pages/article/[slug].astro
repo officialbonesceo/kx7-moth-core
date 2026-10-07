@@ -36,9 +36,9 @@ const showSource =
   !/ai|openrouter|cloudflare|model|research\s*\(/i.test(rawSource);
 const sourceLabel = showSource ? rawSource : 'LaneCash';
 
-const WORDS_PER_AD = 150;
-const MAX_MID_ADS = 3;
-const MIN_WORDS_BEFORE_FIRST = 100;
+const WORDS_PER_AD = 140;
+const MAX_MID_ADS = 4;
+const MIN_WORDS_BEFORE_FIRST = 90;
 
 function wordCount(html: string): number {
   const text = String(html || '')
@@ -100,13 +100,14 @@ function splitByWordBudget(html: string): Chunk[] {
 }
 
 const chunks = splitByWordBudget(article.content || '');
+const ogImg = cover.startsWith('http') || cover.startsWith('data:') ? cover : `${origin}${cover}`;
 
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
   headline: article.title,
   description: article.summary,
-  image: [cover.startsWith('http') ? cover : `${origin}${cover}`],
+  image: cover.startsWith('data:') ? undefined : [ogImg],
   datePublished: article.published_at || undefined,
   dateModified: article.updated_at || article.published_at || undefined,
   author: { '@type': 'Organization', name: team },
@@ -119,18 +120,34 @@ const jsonLd = {
   title={`${article.title} — LaneCash`}
   description={article.summary}
   canonical={pageUrl}
-  image={cover.startsWith('http') ? cover : `${origin}${cover}`}
+  image={cover.startsWith('data:') ? `${origin}/og-default.svg` : ogImg}
   type="article"
   jsonLd={jsonLd}
 >
-  <a class="chip" href="/" style="margin:8px 0 12px;display:inline-flex">← Back</a>
-  <img
-    class="article-cover"
-    src={cover}
-    alt=""
-    data-fallback={coverFb}
-    onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')||'/covers/fallback.svg'"
-  />
+  <a class="chip" href="/" style="margin:8px 0 10px;display:inline-flex">← Back</a>
+
+  <!-- Hero: cover image ↔ ad, auto every 4s -->
+  <div class="article-hero" id="articleHero" aria-roledescription="carousel">
+    <div class="hero-track" id="articleHeroTrack">
+      <div class="hero-slide">
+        <img
+          class="hero-img"
+          src={cover}
+          alt=""
+          data-fallback={coverFb}
+          onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')"
+        />
+        <div class="hero-grad" style="opacity:.35"></div>
+      </div>
+      <div class="hero-slide">
+        <div class="hero-ad-slide" aria-label="Sponsored">
+          <BannerAd size="300x250" />
+        </div>
+      </div>
+    </div>
+    <div class="hero-dots" id="articleHeroDots"></div>
+  </div>
+
   <div class="article-head">
     <span class={`pill ${article.category}`}>{article.category}</span>
     <h1>{article.title}</h1>
@@ -175,7 +192,6 @@ const jsonLd = {
   </div>
 
   <NewsletterBox title="Get more guides by email" />
-
   <SocialBar />
 
   {related.length > 0 && (
@@ -203,41 +219,50 @@ const jsonLd = {
     </div>
   </div>
 
-  <style>
-    .prose-read p {
-      margin: 0 0 1.15rem;
-      line-height: 1.7;
-      font-size: 1.02rem;
-    }
-    .prose-read h2 {
-      margin: 1.75rem 0 0.75rem;
-      font-size: 1.2rem;
-      line-height: 1.3;
-    }
-    .prose-read h3 {
-      margin: 1.35rem 0 0.55rem;
-      font-size: 1.05rem;
-    }
-    .prose-read ul, .prose-read ol {
-      margin: 0 0 1.15rem;
-      padding-left: 1.25rem;
-      line-height: 1.65;
-    }
-    .prose-read li { margin: 0.35rem 0; }
-    .mid-ad-wrap {
-      margin: 1.25rem 0;
-      max-height: 280px;
-      overflow: hidden;
-    }
-    .related-block{margin:28px 0 12px}
-    .related-title{font-size:1.15rem;font-weight:800;margin:0 0 12px}
-    .related-list{display:grid;gap:10px}
-    .related-card{display:block;padding:14px;border-radius:14px;border:1px solid rgba(128,128,128,.25);background:rgba(128,128,128,.06);text-decoration:none;color:inherit}
-    .related-cat{display:inline-block;font-size:.68rem;font-weight:700;text-transform:uppercase;opacity:.7;margin-bottom:6px}
-    .related-name{display:block;font-weight:700;line-height:1.35;margin-bottom:4px}
-    .related-sum{display:block;font-size:.85rem;opacity:.75;line-height:1.4}
-  </style>
   <script is:inline define:vars={{ slug: article.slug, path: `/article/${article.slug}`, title: article.title, summary: article.summary, category: article.category, pageUrl, shareText }}>
+    /* Article hero: image ↔ ad every 4s */
+    (function(){
+      var root = document.getElementById('articleHero');
+      if (!root) return;
+      var track = document.getElementById('articleHeroTrack');
+      var n = 2;
+      var i = 0;
+      var timer = null;
+      var dots = document.getElementById('articleHeroDots');
+      function go(idx){
+        i = (idx + n) % n;
+        track.style.transform = 'translate3d(' + (-i * 100) + '%,0,0)';
+        if (dots) {
+          var ds = dots.querySelectorAll('.hero-dot');
+          ds.forEach(function(d, j){ d.classList.toggle('active', j === i); });
+        }
+      }
+      if (dots) {
+        for (var d = 0; d < n; d++) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'hero-dot' + (d === 0 ? ' active' : '');
+          (function(idx){ b.addEventListener('click', function(){ go(idx); restart(); }); })(d);
+          dots.appendChild(b);
+        }
+      }
+      function restart(){
+        if (timer) clearInterval(timer);
+        timer = setInterval(function(){ go(i + 1); }, 4000);
+      }
+      var startX = 0, dx = 0;
+      root.addEventListener('touchstart', function(e){
+        startX = e.changedTouches[0].clientX; dx = 0;
+        if (timer) clearInterval(timer);
+      }, {passive:true});
+      root.addEventListener('touchmove', function(e){ dx = e.changedTouches[0].clientX - startX; }, {passive:true});
+      root.addEventListener('touchend', function(){
+        if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1));
+        restart();
+      });
+      restart();
+    })();
+
     window.LC?.track(path, 'read');
     const cache = window.LC.get('lc_article_cache', {});
     cache[slug] = { title, summary, category };
