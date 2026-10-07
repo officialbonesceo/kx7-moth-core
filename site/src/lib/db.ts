@@ -15,9 +15,9 @@ export type Article = {
   source_name?: string;
   source_url?: string;
   published_at?: string;
+  updated_at?: string;
 };
 
-/** Never surface failed AI one-word titles or generic stubs */
 const QUALITY_WHERE = `
   status = 'published'
   AND length(trim(title)) >= 20
@@ -54,13 +54,13 @@ export async function getArticles(db: D1Database, limit = 12, category?: string,
   if (category) {
     return safeAll<Article>(
       db,
-      `SELECT * FROM articles WHERE ${QUALITY_WHERE} AND category = ? ORDER BY published_at DESC LIMIT ? OFFSET ?`,
+      `SELECT * FROM articles WHERE ${QUALITY_WHERE} AND category = ? ORDER BY COALESCE(is_featured,0) DESC, published_at DESC LIMIT ? OFFSET ?`,
       [category, limit, offset]
     );
   }
   return safeAll<Article>(
     db,
-    `SELECT * FROM articles WHERE ${QUALITY_WHERE} ORDER BY published_at DESC LIMIT ? OFFSET ?`,
+    `SELECT * FROM articles WHERE ${QUALITY_WHERE} ORDER BY COALESCE(is_featured,0) DESC, published_at DESC LIMIT ? OFFSET ?`,
     [limit, offset]
   );
 }
@@ -92,7 +92,7 @@ export async function getArticleBySlug(db: D1Database, slug: string) {
 export async function getRelatedArticles(db: D1Database, slug: string, category: string, limit = 6) {
   const same = await safeAll<Article>(
     db,
-    `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at FROM articles
+    `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at, updated_at FROM articles
      WHERE ${QUALITY_WHERE} AND category = ? AND slug != ?
      ORDER BY published_at DESC LIMIT ?`,
     [category, slug, limit]
@@ -104,7 +104,7 @@ export async function getRelatedArticles(db: D1Database, slug: string, category:
     const placeholders = exclude.map(() => '?').join(',');
     const more = await safeAll<Article>(
       db,
-      `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at FROM articles
+      `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at, updated_at FROM articles
        WHERE ${QUALITY_WHERE} AND slug NOT IN (${placeholders})
        ORDER BY published_at DESC LIMIT ?`,
       [...exclude, need]
@@ -157,4 +157,14 @@ export async function adminStats(db: D1Database) {
     top: top.results || [],
     byCat: byCat.results || [],
   };
+}
+
+export function slugify(title: string) {
+  return String(title || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || `post-${Date.now().toString(36)}`;
 }

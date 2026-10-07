@@ -1,4 +1,4 @@
-/** Covers: raster art when possible, unique SVG per article as fallback */
+/** Covers: topic-aligned raster, unique SVG fallback per article */
 
 export type CoverInput = {
   slug?: string;
@@ -24,17 +24,17 @@ const PALETTES = [
   ['#0f1419', '#4ade80', '#86efac'],
 ];
 
-export function topicKey(article: CoverInput): 'scams' | 'crypto' | 'hustle' | 'money' | 'fallback' {
+export function topicKey(article: CoverInput): 'scams' | 'crypto' | 'hustle' | 'money' | 'jobs' | 'fallback' {
   const title = `${article.title || ''} ${article.category || ''}`.toLowerCase();
   if (article.category === 'scams' || /scam|fraud|ponzi|phish|fake|bvn|activation/.test(title)) return 'scams';
   if (/crypto|usdt|bitcoin|eth|airdrop|wallet|token|p2p|defi/.test(title)) return 'crypto';
-  if (/hustle|freelance|content|youtube|tiktok|affiliate|dropship|creator|canva|tutor|ghostwrit/.test(title))
-    return 'hustle';
+  if (/student|100.?level|campus|online job|side hustle|tutor|freelance|canva|content creator|ghostwrit/.test(title))
+    return 'jobs';
+  if (/hustle|youtube|tiktok|affiliate|dropship|creator/.test(title)) return 'hustle';
   if (article.category === 'money' || /budget|fee|naira|payment|bank|price|convert/.test(title)) return 'money';
   return 'fallback';
 }
 
-/** Unique geometric SVG per article (data URI) — always available offline */
 export function uniqueSvgDataUri(article: CoverInput) {
   const key = `${article.slug || ''}|${article.title || ''}|${article.category || ''}`;
   const h = hashStr(key);
@@ -56,29 +56,28 @@ export function uniqueSvgDataUri(article: CoverInput) {
 }
 
 export function svgCover(article: CoverInput) {
-  // Prefer unique per-article SVG over static category files
   return uniqueSvgDataUri(article);
 }
 
+/** Topic-locked scenes so covers match the article, not random people */
 export function generatedCover(article: CoverInput) {
-  const title = (article.title || '').toLowerCase();
-  const cat = (article.category || 'money').toLowerCase();
-  let scene =
-    'editorial fintech photo abstract, soft emerald light, modern dark desk, shallow depth of field, no people, no text, no logo, photorealistic';
-  if (cat === 'scams' || /scam|fraud|fake|bvn/.test(title))
-    scene =
-      'editorial security concept photo, soft red accent light, abstract shield silhouette, dark modern, no people, no text, photorealistic';
-  else if (/crypto|usdt|bitcoin|wallet|token/.test(title))
-    scene =
-      'editorial crypto abstract photo, emerald and teal light, soft bokeh, no people, no text, photorealistic';
-  else if (/canva|design|tutor|freelance|ghostwrit|phone/.test(title))
-    scene =
-      'editorial creative workspace photo, soft daylight, notebook and phone edge, no faces, no text, photorealistic';
-  else if (/budget|naira|fee|bank|payment/.test(title))
-    scene =
-      'editorial money literacy photo, soft gold and green light, abstract coins soft focus, no people, no text, photorealistic';
+  const topic = topicKey(article);
+  const scenes: Record<string, string> = {
+    scams:
+      'editorial cybersecurity concept, abstract shield and lock silhouette, soft red accent on dark slate desk, no people, no faces, no text, no logo, photorealistic',
+    crypto:
+      'editorial fintech abstract, soft emerald teal light, geometric shapes soft focus, dark modern, no people, no text, no logo, photorealistic',
+    jobs:
+      'editorial student study desk with notebook laptop phone edge soft daylight, campus study vibe, no faces, no text, no logo, photorealistic',
+    hustle:
+      'editorial creator desk notebook smartphone soft window light, clean workspace, no faces, no text, no logo, photorealistic',
+    money:
+      'editorial personal finance abstract, soft gold and green light, notebook calculator soft focus, no people, no text, no logo, photorealistic',
+    fallback:
+      'editorial modern abstract emerald gradient on dark slate, soft geometric light, no people, no text, no logo, photorealistic',
+  };
+  const scene = scenes[topic] || scenes.fallback;
   const seed = hashStr(article.slug || article.title || 'x') % 99999;
-  // Pollinations returns a real raster image (works like PNG/JPEG in <img>)
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(scene)}?width=960&height=960&nologo=true&seed=${seed}`;
 }
 
@@ -86,7 +85,6 @@ export function coverFor(article: CoverInput) {
   const url = article.image_url || '';
   if (url.startsWith('/') && url.includes('/covers/')) return url;
   if (url && !url.includes('pollinations.ai') && /^https?:\/\//i.test(url)) return url;
-  // Real image first; img onerror → uniqueSvgDataUri
   return generatedCover(article);
 }
 
