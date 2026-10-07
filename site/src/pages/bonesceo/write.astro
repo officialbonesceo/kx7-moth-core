@@ -1,0 +1,250 @@
+---
+import { slugify } from '../../lib/db';
+export const prerender = false;
+
+const env = Astro.locals.runtime?.env || {};
+const ADMIN_EMAIL = String(env.ADMIN_EMAIL || 'officialbonesceo@gmail.com').toLowerCase();
+const ADMIN_PASSWORD = String(env.ADMIN_PASSWORD || '');
+const db = Astro.locals.runtime?.env?.DB;
+
+let authed = Astro.cookies.get('lc_admin')?.value === '1';
+let error = '';
+let notice = '';
+let editId = (Astro.url.searchParams.get('id') || '').trim();
+let form = {
+  title: '',
+  summary: '',
+  content: '',
+  category: 'guides',
+  image_url: '',
+  status: 'published',
+  is_featured: 0,
+  reading_minutes: 4,
+  author_team: 'LaneCash Desk',
+  slug: '',
+};
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const action = String(fd.get('action') || '');
+  if (action === 'login') {
+    const email = String(fd.get('email') || '').toLowerCase().trim();
+    const password = String(fd.get('password') || '');
+    if (email === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+      authed = true;
+      Astro.cookies.set('lc_admin', '1', {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: true,
+        maxAge: 60 * 60 * 12,
+      });
+    } else error = 'Invalid login';
+  } else if (authed && db && action === 'save') {
+    const title = String(fd.get('title') || '').trim();
+    const summary = String(fd.get('summary') || '').trim();
+    let content = String(fd.get('content') || '').trim();
+    const category = String(fd.get('category') || 'guides').trim();
+    const image_url = String(fd.get('image_url') || '').trim() || null;
+    const status = String(fd.get('status') || 'published');
+    const is_featured = fd.get('is_featured') === '1' ? 1 : 0;
+    const reading_minutes = Math.max(1, Number(fd.get('reading_minutes') || 4));
+    const author_team = String(fd.get('author_team') || 'LaneCash Desk').trim();
+    let slug = String(fd.get('slug') || '').trim() || slugify(title);
+    const idIn = String(fd.get('id') || '').trim();
+
+    if (!title || title.length < 12) error = 'Title too short';
+    else if (!summary || summary.length < 20) error = 'Summary too short';
+    else if (!content || content.length < 80) error = 'Body too short';
+    else {
+      // Allow plain text → wrap paragraphs
+      if (!/<[a-z][\s\S]*>/i.test(content)) {
+        content = content
+          .split(/\n\n+/)
+          .map((p) => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
+          .join('\n');
+      }
+      try {
+        if (idIn) {
+          await db
+            .prepare(
+              `UPDATE articles SET title=?, slug=?, summary=?, content=?, category=?, image_url=?, status=?, is_featured=?, reading_minutes=?, author_team=?, source_name='LaneCash', updated_at=datetime('now') WHERE id=?`
+            )
+            .bind(
+              title,
+              slug,
+              summary,
+              content,
+              category,
+              image_url,
+              status,
+              is_featured,
+              reading_minutes,
+              author_team,
+              idIn
+            )
+            .run();
+          notice = 'Article updated.';
+          editId = idIn;
+        } else {
+          const id = `art_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+          await db
+            .prepare(
+              `INSERT INTO articles (id, slug, title, summary, content, category, image_url, reading_minutes, views, saves, is_featured, status, author_team, source_name, published_at, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, 'LaneCash', datetime('now'), datetime('now'), datetime('now'))`
+            )
+            .bind(
+              id,
+              slug,
+              title,
+              summary,
+              content,
+              category,
+              image_url,
+              reading_minutes,
+              is_featured,
+              status,
+              author_team
+            )
+            .run();
+          notice = 'Article published.';
+          editId = id;
+        }
+        form = {
+          title,
+          summary,
+          content,
+          category,
+          image_url: image_url || '',
+          status,
+          is_featured,
+          reading_minutes,
+          author_team,
+          slug,
+        };
+      } catch (e: any) {
+        error = e?.message || 'Save failed (slug may already exist)';
+      }
+    }
+  }
+}
+
+if (authed && db && editId && Astro.request.method !== 'POST') {
+  try {
+    const row = await db.prepare(`SELECT * FROM articles WHERE id = ?`).bind(editId).first();
+    if (row) {
+      form = {
+        title: String(row.title || ''),
+        summary: String(row.summary || ''),
+        content: String(row.content || ''),
+        category: String(row.category || 'guides'),
+        image_url: String(row.image_url || ''),
+        status: String(row.status || 'published'),
+        is_featured: Number(row.is_featured) || 0,
+        reading_minutes: Number(row.reading_minutes) || 4,
+        author_team: String(row.author_team || 'LaneCash Desk'),
+        slug: String(row.slug || ''),
+      };
+    }
+  } catch {}
+}
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Write — LaneCash Admin</title>
+  <style>
+    :root{--bg:#070707;--card:#121212;--line:rgba(255,255,255,.08);--brand:#22c55e;--muted:#9ca3af;--danger:#f87171}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif;padding:16px}
+    a{color:var(--brand)}.wrap{max-width:720px;margin:0 auto}
+    h1{margin:0 0 4px;font-size:1.3rem}.sub{color:var(--muted);font-size:.85rem;margin:0 0 14px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+    label{display:block;color:var(--muted);font-size:.75rem;margin-top:10px}
+    input,select,textarea{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:10px;color:#fff;padding:11px;margin-top:5px;font:inherit}
+    textarea{min-height:220px;line-height:1.5}
+    button{background:var(--brand);color:#04140a;border:0;border-radius:10px;padding:12px 16px;font-weight:800;cursor:pointer;margin-top:12px;width:100%}
+    .ok{color:#86efac}.err{color:var(--danger)}.row{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+    .nav{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:.85rem;font-weight:700}
+    .check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:.9rem}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    {!authed ? (
+      <div class="card">
+        <h1>Admin login</h1>
+        {error && <p class="err">{error}</p>}
+        <form method="POST">
+          <input type="hidden" name="action" value="login" />
+          <label>Email</label>
+          <input name="email" type="email" required />
+          <label>Password</label>
+          <input name="password" type="password" required />
+          <button type="submit">Unlock</button>
+        </form>
+      </div>
+    ) : (
+      <>
+        <div class="nav">
+          <a href="/bonesceo/admin">← Admin</a>
+          <a href="/bonesceo/admin?s=posts">Posts</a>
+          <a href="/bonesceo/write">New post</a>
+        </div>
+        <h1>{editId ? 'Edit article' : 'Write article'}</h1>
+        <p class="sub">Publish to the public site. HTML allowed in body; plain text auto-wraps into paragraphs.</p>
+        {notice && <div class="card ok">{notice} {form.slug && (<a href={`/article/${form.slug}`} target="_blank">View →</a>)}</div>}
+        {error && <div class="card err">{error}</div>}
+        <form method="POST" class="card">
+          <input type="hidden" name="action" value="save" />
+          <input type="hidden" name="id" value={editId} />
+          <label>Title</label>
+          <input name="title" required minlength="12" value={form.title} placeholder="Clear, specific title" />
+          <label>Slug (optional)</label>
+          <input name="slug" value={form.slug} placeholder="auto-from-title" />
+          <label>Summary</label>
+          <textarea name="summary" required minlength="20" style="min-height:80px">{form.summary}</textarea>
+          <label>Body</label>
+          <textarea name="content" required minlength="80">{form.content}</textarea>
+          <div class="row">
+            <div>
+              <label>Category</label>
+              <select name="category">
+                {['guides','money','scams','opportunities','news'].map((c) => (
+                  <option value={c} selected={form.category === c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Status</label>
+              <select name="status">
+                <option value="published" selected={form.status === 'published'}>published</option>
+                <option value="draft" selected={form.status === 'draft'}>draft</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Reading minutes</label>
+              <input name="reading_minutes" type="number" min="1" max="30" value={form.reading_minutes} />
+            </div>
+            <div>
+              <label>Author team</label>
+              <input name="author_team" value={form.author_team} />
+            </div>
+          </div>
+          <label>Cover image URL (optional — leave blank for auto art)</label>
+          <input name="image_url" value={form.image_url} placeholder="https://… or leave empty" />
+          <label class="check">
+            <input type="checkbox" name="is_featured" value="1" checked={form.is_featured === 1} />
+            Pin to hero (featured)
+          </label>
+          <button type="submit">{editId ? 'Update article' : 'Publish article'}</button>
+        </form>
+      </>
+    )}
+  </div>
+</body>
+</html>

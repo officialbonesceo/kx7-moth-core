@@ -1,0 +1,21 @@
+name: seed-student-jobs
+on:
+  workflow_dispatch:
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install wrangler
+        run: npm i -g wrangler@3
+      - name: Seed D1 article
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "Missing CLOUDFLARE_API_TOKEN"
+            exit 1
+          fi
+          wrangler d1 execute lanecash --remote --file=ops/pulse-a/seed-student-jobs.sql
