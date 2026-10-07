@@ -17,7 +17,7 @@ const u = units[size];
 ---
 <aside class="lc-banner-wrap" data-size={size} aria-label="Advertisement">
   <div class="lc-banner-label">{label}</div>
-  <div class="lc-banner-box" style={`width:min(100%,${u.width}px);height:${u.height}px`}>
+  <div class="lc-banner-box">
     <script is:inline define:vars={{ key: u.key, width: u.width, height: u.height }}>
       (function () {
         window.atOptions = {
@@ -37,15 +37,18 @@ const u = units[size];
 </aside>
 <style>
   .lc-banner-wrap {
-    margin: 1rem auto;
-    padding: 0.4rem 0.5rem 0.55rem;
+    margin: 0.85rem auto;
+    padding: 0.45rem 0.5rem 0.6rem;
     border-radius: 12px;
     border: 1px solid rgba(128, 128, 128, 0.18);
     background: rgba(128, 128, 128, 0.04);
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 100%;
     max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
   }
   .lc-banner-label {
     align-self: flex-start;
@@ -57,13 +60,16 @@ const u = units[size];
     margin-bottom: 0.3rem;
   }
   .lc-banner-box {
+    width: 100%;
     max-width: 100%;
+    min-height: 50px;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .lc-banner-box :global(iframe) {
+  .lc-banner-box :global(iframe),
+  .lc-banner-box :global(div) {
     max-width: 100% !important;
   }
 </style>
