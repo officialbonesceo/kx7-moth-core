@@ -36,9 +36,27 @@ const showSource =
   !/ai|openrouter|cloudflare|model|research\s*\(/i.test(rawSource);
 const sourceLabel = showSource ? rawSource : 'LaneCash';
 
-const WORDS_PER_AD = 140;
-const MAX_MID_ADS = 4;
-const MIN_WORDS_BEFORE_FIRST = 90;
+function fmtTime(iso?: string) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + (iso.endsWith('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10);
+    return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return String(iso).slice(0, 10);
+  }
+}
+
+const publishedLabel = fmtTime(article.published_at);
+const updatedLabel = fmtTime(article.updated_at);
+const showUpdated =
+  article.updated_at &&
+  article.published_at &&
+  String(article.updated_at).slice(0, 16) !== String(article.published_at).slice(0, 16);
+
+const WORDS_PER_AD = 160;
+const MAX_MID_ADS = 3;
+const MIN_WORDS_BEFORE_FIRST = 100;
 
 function wordCount(html: string): number {
   const text = String(html || '')
@@ -56,36 +74,28 @@ function splitByWordBudget(html: string): Chunk[] {
   const raw = String(html || '');
   const total = wordCount(raw);
   if (total < MIN_WORDS_BEFORE_FIRST + 40) return [{ html: raw }];
-
-  const parts = raw.split(/(?=<h2|<h3|<p|<ul|<ol|<li)/i).filter((p) => p && p.trim());
+  const parts = raw.split(/(?=<h2|<h3|<p|<ul|<ol)/i).filter((p) => p && p.trim());
   if (parts.length < 2) return [{ html: raw }];
-
   const out: Chunk[] = [];
   let buf = '';
   let wordsInBuf = 0;
   let adsPlaced = 0;
   let wordsSinceAd = 0;
-
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
     const w = wordCount(part);
     buf += part;
     wordsInBuf += w;
     wordsSinceAd += w;
-
     const isLast = i === parts.length - 1;
     const canAd =
       !isLast &&
       adsPlaced < MAX_MID_ADS &&
       wordsInBuf >= MIN_WORDS_BEFORE_FIRST &&
       wordsSinceAd >= WORDS_PER_AD;
-
     if (canAd || isLast) {
       const size: '320x50' | '300x250' = adsPlaced % 2 === 0 ? '320x50' : '300x250';
-      out.push({
-        html: buf,
-        adAfter: canAd ? size : undefined,
-      });
+      out.push({ html: buf, adAfter: canAd ? size : undefined });
       if (canAd) {
         adsPlaced++;
         wordsSinceAd = 0;
@@ -94,7 +104,6 @@ function splitByWordBudget(html: string): Chunk[] {
       wordsInBuf = 0;
     }
   }
-
   if (buf.trim()) out.push({ html: buf });
   return out.length ? out : [{ html: raw }];
 }
@@ -126,20 +135,20 @@ const jsonLd = {
 >
   <a class="chip" href="/" style="margin:8px 0 10px;display:inline-flex">← Back</a>
 
-  <!-- Hero: cover image ↔ ad, auto every 4s -->
   <div class="article-hero" id="articleHero" aria-roledescription="carousel">
     <div class="hero-track" id="articleHeroTrack">
-      <div class="hero-slide">
+      <div class="hero-slide" data-hold="4500">
         <img
           class="hero-img"
           src={cover}
           alt=""
+          decoding="async"
           data-fallback={coverFb}
           onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')"
         />
         <div class="hero-grad" style="opacity:.35"></div>
       </div>
-      <div class="hero-slide">
+      <div class="hero-slide" data-hold="7000">
         <div class="hero-ad-slide" aria-label="Sponsored">
           <BannerAd size="300x250" />
         </div>
@@ -153,9 +162,15 @@ const jsonLd = {
     <h1>{article.title}</h1>
     <p class="summary">{article.summary}</p>
     <div class="author-row">
-      <span>{team} · {article.reading_minutes || 8} min read</span>
+      <span>
+        {team} · {article.reading_minutes || 5} min
+        {publishedLabel && <> · <time class="time-stamp" datetime={article.published_at}>{publishedLabel}</time></>}
+        {showUpdated && updatedLabel && (
+          <> · Updated <time class="time-stamp" datetime={article.updated_at}>{updatedLabel}</time></>
+        )}
+      </span>
       <button class="save-btn" id="saveBtn" type="button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10a1 1 0 0 1 1 1v17l-6-3.5L6 21V4a1 1 0 0 1 1-1z"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h10a1 1 0 0 1 1 1v17l-6-3.5L6 21V4a1 1 0 0 1 1-1z"/></svg>
         <span id="saveLabel">Save</span>
       </button>
     </div>
@@ -165,12 +180,12 @@ const jsonLd = {
   <div class="share-bar" aria-label="Share this guide">
     <div class="share-title">Share this guide</div>
     <div class="share-actions">
-      <a class="share-btn wa" id="shareWa" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-      <a class="share-btn tg" id="shareTg" target="_blank" rel="noopener noreferrer">Telegram</a>
-      <a class="share-btn x" id="shareX" target="_blank" rel="noopener noreferrer">X</a>
-      <a class="share-btn fb" id="shareFb" target="_blank" rel="noopener noreferrer">Facebook</a>
-      <button class="share-btn copy" id="shareCopy" type="button">Copy link</button>
-      <button class="share-btn native" id="shareNative" type="button">More</button>
+      <a class="share-btn" id="shareWa" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+      <a class="share-btn" id="shareTg" target="_blank" rel="noopener noreferrer">Telegram</a>
+      <a class="share-btn" id="shareX" target="_blank" rel="noopener noreferrer">X</a>
+      <a class="share-btn" id="shareFb" target="_blank" rel="noopener noreferrer">Facebook</a>
+      <button class="share-btn" id="shareCopy" type="button">Copy link</button>
+      <button class="share-btn" id="shareNative" type="button">More</button>
     </div>
   </div>
 
@@ -187,7 +202,7 @@ const jsonLd = {
     </>
   ))}
 
-  <div class="mid-ad-wrap" aria-label="Sponsored" style="margin-top:1.5rem">
+  <div class="mid-ad-wrap" aria-label="Sponsored" style="margin-top:1.25rem">
     <BannerAd size="300x250" />
   </div>
 
@@ -209,58 +224,54 @@ const jsonLd = {
     </section>
   )}
 
-  <div class="share-bar" aria-label="Share again">
+  <div class="share-bar">
     <div class="share-title">Found this useful? Share it</div>
     <div class="share-actions">
-      <a class="share-btn wa" id="shareWa2" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-      <a class="share-btn tg" id="shareTg2" target="_blank" rel="noopener noreferrer">Telegram</a>
-      <a class="share-btn x" id="shareX2" target="_blank" rel="noopener noreferrer">X</a>
-      <button class="share-btn copy" id="shareCopy2" type="button">Copy link</button>
+      <a class="share-btn" id="shareWa2" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+      <a class="share-btn" id="shareTg2" target="_blank" rel="noopener noreferrer">Telegram</a>
+      <a class="share-btn" id="shareX2" target="_blank" rel="noopener noreferrer">X</a>
+      <button class="share-btn" id="shareCopy2" type="button">Copy link</button>
     </div>
   </div>
 
   <script is:inline define:vars={{ slug: article.slug, path: `/article/${article.slug}`, title: article.title, summary: article.summary, category: article.category, pageUrl, shareText }}>
-    /* Article hero: image ↔ ad every 4s */
     (function(){
       var root = document.getElementById('articleHero');
       if (!root) return;
       var track = document.getElementById('articleHeroTrack');
-      var n = 2;
+      var slides = track.querySelectorAll('.hero-slide');
+      var n = slides.length;
       var i = 0;
       var timer = null;
       var dots = document.getElementById('articleHeroDots');
+      function holdMs(idx){
+        var h = slides[idx] && slides[idx].getAttribute('data-hold');
+        return h ? Number(h) : 4500;
+      }
       function go(idx){
         i = (idx + n) % n;
         track.style.transform = 'translate3d(' + (-i * 100) + '%,0,0)';
-        if (dots) {
-          var ds = dots.querySelectorAll('.hero-dot');
-          ds.forEach(function(d, j){ d.classList.toggle('active', j === i); });
-        }
+        if (dots) dots.querySelectorAll('.hero-dot').forEach(function(d, j){ d.classList.toggle('active', j === i); });
+        schedule();
+      }
+      function schedule(){
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(function(){ go(i + 1); }, holdMs(i));
       }
       if (dots) {
         for (var d = 0; d < n; d++) {
           var b = document.createElement('button');
           b.type = 'button';
           b.className = 'hero-dot' + (d === 0 ? ' active' : '');
-          (function(idx){ b.addEventListener('click', function(){ go(idx); restart(); }); })(d);
+          (function(idx){ b.addEventListener('click', function(){ go(idx); }); })(d);
           dots.appendChild(b);
         }
       }
-      function restart(){
-        if (timer) clearInterval(timer);
-        timer = setInterval(function(){ go(i + 1); }, 4000);
-      }
       var startX = 0, dx = 0;
-      root.addEventListener('touchstart', function(e){
-        startX = e.changedTouches[0].clientX; dx = 0;
-        if (timer) clearInterval(timer);
-      }, {passive:true});
+      root.addEventListener('touchstart', function(e){ startX = e.changedTouches[0].clientX; dx = 0; if (timer) clearTimeout(timer); }, {passive:true});
       root.addEventListener('touchmove', function(e){ dx = e.changedTouches[0].clientX - startX; }, {passive:true});
-      root.addEventListener('touchend', function(){
-        if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1));
-        restart();
-      });
-      restart();
+      root.addEventListener('touchend', function(){ if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1)); else schedule(); });
+      schedule();
     })();
 
     window.LC?.track(path, 'read');
@@ -273,45 +284,22 @@ const jsonLd = {
     if (saved.includes(slug)) label.textContent = 'Saved';
     btn?.addEventListener('click', () => {
       let s = window.LC.get('lc_saved', []);
-      if (s.includes(slug)) {
-        s = s.filter((x) => x !== slug);
-        label.textContent = 'Save';
-        window.LC.toast('Removed');
-      } else {
-        s.unshift(slug);
-        label.textContent = 'Saved';
-        window.LC.toast('Saved');
-        window.LC.beacon('save');
-      }
+      if (s.includes(slug)) { s = s.filter((x) => x !== slug); label.textContent = 'Save'; window.LC.toast('Removed'); }
+      else { s.unshift(slug); label.textContent = 'Saved'; window.LC.toast('Saved'); window.LC.beacon('save'); }
       window.LC.set('lc_saved', s.slice(0, 100));
       window.LC.track(path, 'save');
     });
     const text = encodeURIComponent(shareText);
     const url = encodeURIComponent(pageUrl);
-    const map = [
-      ['shareWa', 'shareWa2', `https://wa.me/?text=${text}%20${url}`],
-      ['shareTg', 'shareTg2', `https://t.me/share/url?url=${url}&text=${text}`],
-      ['shareX', 'shareX2', `https://twitter.com/intent/tweet?text=${text}&url=${url}`],
-      ['shareFb', null, `https://www.facebook.com/sharer/sharer.php?u=${url}`],
-    ];
-    map.forEach(([a, b, href]) => {
-      const el = document.getElementById(a);
-      if (el) el.setAttribute('href', href);
-      if (b) {
-        const el2 = document.getElementById(b);
-        if (el2) el2.setAttribute('href', href);
-      }
+    [['shareWa','shareWa2',`https://wa.me/?text=${text}%20${url}`],['shareTg','shareTg2',`https://t.me/share/url?url=${url}&text=${text}`],['shareX','shareX2',`https://twitter.com/intent/tweet?text=${text}&url=${url}`],['shareFb',null,`https://www.facebook.com/sharer/sharer.php?u=${url}`]].forEach(([a,b,href]) => {
+      const el = document.getElementById(a); if (el) el.setAttribute('href', href);
+      if (b) { const el2 = document.getElementById(b); if (el2) el2.setAttribute('href', href); }
     });
-    function copy() {
-      navigator.clipboard?.writeText(pageUrl).then(() => window.LC.toast('Link copied'));
-    }
+    function copy() { navigator.clipboard?.writeText(pageUrl).then(() => window.LC.toast('Link copied')); }
     document.getElementById('shareCopy')?.addEventListener('click', copy);
     document.getElementById('shareCopy2')?.addEventListener('click', copy);
     document.getElementById('shareNative')?.addEventListener('click', async () => {
-      try {
-        if (navigator.share) await navigator.share({ title, text: shareText, url: pageUrl });
-        else copy();
-      } catch {}
+      try { if (navigator.share) await navigator.share({ title, text: shareText, url: pageUrl }); else copy(); } catch {}
     });
   </script>
 </Base>
