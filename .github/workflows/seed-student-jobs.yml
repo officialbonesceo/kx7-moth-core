@@ -18,4 +18,4 @@ jobs:
             echo "Missing CLOUDFLARE_API_TOKEN"
             exit 1
           fi
-          wrangler d1 execute lanecash --remote --file=ops/pulse-a/seed-student-jobs.sql
+          wrangler d1 execute lanecash-db --remote --file=ops/pulse-a/seed-student-jobs.sql
