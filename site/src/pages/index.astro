@@ -18,6 +18,17 @@ const isFilterView = tab !== 'all' || page > 1;
 const origin = Astro.url.origin;
 const cleanHome = `${origin}/`;
 
+function fmtTime(iso?: string) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
+    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10);
+    return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return String(iso).slice(0, 10);
+  }
+}
+
 let articles: any[] = [];
 let total = 0;
 let dbError = '';
@@ -40,10 +51,9 @@ try {
       seen.add(k);
       return true;
     });
-    // Hero: prefer most-read when views exist, else newest 3
-    heroPool = [...all]
-      .sort((a, b) => Number(b.views || 0) - Number(a.views || 0) || 0)
-      .slice(0, 3);
+    const featured = all.filter((a) => Number(a.is_featured) === 1).slice(0, 3);
+    const byViews = [...all].sort((a, b) => Number(b.views || 0) - Number(a.views || 0));
+    heroPool = (featured.length >= 3 ? featured : [...featured, ...byViews]).slice(0, 3);
     if (heroPool.length < 3) heroPool = all.slice(0, 3);
 
     if (tab !== 'all') {
@@ -52,7 +62,7 @@ try {
         const t = `${a.title} ${a.summary}`.toLowerCase();
         if (tab === 'scams') return c === 'scams' || /scam|fraud|phish|telegram|fake|bvn|activation fee/.test(t);
         if (tab === 'money') return c === 'money' || /budget|naira|fee|bank|wallet|payment|fx|convert/.test(t);
-        if (tab === 'skills') return c === 'guides' || c === 'opportunities' || /canva|tutor|freelance|ghostwrit|design|phone|client/.test(t);
+        if (tab === 'skills') return c === 'guides' || c === 'opportunities' || /canva|tutor|freelance|ghostwrit|design|phone|client|student|job/.test(t);
         return true;
       });
     }
@@ -70,26 +80,27 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
 ---
 <Base
   title="LaneCash — Check the offer before you pay"
-  description="Nigeria-first scam alerts, safe money habits, and practical phone skills. Educational only — not financial advice."
+  description="Nigeria-first scam alerts, safe money habits, and practical phone skills for students and beginners. Educational only — not financial advice."
   canonical={cleanHome}
   noindex={isFilterView}
 >
   <div class="disclaimer-banner">
     <strong>Disclaimer:</strong> Educational content only — not financial advice.
-    <a href="/disclaimer">Read full disclaimer</a>
+    <a href="/disclaimer">Full disclaimer</a>
   </div>
 
   {showHero && (
     <div class="hero-carousel" id="homeHero" aria-roledescription="carousel" aria-label="Featured guides">
       <div class="hero-track" id="homeHeroTrack">
         {heroPool.map((a) => (
-          <div class="hero-slide" data-type="article">
+          <div class="hero-slide" data-type="article" data-hold="4500">
             <a href={`/article/${a.slug}`}>
               <img
                 class="hero-img"
                 src={coverFor(a)}
                 alt=""
                 loading="eager"
+                decoding="async"
                 data-fallback={svgCover(a)}
                 onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')"
               />
@@ -102,7 +113,7 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
             </a>
           </div>
         ))}
-        <div class="hero-slide" data-type="ad">
+        <div class="hero-slide" data-type="ad" data-hold="7000">
           <div class="hero-ad-slide" aria-label="Sponsored">
             <BannerAd size="300x250" />
           </div>
@@ -114,33 +125,12 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
     </div>
   )}
 
-  <div class="tool-strip" aria-label="Quick tools">
-    <a class="tool-card" href="/tools/currency">
-      <strong>Currency</strong>
-      <span>Any-to-any converter</span>
-    </a>
-    <a class="tool-card" href="/tools/usd-ngn">
-      <strong>USD → NGN</strong>
-      <span>Quick naira check</span>
-    </a>
-    <a class="tool-card" href="/?tab=scams" rel="nofollow">
-      <strong>Scam alerts</strong>
-      <span>Patterns to reject</span>
-    </a>
-    <a class="tool-card" href="/tools">
-      <strong>All tools</strong>
-      <span>Fees · calculators</span>
-    </a>
-  </div>
-
   <div class="chips">
     <a class={`chip ${tab==='all'?'active':''}`} href="/">★ Latest</a>
     <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams" rel="nofollow">Scam alerts</a>
     <a class={`chip ${tab==='money'?'active':''}`} href="/?tab=money" rel="nofollow">Money habits</a>
     <a class={`chip ${tab==='skills'?'active':''}`} href="/?tab=skills" rel="nofollow">Phone skills</a>
   </div>
-
-  {!showHero && <BannerAd size="320x50" />}
 
   <div class="section-head">
     <h2>{tab === 'scams' ? 'Scam alerts' : tab === 'money' ? 'Money habits' : tab === 'skills' ? 'Phone skills' : 'Latest guides'}</h2>
@@ -160,16 +150,13 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
           href={`/article/${a.slug}`}
           data-path={`/article/${a.slug}`}
           data-slug={a.slug}
-          data-title={a.title}
-          data-category={a.category}
-          data-summary={a.summary}
         >
           <div class="card-main">
             <span class={`pill ${a.category}`}>{a.category}</span>
             <h3>{a.title}</h3>
             <p>{a.summary}</p>
             <div class="card-meta">
-              <span>{a.author_team || teamFor(a.category, a.title)} · {a.reading_minutes || 8} min</span>
+              <span class="time-stamp">{fmtTime(a.published_at)} · {a.reading_minutes || 5} min</span>
               <span class="save-inline" data-slug={a.slug}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h10a1 1 0 0 1 1 1v17l-6-3.5L6 21V4a1 1 0 0 1 1-1z"/></svg>
                 Save
@@ -181,8 +168,9 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
             src={coverFor(a)}
             alt=""
             loading="lazy"
-            width="104"
-            height="104"
+            decoding="async"
+            width="88"
+            height="88"
             data-fallback={svgCover(a)}
             onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')"
           />
@@ -192,17 +180,26 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
   </section>
   <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
 
+  <div class="tools-foot">
+    <p><strong>Currency & fee tools</strong>Convert rates and estimate transfer costs on the Tools tab.</p>
+    <a class="tools-cta" href="/tools">Open tools →</a>
+  </div>
+
   <script is:inline>
     (function(){
-      /* Home hero carousel: 3 articles + ad, 4s auto, touch swipe */
       var root = document.getElementById('homeHero');
       if (root) {
         var track = document.getElementById('homeHeroTrack');
-        var slides = track ? track.querySelectorAll('.hero-slide') : [];
+        var slides = track ? Array.prototype.slice.call(track.querySelectorAll('.hero-slide')) : [];
         var n = slides.length;
         var i = 0;
         var timer = null;
         var dots = document.getElementById('homeHeroDots');
+        function holdMs(idx){
+          var el = slides[idx];
+          var h = el && el.getAttribute('data-hold');
+          return h ? Number(h) : 4500;
+        }
         function go(idx){
           if (!n) return;
           i = (idx + n) % n;
@@ -211,6 +208,11 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
             var ds = dots.querySelectorAll('.hero-dot');
             ds.forEach(function(d, j){ d.classList.toggle('active', j === i); });
           }
+          schedule();
+        }
+        function schedule(){
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(function(){ go(i + 1); }, holdMs(i));
         }
         if (dots) {
           for (var d = 0; d < n; d++) {
@@ -218,44 +220,30 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
             b.type = 'button';
             b.className = 'hero-dot' + (d === 0 ? ' active' : '');
             b.setAttribute('aria-label', 'Slide ' + (d + 1));
-            (function(idx){ b.addEventListener('click', function(){ go(idx); restart(); }); })(d);
+            (function(idx){ b.addEventListener('click', function(){ go(idx); }); })(d);
             dots.appendChild(b);
           }
         }
-        function next(){ go(i + 1); }
-        function prev(){ go(i - 1); }
-        function restart(){
-          if (timer) clearInterval(timer);
-          timer = setInterval(next, 4000);
-        }
-        document.getElementById('heroNext')?.addEventListener('click', function(){ next(); restart(); });
-        document.getElementById('heroPrev')?.addEventListener('click', function(){ prev(); restart(); });
+        document.getElementById('heroNext')?.addEventListener('click', function(){ go(i + 1); });
+        document.getElementById('heroPrev')?.addEventListener('click', function(){ go(i - 1); });
         var startX = 0, dx = 0;
         root.addEventListener('touchstart', function(e){
           startX = e.changedTouches[0].clientX; dx = 0;
-          if (timer) clearInterval(timer);
+          if (timer) clearTimeout(timer);
         }, {passive:true});
         root.addEventListener('touchmove', function(e){
           dx = e.changedTouches[0].clientX - startX;
         }, {passive:true});
         root.addEventListener('touchend', function(){
-          if (Math.abs(dx) > 40) { if (dx < 0) next(); else prev(); }
-          restart();
+          if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1));
+          else schedule();
         });
-        restart();
+        schedule();
         document.addEventListener('visibilitychange', function(){
-          if (document.hidden) { if (timer) clearInterval(timer); }
-          else restart();
+          if (document.hidden) { if (timer) clearTimeout(timer); }
+          else schedule();
         });
       }
-
-      try {
-        var interest = (window.LC && window.LC.get('lc_interest', {})) || {};
-        document.querySelectorAll('.card').forEach(function(c){
-          var path = c.getAttribute('data-path') || '';
-          if ((interest[path] || 0) >= 2) c.classList.add('card-interest');
-        });
-      } catch (e) {}
 
       document.querySelectorAll('.card').forEach(function(c){
         c.addEventListener('click', function(){

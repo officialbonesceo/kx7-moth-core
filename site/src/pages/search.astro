@@ -2,7 +2,10 @@
 import Base from '../layouts/Base.astro';
 import BannerAd from '../components/BannerAd.astro';
 import { searchArticles } from '../lib/db';
-import { coverFor } from '../lib/images';
+import { coverFor, svgCover } from '../lib/images';
+
+export const prerender = false;
+
 const q = (Astro.url.searchParams.get('q') || '').trim();
 const db = Astro.locals.runtime?.env?.DB;
 let results: any[] = [];
@@ -10,24 +13,64 @@ if (db && q.length > 1) {
   const res = await searchArticles(db, q, 30);
   results = res.results || [];
 }
+
+function fmtTime(iso?: string) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
+    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10);
+    return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return String(iso).slice(0, 10);
+  }
+}
 ---
-<Base title={`Search${q ? `: ${q}` : ''} — LaneCash`}>
-  <section class="hero"><h1>Search</h1><p>Find guides, crypto explainers, hustles and scam alerts.</p></section>
-  <form class="search-box" method="get" action="/search">
-    <input name="q" value={q} placeholder="Search money, USDT, POS, scams..." />
+<Base
+  title={q ? `Search: ${q} — LaneCash` : 'Search — LaneCash'}
+  description="Search LaneCash guides on scam alerts, money habits, and phone skills."
+  noindex={true}
+>
+  <section class="page-hero">
+    <h1>Search</h1>
+    <p>Find scam alerts, money habits, and practical phone skills.</p>
+  </section>
+
+  <form class="search-box" method="get" action="/search" role="search">
+    <input name="q" value={q} placeholder="e.g. student jobs, scam, USDT…" autocomplete="off" enterkeyhint="search" />
     <button type="submit">Go</button>
   </form>
+
   <BannerAd size="320x50" />
+
+  {q && (
+    <div class="section-head">
+      <h2>{results.length ? `${results.length} result${results.length === 1 ? '' : 's'}` : 'No matches'}</h2>
+    </div>
+  )}
+
   <section class="feed">
-    {q && !results.length && <div class="empty">No results for “{q}”.</div>}
+    {q && !results.length && (
+      <div class="empty">No results for “{q}”. Try a shorter word like <strong>scam</strong>, <strong>budget</strong>, or <strong>student</strong>.</div>
+    )}
+    {!q && <div class="empty">Type a keyword above and tap Go.</div>}
     {results.map((a) => (
       <a class="card" href={`/article/${a.slug}`}>
         <div class="card-main">
           <span class={`pill ${a.category}`}>{a.category}</span>
           <h3>{a.title}</h3>
           <p>{a.summary}</p>
+          <div class="card-meta">
+            <span class="time-stamp">{fmtTime(a.published_at)} · {a.reading_minutes || 5} min</span>
+          </div>
         </div>
-        <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
+        <img
+          class="card-thumb"
+          src={coverFor(a)}
+          alt=""
+          loading="lazy"
+          data-fallback={svgCover(a)}
+          onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')"
+        />
       </a>
     ))}
   </section>
