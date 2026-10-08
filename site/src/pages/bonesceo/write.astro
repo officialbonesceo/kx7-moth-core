@@ -24,6 +24,18 @@ let form = {
   slug: '',
 };
 
+function cleanSlug(raw: string, title: string) {
+  let s = (raw || slugify(title) || 'guide')
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+  // strip accidental random tails like -le318 / -293gh if user pastes old URLs
+  s = s.replace(/-[a-z0-9]{4,6}$/i, (m) => (/-[a-z]*\d+[a-z0-9]*$/i.test(m) ? '' : m));
+  return s || slugify(title) || 'guide';
+}
+
 if (Astro.request.method === 'POST') {
   const fd = await Astro.request.formData();
   const action = String(fd.get('action') || '');
@@ -50,14 +62,13 @@ if (Astro.request.method === 'POST') {
     const is_featured = fd.get('is_featured') === '1' ? 1 : 0;
     const reading_minutes = Math.max(1, Number(fd.get('reading_minutes') || 4));
     const author_team = String(fd.get('author_team') || 'LaneCash Desk').trim();
-    let slug = String(fd.get('slug') || '').trim() || slugify(title);
+    let slug = cleanSlug(String(fd.get('slug') || '').trim(), title);
     const idIn = String(fd.get('id') || '').trim();
 
     if (!title || title.length < 12) error = 'Title too short';
     else if (!summary || summary.length < 20) error = 'Summary too short';
     else if (!content || content.length < 80) error = 'Body too short';
     else {
-      // Allow plain text → wrap paragraphs
       if (!/<[a-z][\s\S]*>/i.test(content)) {
         content = content
           .split(/\n\n+/)
@@ -87,11 +98,19 @@ if (Astro.request.method === 'POST') {
           notice = 'Article updated.';
           editId = idIn;
         } else {
+          // unique slug if taken
+          let candidate = slug;
+          for (let n = 2; n < 30; n++) {
+            const hit = await db.prepare(`SELECT id FROM articles WHERE slug = ?`).bind(candidate).first();
+            if (!hit) break;
+            candidate = `${slug}-${n}`;
+          }
+          slug = candidate;
           const id = `art_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
           await db
             .prepare(
-              `INSERT INTO articles (id, slug, title, summary, content, category, image_url, reading_minutes, views, saves, is_featured, status, author_team, source_name, published_at, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, 'LaneCash', datetime('now'), datetime('now'), datetime('now'))`
+              `INSERT INTO articles (id, slug, title, summary, content, category, image_url, reading_minutes, views, is_featured, status, author_team, source_name, published_at, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 'LaneCash', datetime('now'), datetime('now'), datetime('now'))`
             )
             .bind(
               id,
@@ -194,7 +213,7 @@ if (authed && db && editId && Astro.request.method !== 'POST') {
           <a href="/bonesceo/write">New post</a>
         </div>
         <h1>{editId ? 'Edit article' : 'Write article'}</h1>
-        <p class="sub">Publish to the public site. HTML allowed in body; plain text auto-wraps into paragraphs.</p>
+        <p class="sub">URLs stay clean: domain.com/article/how-to-do-this — no random tails.</p>
         {notice && <div class="card ok">{notice} {form.slug && (<a href={`/article/${form.slug}`} target="_blank">View →</a>)}</div>}
         {error && <div class="card err">{error}</div>}
         <form method="POST" class="card">
@@ -202,8 +221,8 @@ if (authed && db && editId && Astro.request.method !== 'POST') {
           <input type="hidden" name="id" value={editId} />
           <label>Title</label>
           <input name="title" required minlength="12" value={form.title} placeholder="Clear, specific title" />
-          <label>Slug (optional)</label>
-          <input name="slug" value={form.slug} placeholder="auto-from-title" />
+          <label>Slug (optional — auto from title)</label>
+          <input name="slug" value={form.slug} placeholder="how-to-verify-remote-jobs" />
           <label>Summary</label>
           <textarea name="summary" required minlength="20" style="min-height:80px">{form.summary}</textarea>
           <label>Body</label>
@@ -235,7 +254,7 @@ if (authed && db && editId && Astro.request.method !== 'POST') {
               <input name="author_team" value={form.author_team} />
             </div>
           </div>
-          <label>Cover image URL (optional — leave blank for auto art)</label>
+          <label>Cover image URL (optional)</label>
           <input name="image_url" value={form.image_url} placeholder="https://… or leave empty" />
           <label class="check">
             <input type="checkbox" name="is_featured" value="1" checked={form.is_featured === 1} />
