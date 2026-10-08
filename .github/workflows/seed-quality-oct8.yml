@@ -1,0 +1,17 @@
+name: seed-quality-oct8
+on:
+  workflow_dispatch:
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install wrangler
+        run: npm i -g wrangler@3
+      - name: Seed quality articles
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          wrangler d1 execute lanecash-db --remote --file=ops/pulse-a/seed-quality-oct8.sql

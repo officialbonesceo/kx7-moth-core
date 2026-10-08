@@ -1,5 +1,6 @@
 /**
  * pulse-a — research → rewrite → publish 1 post (quality gated, fail-closed).
+ * Slugs are clean: /article/how-to-verify-remote-jobs — never random tails.
  */
 import { pickQueries, researchTopic, packToContext } from './research';
 import { rewriteWithAi, looksLikeLeak, isWeakTitle, isWeakSummary } from './ai';
@@ -9,7 +10,6 @@ const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
 const CF_D1_DATABASE_ID = process.env.CF_D1_DATABASE_ID || '';
 
-/** Min plain-text length after HTML strip (was 1800 — free models rarely cleared it) */
 const MIN_BODY_CHARS = 1100;
 
 type Category = 'money' | 'opportunities' | 'scams' | 'guides';
@@ -34,6 +34,8 @@ const DISCLAIMER_HTML =
 function slugify(t: string) {
   return t
     .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
@@ -140,10 +142,27 @@ async function loadTitles(): Promise<Set<string>> {
   return new Set((rows || []).map((r: any) => String(r.title || '')));
 }
 
-async function exists(title: string) {
+async function existsTitle(title: string) {
   const data = await d1(`SELECT id FROM articles WHERE title = ? LIMIT 1`, [title]);
   const rows = data?.result?.[0]?.results || data?.results || [];
   return Array.isArray(rows) && rows.length > 0;
+}
+
+async function existsSlug(slug: string) {
+  const data = await d1(`SELECT id FROM articles WHERE slug = ? LIMIT 1`, [slug]);
+  const rows = data?.result?.[0]?.results || data?.results || [];
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+/** Clean slug only — never random tails like -le318 or -293gh */
+async function uniqueSlug(title: string) {
+  const base = slugify(title) || 'guide';
+  if (!(await existsSlug(base))) return base;
+  for (let n = 2; n < 50; n++) {
+    const candidate = `${base}-${n}`;
+    if (!(await existsSlug(candidate))) return candidate;
+  }
+  return `${base}-${Date.now().toString(36).slice(-4)}`;
 }
 
 async function publish(draft: ArticleDraft) {
@@ -153,7 +172,7 @@ async function publish(draft: ArticleDraft) {
   }
 
   const id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  const slug = `${slugify(draft.title) || 'article'}-${id.slice(-5)}`;
+  const slug = await uniqueSlug(draft.title);
 
   if (HAS_AUTHOR_TEAM) {
     const data = await d1(
@@ -174,7 +193,7 @@ async function publish(draft: ArticleDraft) {
       ]
     );
     if (data) {
-      console.log('[pulse-a] published:', draft.title);
+      console.log('[pulse-a] published:', draft.title, '→', slug);
       return true;
     }
     HAS_AUTHOR_TEAM = false;
@@ -189,7 +208,7 @@ async function publish(draft: ArticleDraft) {
     console.error('[pulse-a] PUBLISH FAILED:', draft.title);
     return false;
   }
-  console.log('[pulse-a] published:', draft.title);
+  console.log('[pulse-a] published:', draft.title, '→', slug);
   return true;
 }
 
@@ -218,9 +237,9 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
       }
 
       let title = ai.title.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim();
-      if ((await exists(title)) || titles.has(title)) {
-        title = `${title} (${new Date().toISOString().slice(0, 10)})`;
-        if ((await exists(title)) || isWeakTitle(title)) continue;
+      if ((await existsTitle(title)) || titles.has(title)) {
+        console.warn('[pulse-a] skip duplicate title');
+        continue;
       }
 
       const ok = await publish({
@@ -228,7 +247,7 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
         summary: ai.summary.replace(/\*\*/g, '').trim(),
         content,
         category: ai.category,
-        reading_minutes: Math.max(6, Math.min(22, Math.round(plainLen(content) / 900))),
+        reading_minutes: Math.max(6, Math.min(18, Math.round(plainLen(content) / 900))),
         author_team: 'LaneCash Desk',
         source_name: 'LaneCash',
         source_url: pack.hits[0]?.url || null,
@@ -246,7 +265,7 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
 }
 
 async function main() {
-  console.log('[pulse-a] 1 post/run · fail-closed · min body', MIN_BODY_CHARS);
+  console.log('[pulse-a] 1 post/run · fail-closed · clean slugs · min body', MIN_BODY_CHARS);
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
