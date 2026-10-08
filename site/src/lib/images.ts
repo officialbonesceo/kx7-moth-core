@@ -1,4 +1,4 @@
-/** Covers: topic-aligned raster, unique SVG fallback per article */
+/** Covers: prefer clean SVG (always on-brand). Optional external image_url only if non-AI-junk. */
 
 export type CoverInput = {
   slug?: string;
@@ -14,24 +14,32 @@ function hashStr(s: string) {
 }
 
 const PALETTES = [
-  ['#0b0f14', '#10b981', '#34d399'],
-  ['#0f172a', '#38bdf8', '#7dd3fc'],
-  ['#1a0a0e', '#f43f5e', '#fb7185'],
-  ['#0c1a12', '#fbbf24', '#fde68a'],
-  ['#111827', '#a78bfa', '#c4b5fd'],
-  ['#0a1628', '#2dd4bf', '#5eead4'],
+  ['#0b1220', '#3b82f6', '#60a5fa'],
+  ['#0f172a', '#10b981', '#34d399'],
+  ['#1a0a12', '#f43f5e', '#fb7185'],
+  ['#0c1a12', '#f59e0b', '#fbbf24'],
+  ['#111827', '#8b5cf6', '#a78bfa'],
+  ['#0a1628', '#06b6d4', '#22d3ee'],
   ['#1c1917', '#fb923c', '#fdba74'],
-  ['#0f1419', '#4ade80', '#86efac'],
+  ['#0f1419', '#22c55e', '#4ade80'],
 ];
 
-export function topicKey(article: CoverInput): 'scams' | 'crypto' | 'hustle' | 'money' | 'jobs' | 'fallback' {
+export function topicKey(
+  article: CoverInput
+): 'scams' | 'crypto' | 'hustle' | 'money' | 'jobs' | 'fallback' {
   const title = `${article.title || ''} ${article.category || ''}`.toLowerCase();
-  if (article.category === 'scams' || /scam|fraud|ponzi|phish|fake|bvn|activation/.test(title)) return 'scams';
+  if (article.category === 'scams' || /scam|fraud|ponzi|phish|fake|bvn|activation/.test(title))
+    return 'scams';
   if (/crypto|usdt|bitcoin|eth|airdrop|wallet|token|p2p|defi/.test(title)) return 'crypto';
-  if (/student|100.?level|campus|online job|side hustle|tutor|freelance|canva|content creator|ghostwrit/.test(title))
+  if (
+    /student|100.?level|campus|online job|side hustle|tutor|freelance|canva|content creator|ghostwrit/.test(
+      title
+    )
+  )
     return 'jobs';
   if (/hustle|youtube|tiktok|affiliate|dropship|creator/.test(title)) return 'hustle';
-  if (article.category === 'money' || /budget|fee|naira|payment|bank|price|convert/.test(title)) return 'money';
+  if (article.category === 'money' || /budget|fee|naira|payment|bank|price|convert/.test(title))
+    return 'money';
   return 'fallback';
 }
 
@@ -40,17 +48,27 @@ export function uniqueSvgDataUri(article: CoverInput) {
   const h = hashStr(key);
   const [bg, c1, c2] = PALETTES[h % PALETTES.length];
   const label = (article.category || 'guide').slice(0, 12).toUpperCase();
-  const r1 = 80 + (h % 60);
-  const r2 = 40 + ((h >> 3) % 40);
-  const cx = 200 + ((h >> 5) % 280);
-  const cy = 180 + ((h >> 7) % 200);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="960" viewBox="0 0 960 960">
-<rect width="960" height="960" fill="${bg}"/>
-<circle cx="${cx}" cy="${cy}" r="${r1}" fill="${c1}" opacity=".18"/>
-<circle cx="${960 - cx}" cy="${960 - cy}" r="${r2}" fill="${c2}" opacity=".22"/>
-<rect x="48" y="48" width="864" height="864" rx="48" fill="none" stroke="${c1}" stroke-width="2" opacity=".35"/>
-<text x="80" y="860" font-family="Inter,Arial,sans-serif" font-size="28" font-weight="800" fill="${c1}" opacity=".9">${label}</text>
-<text x="80" y="120" font-family="Inter,Arial,sans-serif" font-size="36" font-weight="900" fill="#f1f5f9" opacity=".95">LC</text>
+  const r1 = 90 + (h % 50);
+  const r2 = 45 + ((h >> 3) % 35);
+  const cx = 220 + ((h >> 5) % 240);
+  const cy = 200 + ((h >> 7) % 180);
+  const titleBit = String(article.title || 'LaneCash')
+    .replace(/[<>&"']/g, '')
+    .slice(0, 28);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+<defs>
+  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="${bg}"/>
+    <stop offset="100%" stop-color="#020617"/>
+  </linearGradient>
+</defs>
+<rect width="960" height="540" fill="url(#g)"/>
+<circle cx="${cx}" cy="${cy}" r="${r1}" fill="${c1}" opacity=".2"/>
+<circle cx="${960 - cx}" cy="${540 - cy * 0.4}" r="${r2}" fill="${c2}" opacity=".25"/>
+<rect x="36" y="36" width="888" height="468" rx="28" fill="none" stroke="${c1}" stroke-width="2" opacity=".4"/>
+<text x="64" y="100" font-family="system-ui,Arial,sans-serif" font-size="28" font-weight="800" fill="${c1}">LC</text>
+<text x="64" y="280" font-family="system-ui,Arial,sans-serif" font-size="22" font-weight="700" fill="#e2e8f0" opacity=".95">${titleBit}</text>
+<text x="64" y="480" font-family="system-ui,Arial,sans-serif" font-size="18" font-weight="800" fill="${c2}" opacity=".9">${label}</text>
 </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -59,33 +77,18 @@ export function svgCover(article: CoverInput) {
   return uniqueSvgDataUri(article);
 }
 
-/** Topic-locked scenes so covers match the article, not random people */
-export function generatedCover(article: CoverInput) {
-  const topic = topicKey(article);
-  const scenes: Record<string, string> = {
-    scams:
-      'editorial cybersecurity concept, abstract shield and lock silhouette, soft red accent on dark slate desk, no people, no faces, no text, no logo, photorealistic',
-    crypto:
-      'editorial fintech abstract, soft emerald teal light, geometric shapes soft focus, dark modern, no people, no text, no logo, photorealistic',
-    jobs:
-      'editorial student study desk with notebook laptop phone edge soft daylight, campus study vibe, no faces, no text, no logo, photorealistic',
-    hustle:
-      'editorial creator desk notebook smartphone soft window light, clean workspace, no faces, no text, no logo, photorealistic',
-    money:
-      'editorial personal finance abstract, soft gold and green light, notebook calculator soft focus, no people, no text, no logo, photorealistic',
-    fallback:
-      'editorial modern abstract emerald gradient on dark slate, soft geometric light, no people, no text, no logo, photorealistic',
-  };
-  const scene = scenes[topic] || scenes.fallback;
-  const seed = hashStr(article.slug || article.title || 'x') % 99999;
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(scene)}?width=960&height=960&nologo=true&seed=${seed}`;
-}
-
+/** Default cover is clean SVG. Only use external URL if it is a normal https image (not pollinations junk). */
 export function coverFor(article: CoverInput) {
-  const url = article.image_url || '';
+  const url = String(article.image_url || '').trim();
   if (url.startsWith('/') && url.includes('/covers/')) return url;
-  if (url && !url.includes('pollinations.ai') && /^https?:\/\//i.test(url)) return url;
-  return generatedCover(article);
+  if (
+    url &&
+    /^https:\/\//i.test(url) &&
+    !/pollinations\.ai|oaidalle|openai\.com\/|generated/i.test(url)
+  ) {
+    return url;
+  }
+  return svgCover(article);
 }
 
 export function coverWithFallbackAttrs(article: CoverInput) {

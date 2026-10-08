@@ -6,11 +6,11 @@ import { coverFor, svgCover } from '../lib/images';
 
 export const prerender = false;
 
-const q = (Astro.url.searchParams.get('q') || '').trim();
+const q = (Astro.url.searchParams.get('q') || '').trim().slice(0, 48);
 const db = Astro.locals.runtime?.env?.DB;
 let results: any[] = [];
-if (db && q.length > 1) {
-  const res = await searchArticles(db, q, 30);
+if (db && q.length >= 2) {
+  const res = await searchArticles(db, q, 12);
   results = res.results || [];
 }
 
@@ -32,25 +32,29 @@ function fmtTime(iso?: string) {
 >
   <section class="page-hero">
     <h1>Search</h1>
-    <p>Find scam alerts, money habits, and practical phone skills.</p>
+    <p>Title and summary only — light on the database.</p>
   </section>
 
   <form class="search-box" method="get" action="/search" role="search">
-    <input name="q" value={q} placeholder="e.g. student jobs, scam, USDT…" autocomplete="off" enterkeyhint="search" />
+    <input name="q" value={q} placeholder="e.g. student jobs, scam…" autocomplete="off" enterkeyhint="search" maxlength="48" />
     <button type="submit">Go</button>
   </form>
 
   <BannerAd size="320x50" />
 
-  {q && (
+  {q.length === 1 && (
+    <div class="empty">Type at least 2 characters.</div>
+  )}
+
+  {q.length >= 2 && (
     <div class="section-head">
       <h2>{results.length ? `${results.length} result${results.length === 1 ? '' : 's'}` : 'No matches'}</h2>
     </div>
   )}
 
   <section class="feed">
-    {q && !results.length && (
-      <div class="empty">No results for “{q}”. Try a shorter word like <strong>scam</strong>, <strong>budget</strong>, or <strong>student</strong>.</div>
+    {q.length >= 2 && !results.length && (
+      <div class="empty">No results for “{q}”. Try <strong>scam</strong>, <strong>student</strong>, or <strong>budget</strong>.</div>
     )}
     {!q && <div class="empty">Type a keyword above and tap Go.</div>}
     {results.map((a) => (

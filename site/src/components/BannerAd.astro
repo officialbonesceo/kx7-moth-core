@@ -1,7 +1,7 @@
 ---
 /**
  * Adsterra display banners (highrevenueformat).
- * size: '320x50' | '300x250'
+ * Each instance uses a unique atOptions binding so multiple slots do not overwrite each other.
  */
 interface Props {
   size: '320x50' | '300x250';
@@ -14,27 +14,35 @@ const units: Record<string, { key: string; width: number; height: number }> = {
   '300x250': { key: 'c6d8c050964a59a65e53db7bd5665d8a', width: 300, height: 250 },
 };
 const u = units[size];
+const slotId = `ad_${size.replace('x', '_')}_${Math.random().toString(36).slice(2, 8)}`;
 ---
 <aside class="lc-banner-wrap" data-size={size} aria-label="Advertisement">
   <div class="lc-banner-label">{label}</div>
-  <div class="lc-banner-box">
-    <script is:inline define:vars={{ key: u.key, width: u.width, height: u.height }}>
-      (function () {
-        window.atOptions = {
-          key: key,
-          format: 'iframe',
-          height: height,
-          width: width,
-          params: {},
-        };
-        var s = document.createElement('script');
-        s.src = 'https://www.highrevenueformat.com/' + key + '/invoke.js';
-        s.async = true;
-        document.currentScript.parentNode.appendChild(s);
-      })();
-    </script>
-  </div>
+  <div class="lc-banner-box" id={slotId}></div>
 </aside>
+<script is:inline define:vars={{ key: u.key, width: u.width, height: u.height, slotId }}>
+  (function () {
+    var box = document.getElementById(slotId);
+    if (!box) return;
+    // Isolated options object (do not rely on a single global overwrite)
+    var opts = {
+      key: key,
+      format: 'iframe',
+      height: height,
+      width: width,
+      params: {},
+    };
+    window.atOptions = opts;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.highrevenueformat.com/' + key + '/invoke.js';
+    s.onerror = function () {
+      box.innerHTML =
+        '<span style="font-size:0.7rem;opacity:0.5">Ad slot</span>';
+    };
+    box.appendChild(s);
+  })();
+</script>
 <style>
   .lc-banner-wrap {
     margin: 0.85rem auto;

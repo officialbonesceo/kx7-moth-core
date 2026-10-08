@@ -1,23 +1,13 @@
-export const DEFAULT_SOCIALS = [
-  { key: 'youtube', name: 'YouTube', href: 'https://www.youtube.com/@only_lanecash' },
-  { key: 'tiktok', name: 'TikTok', href: 'https://www.tiktok.com/@lanecash' },
-  { key: 'instagram', name: 'Instagram', href: 'https://www.instagram.com/lanecash' },
-  { key: 'facebook', name: 'Facebook', href: 'https://www.facebook.com/lanecash' },
-  { key: 'telegram', name: 'Telegram', href: 'https://t.me/lanecash' },
-];
+/** Editorial team labels — brand personas only, never fake licensed experts */
 
-export const SOCIAL_HREFS: Record<string, string> = {
-  youtube: 'https://www.youtube.com/@only_lanecash',
-  tiktok: 'https://www.tiktok.com/@lanecash',
-  instagram: 'https://www.instagram.com/lanecash',
-  facebook: 'https://www.facebook.com/lanecash',
-  telegram: 'https://t.me/lanecash',
-};
-
-export function teamFor(category?: string, title?: string) {
+export function teamFor(category?: string, title?: string): string {
   const t = `${category || ''} ${title || ''}`.toLowerCase();
-  if (/scam|fraud|ponzi|fake/.test(t)) return 'LaneCash Scam Team';
-  if (/crypto|usdt|bitcoin|token|defi/.test(t)) return 'LaneCash Crypto Desk';
-  if (/hustle|freelance|earn|side/.test(t)) return 'LaneCash Hustle Desk';
-  return 'LaneCash Fin Team';
+  if (/scam|fraud|phish|ponzi|fake job|activation/.test(t)) return 'LaneCash Scam Desk';
+  if (/student|campus|100.?level|jamb|school/.test(t)) return 'LaneCash Campus Desk';
+  if (/crypto|usdt|wallet|airdrop/.test(t)) return 'LaneCash Crypto Desk';
+  if (/budget|naira|fee|payment|money/.test(t)) return 'LaneCash Money Desk';
+  return 'LaneCash Editorial';
 }
+
+export const DESK_BLURB =
+  'LaneCash Editorial is the brand byline for this site. Guides are educational only — not financial, legal, or investment advice. No one here claims to be a licensed adviser.';

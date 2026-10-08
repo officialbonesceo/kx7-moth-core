@@ -1,70 +1,31 @@
 ---
 import Base from '../layouts/Base.astro';
 import SocialBar from '../components/SocialBar.astro';
-
-const origin = Astro.url.origin;
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'AboutPage',
-  name: 'About LaneCash',
-  url: `${origin}/about`,
-  description:
-    'LaneCash is a Nigeria-first educational site on scam defence, safe money habits, and practical phone skills for students and beginners.',
-  isPartOf: { '@type': 'WebSite', name: 'LaneCash', url: origin },
-};
+import { DESK_BLURB } from '../lib/socials';
 ---
-<Base
-  title="About LaneCash — Nigeria scam alerts & money skills"
-  description="Who we are, what we publish, and how to use LaneCash safely. Educational only — not financial advice."
-  canonical={`${origin}/about`}
-  jsonLd={jsonLd}
->
+<Base title="About — LaneCash" description="Who publishes LaneCash and how to use the guides." canonical="https://lanecash.name.ng/about">
   <section class="page-hero">
     <h1>About LaneCash</h1>
-    <p>Clear, Nigeria-first guides so you can check the offer before you pay.</p>
+    <p>Practical money and scam-awareness guides for phones in Nigeria.</p>
   </section>
 
-  <div class="prose">
-    <h2>What LaneCash is</h2>
-    <p>
-      LaneCash is an educational site for people in Nigeria (and the diaspora) who want practical steps on
-      <strong>scam patterns</strong>, <strong>everyday money habits</strong>, and <strong>phone-based skills</strong>
-      students and beginners can try without heavy capital.
+  <div class="calc-card" style="margin-bottom:12px">
+    <h3>Who writes here</h3>
+    <p class="muted">{DESK_BLURB}</p>
+    <p class="muted" style="margin-top:0.75rem">
+      You will see bylines like <strong>LaneCash Editorial</strong>, <strong>Scam Desk</strong>, or <strong>Campus Desk</strong>.
+      Those are team labels for this brand — not individual licensed professionals, and not personal identity claims.
     </p>
-    <p>
-      We write for 100-level students, young workers, and anyone tired of vague “make money online” posts.
-      Every guide is meant to be readable in one sitting, with risks called out in plain language.
-    </p>
+  </div>
 
-    <h2>What we publish</h2>
-    <ul>
-      <li>Scam alerts — activation fees, fake jobs, phishing patterns</li>
-      <li>Money habits — budgets, fees, simple naira decisions</li>
-      <li>Phone skills — tutoring, design basics, content craft (with no income promises)</li>
-      <li>Tools — currency converter and fee helpers</li>
+  <div class="calc-card" style="margin-bottom:12px">
+    <h3>How to use the site</h3>
+    <ul class="muted" style="margin:0;padding-left:1.1rem;line-height:1.55">
+      <li>Read a guide, then verify money moves on official apps and bank channels.</li>
+      <li>Never pay “activation”, “slot”, or “upgrade” fees to strangers.</li>
+      <li>Use Search for a keyword (title/summary only — light load).</li>
+      <li>Save articles on this device from Profile / Saved.</li>
     </ul>
-
-    <h2>How to use this site</h2>
-    <ul>
-      <li>Read the full guide before acting on any tip.</li>
-      <li>Treat every naira figure as a range, not a promise.</li>
-      <li>Use official apps and links only.</li>
-      <li>Never share OTPs, seed phrases, or remote phone control.</li>
-    </ul>
-
-    <h2>Disclaimer</h2>
-    <p>
-      <strong>LaneCash is for education only.</strong> Nothing here is financial, investment, legal, or tax advice.
-      Markets, fees, and app policies change. You are responsible for your own decisions and losses.
-      We do not guarantee income. Example earnings, if any, are illustrative and can be zero in real life.
-    </p>
-    <p><a href="/disclaimer">Read the full disclaimer →</a></p>
-
-    <h2>Contact & community</h2>
-    <p>
-      Official links are listed below. Prefer questions about a guide? Use the channels we publish — ignore anyone
-      DMing you “investment slots” in our name.
-    </p>
   </div>
 
   <SocialBar />

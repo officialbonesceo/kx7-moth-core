@@ -18,6 +18,10 @@ export type Article = {
   updated_at?: string;
 };
 
+/** Columns for lists/search — never SELECT * on feed paths */
+const LIST_COLS =
+  'id, slug, title, summary, category, image_url, reading_minutes, is_featured, published_at, updated_at, author_team, source_name';
+
 const QUALITY_WHERE = `
   status = 'published'
   AND length(trim(title)) >= 20
@@ -51,17 +55,19 @@ async function safeFirst<T = any>(db: D1Database, sql: string, binds: any[] = []
 }
 
 export async function getArticles(db: D1Database, limit = 12, category?: string, offset = 0) {
+  const lim = Math.min(24, Math.max(1, limit));
+  const off = Math.max(0, offset);
   if (category) {
     return safeAll<Article>(
       db,
-      `SELECT * FROM articles WHERE ${QUALITY_WHERE} AND category = ? ORDER BY COALESCE(is_featured,0) DESC, published_at DESC LIMIT ? OFFSET ?`,
-      [category, limit, offset]
+      `SELECT ${LIST_COLS} FROM articles WHERE ${QUALITY_WHERE} AND category = ? ORDER BY COALESCE(is_featured,0) DESC, published_at DESC LIMIT ? OFFSET ?`,
+      [category, lim, off]
     );
   }
   return safeAll<Article>(
     db,
-    `SELECT * FROM articles WHERE ${QUALITY_WHERE} ORDER BY COALESCE(is_featured,0) DESC, published_at DESC LIMIT ? OFFSET ?`,
-    [limit, offset]
+    `SELECT ${LIST_COLS} FROM articles WHERE ${QUALITY_WHERE} ORDER BY COALESCE(is_featured,0) DESC, published_at DESC LIMIT ? OFFSET ?`,
+    [lim, off]
   );
 }
 
@@ -89,42 +95,55 @@ export async function getArticleBySlug(db: D1Database, slug: string) {
   );
 }
 
-export async function getRelatedArticles(db: D1Database, slug: string, category: string, limit = 6) {
+export async function getRelatedArticles(db: D1Database, slug: string, category: string, limit = 5) {
+  const lim = Math.min(6, Math.max(1, limit));
   const same = await safeAll<Article>(
     db,
-    `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at, updated_at FROM articles
+    `SELECT ${LIST_COLS} FROM articles
      WHERE ${QUALITY_WHERE} AND category = ? AND slug != ?
      ORDER BY published_at DESC LIMIT ?`,
-    [category, slug, limit]
+    [category, slug, lim]
   );
   let results = same.results || [];
-  if (results.length < limit) {
-    const need = limit - results.length;
+  if (results.length < lim) {
+    const need = lim - results.length;
     const exclude = [slug, ...results.map((r) => r.slug)];
     const placeholders = exclude.map(() => '?').join(',');
     const more = await safeAll<Article>(
       db,
-      `SELECT id, slug, title, summary, category, image_url, reading_minutes, published_at, updated_at FROM articles
+      `SELECT ${LIST_COLS} FROM articles
        WHERE ${QUALITY_WHERE} AND slug NOT IN (${placeholders})
        ORDER BY published_at DESC LIMIT ?`,
       [...exclude, need]
     );
     results = results.concat(more.results || []);
   }
-  return results.slice(0, limit);
+  return results.slice(0, lim);
 }
 
-export async function searchArticles(db: D1Database, q: string, limit = 20) {
-  const like = `%${q.replace(/[%_]/g, '')}%`;
+/** Title + summary only, capped — never full content scan */
+export async function searchArticles(db: D1Database, q: string, limit = 12) {
+  const cleaned = String(q || '')
+    .trim()
+    .replace(/[%_]/g, '')
+    .slice(0, 48);
+  if (cleaned.length < 2) return { results: [] as Article[] };
+  const lim = Math.min(12, Math.max(1, limit));
+  const like = `%${cleaned}%`;
   return safeAll<Article>(
     db,
-    `SELECT * FROM articles WHERE ${QUALITY_WHERE} AND (title LIKE ? OR summary LIKE ?) ORDER BY published_at DESC LIMIT ?`,
-    [like, like, limit]
+    `SELECT ${LIST_COLS} FROM articles
+     WHERE ${QUALITY_WHERE}
+       AND (title LIKE ? OR summary LIKE ?)
+     ORDER BY published_at DESC
+     LIMIT ?`,
+    [like, like, lim]
   );
 }
 
 export async function bumpViews(db: D1Database, id: string) {
   try {
+    // Throttle-friendly single write; no reads
     await db.prepare(`UPDATE articles SET views = COALESCE(views, 0) + 1 WHERE id = ?`).bind(id).run();
   } catch (e) {
     console.error('[db] bumpViews', e);
@@ -160,11 +179,13 @@ export async function adminStats(db: D1Database) {
 }
 
 export function slugify(title: string) {
-  return String(title || '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80) || `post-${Date.now().toString(36)}`;
+  return (
+    String(title || '')
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || `post-${Date.now().toString(36)}`
+  );
 }
