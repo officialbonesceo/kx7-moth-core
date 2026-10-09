@@ -1,5 +1,13 @@
 /** Editorial team labels — brand personas only, never fake licensed experts */
 
+export const SOCIAL_HREFS = {
+  youtube: 'https://www.youtube.com/@only_lanecash',
+  facebook: 'https://facebook.com/lanecash',
+  tiktok: 'https://www.tiktok.com/@lanecash',
+  instagram: 'https://instagram.com/lanecash',
+  telegram: 'https://t.me/lanecash',
+};
+
 export function teamFor(category?: string, title?: string): string {
   const t = `${category || ''} ${title || ''}`.toLowerCase();
   if (/scam|fraud|phish|ponzi|fake job|activation/.test(t)) return 'LaneCash Scam Desk';

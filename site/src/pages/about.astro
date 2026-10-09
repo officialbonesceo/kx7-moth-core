@@ -1,36 +1,28 @@
 ---
 import Base from '../layouts/Base.astro';
 import SocialBar from '../components/SocialBar.astro';
-
-const origin = Astro.url.origin;
+import { DESK_BLURB } from '../lib/socials';
 ---
 <Base
-  title="About — Xenvest"
-  description="Who publishes Xenvest and how to use the money and scam-awareness guides."
+  title="About — LaneCash"
+  description="Who publishes LaneCash and how to use the guides."
 >
   <section class="page-hero">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-      <img src="/logo.svg" alt="Xenvest" width="48" height="48" style="border-radius:12px" />
+      <img src="/logo.svg" alt="LaneCash" width="48" height="48" style="border-radius:12px" />
       <div>
-        <h1 style="margin:0">About Xenvest</h1>
-        <p style="margin:4px 0 0;opacity:.75">Practical money sense for phones in Nigeria</p>
+        <h1 style="margin:0">About LaneCash</h1>
+        <p style="margin:4px 0 0;opacity:.75">Practical money and scam-awareness guides for phones in Nigeria</p>
       </div>
     </div>
   </section>
 
   <div class="calc-card" style="margin-bottom:12px">
-    <h3>What this site is</h3>
-    <p class="muted">
-      Xenvest publishes educational guides on side hustles, scam patterns, crypto basics, and safer payment habits.
-      We are a media desk — not a bank, broker, or investment advisor. Nothing here is personalised financial advice.
-    </p>
-  </div>
-
-  <div class="calc-card" style="margin-bottom:12px">
     <h3>Who writes here</h3>
-    <p class="muted">
-      Bylines such as <strong>Xenvest Editorial</strong>, <strong>Scam Desk</strong>, or <strong>Campus Desk</strong>
-      are brand team labels. They are not licensed professionals and not personal identity claims.
+    <p class="muted">{DESK_BLURB}</p>
+    <p class="muted" style="margin-top:0.75rem">
+      You will see bylines like <strong>LaneCash Editorial</strong>, <strong>Scam Desk</strong>, or <strong>Campus Desk</strong>.
+      Those are team labels for this brand — not individual licensed professionals, and not personal identity claims.
     </p>
   </div>
 
@@ -39,28 +31,18 @@ const origin = Astro.url.origin;
     <ul class="muted" style="margin:0;padding-left:1.1rem;line-height:1.55">
       <li>Read a guide, then verify money moves on official apps and bank channels.</li>
       <li>Never pay “activation”, “slot”, or “upgrade” fees to strangers.</li>
-      <li>Use Search for a keyword (title and summary only — light on data).</li>
+      <li>Use Search for a keyword (title/summary only — light load).</li>
       <li>Save articles on this device from Profile / Saved.</li>
-      <li>If a link looks like an affiliate offer, treat it as optional — we disclose sponsored CTAs.</li>
     </ul>
   </div>
 
   <div class="calc-card" style="margin-bottom:12px">
-    <h3>Contact &amp; studio</h3>
+    <h3>Studio</h3>
     <p class="muted">
-      Studio mark: <strong>Meziem</strong>. For corrections or tips, use the channels listed on social links below.
-      This page works on any domain — links are relative to the site you opened.
+      Studio mark: <strong>Meziem</strong>. Links and assets use the current domain
+      (<code>window.location.origin</code>) so a domain change does not break the site.
     </p>
   </div>
 
   <SocialBar />
-
-  <script is:inline>
-    (function () {
-      // Domain-safe: any absolute share/canonical can use current host
-      try {
-        window.__SITE_ORIGIN__ = window.location.origin;
-      } catch (e) {}
-    })();
-  </script>
 </Base>
