@@ -1,21 +1,26 @@
 ---
-/**
- * Adsterra Native — one zone per page.
- * Default network widget is often 4x1 (four ads). We cap height so it cannot
- * bury the article. Ask Adsterra manager for 1x1 mobile widget + category blocks.
- */
-interface Props {
-  label?: string;
-}
+/** Adsterra Native — unique container id per instance */
+interface Props { label?: string }
 const { label = 'Sponsored' } = Astro.props;
+const cid = `container-042f79cf7de2f184bf9ee546037cccb6`;
 ---
 <aside class="lc-native-wrap" aria-label="Sponsored">
   <div class="lc-native-label">{label}</div>
   <div class="lc-native-clip">
-    <script async data-cfasync="false" src="https://pl31410848.profitableratecpmnetwork.com/042f79cf7de2f184bf9ee546037cccb6/invoke.js"></script>
-    <div id="container-042f79cf7de2f184bf9ee546037cccb6"></div>
+    <div id={cid}></div>
   </div>
 </aside>
+<script is:inline>
+(function () {
+  if (window.__lcNativeLoaded) return;
+  window.__lcNativeLoaded = true;
+  var s = document.createElement('script');
+  s.async = true;
+  s.setAttribute('data-cfasync', 'false');
+  s.src = 'https://pl31410848.profitableratecpmnetwork.com/042f79cf7de2f184bf9ee546037cccb6/invoke.js';
+  document.head.appendChild(s);
+})();
+</script>
 <style>
   .lc-native-wrap {
     margin: 1.25rem 0;
@@ -33,19 +38,14 @@ const { label = 'Sponsored' } = Astro.props;
     opacity: 0.5;
     margin-bottom: 0.35rem;
   }
-  /* Cap so a 4-tile native stack cannot push the whole article down */
   .lc-native-clip {
-    max-height: 220px;
+    max-height: 240px;
     overflow: hidden;
     position: relative;
+    min-height: 80px;
   }
-  @media (min-width: 720px) {
-    .lc-native-clip {
-      max-height: 180px;
-    }
-  }
-  .lc-native-wrap :global(#container-042f79cf7de2f184bf9ee546037cccb6),
-  .lc-native-wrap :global(#container-042f79cf7de2f184bf9ee546037cccb6 *) {
+  .lc-native-wrap :global(iframe),
+  .lc-native-wrap :global(div) {
     max-width: 100% !important;
   }
 </style>
