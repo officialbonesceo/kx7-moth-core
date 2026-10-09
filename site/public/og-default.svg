@@ -1,7 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#0b0f14"/>
-  <rect x="48" y="48" width="1104" height="534" rx="32" fill="#121820" stroke="#10b981" stroke-width="2"/>
-  <text x="100" y="300" font-family="Inter,Arial,sans-serif" font-size="72" font-weight="800" fill="#f1f5f9">LaneCash</text>
-  <text x="100" y="370" font-family="Inter,Arial,sans-serif" font-size="32" font-weight="600" fill="#94a3b8">Check the offer before you pay</text>
-  <circle cx="1000" cy="200" r="48" fill="#10b981" opacity=".85"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <path d="M120 160h90l72 108 72-108h90L450 340v110h-80V340L120 160z" fill="url(#g)"/>
+  <text x="560" y="320" fill="#f8fafc" font-family="Inter,system-ui,sans-serif" font-size="72" font-weight="800">Xenvest</text>
+  <text x="560" y="380" fill="#94a3b8" font-family="Inter,system-ui,sans-serif" font-size="28">Check the offer before you pay</text>
 </svg>
