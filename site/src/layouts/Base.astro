@@ -10,7 +10,7 @@ interface Props {
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 const {
-  title = 'LaneCash — Check the offer before you pay',
+  title = 'Xenvest — Check the offer before you pay',
   description = 'Nigeria-first scam alerts, safe money habits, and practical phone skills. Educational only.',
   canonical,
   image,
@@ -19,6 +19,7 @@ const {
   jsonLd,
 } = Astro.props;
 const path = Astro.url.pathname;
+// Domain-safe: always current host (works if domain changes)
 const origin = Astro.url.origin;
 const canonicalUrl = canonical || `${origin}${path === '/' ? '/' : path}`;
 const ogImage = image || `${origin}/og-default.svg`;
@@ -27,7 +28,7 @@ const year = new Date().getFullYear();
 const defaultLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
-  name: 'LaneCash',
+  name: 'Xenvest',
   url: origin,
   description,
   potentialAction: {
@@ -77,9 +78,9 @@ if (db) {
     <meta name="theme-color" content="#0b0f14" id="metaThemeColor" />
     <meta name="robots" content={noindex ? 'noindex,follow' : 'index,follow,max-image-preview:large'} />
     <link rel="canonical" href={canonicalUrl} />
-    <link rel="alternate" type="application/rss+xml" title="LaneCash RSS" href={rssUrl} />
+    <link rel="alternate" type="application/rss+xml" title="Xenvest RSS" href={rssUrl} />
     <Fragment set:html={verifyHtml} />
-    <meta property="og:site_name" content="LaneCash" />
+    <meta property="og:site_name" content="Xenvest" />
     <meta property="og:locale" content="en_NG" />
     <meta property="og:type" content={type} />
     <meta property="og:title" content={title} />
@@ -105,6 +106,8 @@ if (db) {
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'dark');
         }
+        // Always current domain — safe if you change custom domain
+        try { window.__SITE_ORIGIN__ = window.location.origin; } catch (e) {}
       })();
       window.LC = {
         toast(msg){
@@ -115,6 +118,7 @@ if (db) {
         },
         get(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?d:v;}catch{return d}},
         set(k,v){try{localStorage.setItem(k, JSON.stringify(v))}catch{}},
+        origin(){ try { return window.location.origin; } catch { return ''; } },
         deviceId(){
           try {
             var id = localStorage.getItem('lc_device_id');
@@ -155,7 +159,7 @@ if (db) {
             <img src="/logo.svg" alt="" width="34" height="34" />
           </span>
           <span class="brand-name">
-            <strong>Lane<b>Cash</b></strong>
+            <strong>Xen<b>vest</b></strong>
             <span>Check before you pay</span>
           </span>
         </a>
@@ -179,27 +183,25 @@ if (db) {
       <footer class="site-footer">
         <div class="site-footer-grid">
           <div>
-            <div class="footer-brand">Lane<b>Cash</b></div>
+            <div class="footer-brand">Xen<b>vest</b></div>
             <p class="footer-tag">Scam defence, money habits, and phone skills for Nigeria — educational only.</p>
           </div>
           <div>
             <h4>Explore</h4>
             <a href="/">Home</a>
             <a href="/tools">Tools</a>
-            <a href="/?tab=scams" rel="nofollow">Scam alerts</a>
             <a href="/search">Search</a>
+            <a href="/about">About</a>
           </div>
           <div>
             <h4>More</h4>
-            <a href="/about">About</a>
             <a href="/disclaimer">Disclaimer</a>
             <a href="/rss.xml">RSS</a>
-            <a href="https://www.youtube.com/@only_lanecash" rel="noopener noreferrer" target="_blank">YouTube</a>
             <a href="/notifications">Alerts</a>
           </div>
         </div>
         <div class="meziem-foot" aria-label="Studio">
-          <span class="meziem-text">© {year} LaneCash · <strong>Meziem</strong></span>
+          <span class="meziem-text">© {year} Xenvest · <strong>Meziem</strong></span>
         </div>
       </footer>
     </main>
