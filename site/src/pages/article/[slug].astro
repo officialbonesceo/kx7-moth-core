@@ -6,6 +6,7 @@ import NewsletterBox from '../../components/NewsletterBox.astro';
 import { getArticleBySlug, getRelatedArticles, bumpViews } from '../../lib/db';
 import { coverFor, svgCover } from '../../lib/images';
 import { teamFor } from '../../lib/socials';
+import { listAffiliates, applyAffiliateButtons, logAffiliateHints } from '../../lib/affiliates';
 
 export const prerender = false;
 
@@ -13,11 +14,18 @@ const { slug } = Astro.params;
 const db = Astro.locals.runtime?.env?.DB;
 let article: any = null;
 let related: any[] = [];
+let affRows: Awaited<ReturnType<typeof listAffiliates>> = [];
 try {
   article = slug && db ? await getArticleBySlug(db, slug) : null;
   if (article && db) {
     await bumpViews(db, article.id);
     related = await getRelatedArticles(db, article.slug, article.category, 6);
+    affRows = await listAffiliates(db);
+    await logAffiliateHints(
+      db,
+      `${article.title} ${article.summary} ${article.content}`,
+      article.slug
+    );
   }
 } catch (e) {
   console.error('[article]', e);
@@ -108,7 +116,8 @@ function splitByWordBudget(html: string): Chunk[] {
   return out.length ? out : [{ html: raw }];
 }
 
-const chunks = splitByWordBudget(article.content || '');
+const bodyHtml = applyAffiliateButtons(String(article.content || ''), affRows);
+const chunks = splitByWordBudget(bodyHtml);
 const ogImg = cover.startsWith('http') || cover.startsWith('data:') ? cover : `${origin}${cover}`;
 
 const jsonLd = {
@@ -233,6 +242,24 @@ const jsonLd = {
       <button class="share-btn" id="shareCopy2" type="button">Copy link</button>
     </div>
   </div>
+
+  <style is:global>
+    .prose a.aff-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin: 0 0.15rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.88em;
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e !important;
+      text-decoration: none !important;
+      border: 1px solid rgba(34, 197, 94, 0.35);
+    }
+    .prose a.aff-cta:hover { background: rgba(34, 197, 94, 0.28); }
+  </style>
 
   <script is:inline define:vars={{ slug: article.slug, path: `/article/${article.slug}`, title: article.title, summary: article.summary, category: article.category, pageUrl, shareText }}>
     (function(){
