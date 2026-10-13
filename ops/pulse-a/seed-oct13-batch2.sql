@@ -1,11 +1,11 @@
--- LaneCash human-voice batch 2 — 13 Oct 2026
+-- LaneCash human-voice batch 2 — 13 Oct 2026 (unique ids)
 
 INSERT INTO articles (
   id, slug, title, summary, content, category, image_url, reading_minutes,
   views, is_featured, status, author_team, source_name,
   published_at, created_at, updated_at
 ) VALUES (
-  'art_airtime_loan_trap_2026',
+  'art_b2_airtime_loan_2026',
   'airtime-loans-that-eat-your-next-allowance',
   'Airtime loans that eat your next allowance',
   'Why borrowing airtime for “just this call” becomes a weekly tax — and a cleaner habit that still keeps you reachable.',
@@ -43,7 +43,7 @@ INSERT INTO articles (
   views, is_featured, status, author_team, source_name,
   published_at, created_at, updated_at
 ) VALUES (
-  'art_campus_print_side_2026',
+  'art_b2_campus_print_2026',
   'campus-printing-without-owing-the-business-centre',
   'Campus printing without owing the business centre',
   'A simple price list, cash-first rule, and when to say no so a small print hustle does not become free labour.',
@@ -80,7 +80,7 @@ INSERT INTO articles (
   views, is_featured, status, author_team, source_name,
   published_at, created_at, updated_at
 ) VALUES (
-  'art_fake_scholarship_fee_2026',
+  'art_b2_fake_scholarship_2026',
   'scholarship-forms-that-charge-a-processing-fee',
   'Scholarship forms that charge a processing fee',
   'Real programmes rarely ask students to pay a stranger to “process” a form. How to spot the fee trap.',
@@ -118,7 +118,7 @@ INSERT INTO articles (
   views, is_featured, status, author_team, source_name,
   published_at, created_at, updated_at
 ) VALUES (
-  'art_pos_agent_verify_2026',
+  'art_b2_pos_agent_2026',
   'before-you-become-a-pos-agent-on-campus',
   'Before you become a POS agent on campus',
   'Questions to ask about float, charges, and who holds the terminal — so you are not carrying risk you do not understand.',
