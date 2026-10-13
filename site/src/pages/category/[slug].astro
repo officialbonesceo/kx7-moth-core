@@ -2,13 +2,39 @@
 import Base from '../../layouts/Base.astro';
 import Pagination from '../../components/Pagination.astro';
 import { getArticles, countArticles } from '../../lib/db';
-import { coverFor } from '../../lib/images';
+import { coverFor, svgCover } from '../../lib/images';
 import { teamFor } from '../../lib/socials';
+
 const { slug } = Astro.params;
 const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
 const perPage = 10;
 const offset = (page - 1) * perPage;
 const db = Astro.locals.runtime?.env?.DB;
+
+const META: Record<string, { title: string; blurb: string }> = {
+  scams: {
+    title: 'Scam alerts',
+    blurb: 'Fee traps, fake jobs, and pressure scripts — so you can close the chat before money leaves.',
+  },
+  money: {
+    title: 'Money habits',
+    blurb: 'Small wallet rules for students and beginners. Educational only — not financial advice.',
+  },
+  guides: {
+    title: 'Practical guides',
+    blurb: 'Phone skills, campus side work, and clear steps without hype.',
+  },
+  opportunities: {
+    title: 'Opportunities',
+    blurb: 'Roles and side paths worth checking carefully — still verify every offer.',
+  },
+};
+
+const meta = META[slug || ''] || {
+  title: slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Explore',
+  blurb: 'Practical picks in this section.',
+};
+
 let articles: any[] = [];
 let total = 0;
 if (db && slug) {
@@ -17,10 +43,31 @@ if (db && slug) {
   articles = res.results || [];
 }
 const totalPages = Math.max(1, Math.ceil(total / perPage));
-const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Explore';
+
+function fmtTime(iso?: string) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
+    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10);
+    return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return String(iso).slice(0, 10);
+  }
+}
 ---
-<Base title={`${title} — LaneCash`}>
-  <section class="hero"><h1>{title}</h1><p>Practical picks in this section.</p></section>
+<Base title={`${meta.title} — LaneCash`} description={meta.blurb}>
+  <section class="hero">
+    <h1>{meta.title}</h1>
+    <p>{meta.blurb}</p>
+  </section>
+
+  <div class="chips" style="margin-bottom:0.75rem">
+    <a class={`chip ${slug==='scams'?'active':''}`} href="/category/scams">Scams</a>
+    <a class={`chip ${slug==='money'?'active':''}`} href="/category/money">Money</a>
+    <a class={`chip ${slug==='guides'?'active':''}`} href="/category/guides">Guides</a>
+    <a class="chip" href="/">Latest</a>
+  </div>
+
   <section class="feed">
     {articles.length ? articles.map((a) => (
       <a class="card" href={`/article/${a.slug}`}>
@@ -28,11 +75,21 @@ const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Explore';
           <span class={`pill ${a.category}`}>{a.category}</span>
           <h3>{a.title}</h3>
           <p>{a.summary}</p>
-          <div class="card-meta"><span>{a.author_team || teamFor(a.category, a.title)}</span></div>
+          <div class="card-meta">
+            <span>{fmtTime(a.published_at)} · {a.reading_minutes || 4} min</span>
+            <span>{a.author_team || teamFor(a.category, a.title)}</span>
+          </div>
         </div>
-        <img class="card-thumb" src={coverFor(a)} alt="" loading="lazy" />
+        <img
+          class="card-thumb"
+          src={coverFor(a)}
+          alt=""
+          loading="lazy"
+          data-fallback={svgCover(a)}
+          onerror="this.onerror=null;this.src=this.getAttribute('data-fallback')"
+        />
       </a>
-    )) : <div class="empty">No posts yet.</div>}
+    )) : <div class="empty">No posts in this category yet.</div>}
   </section>
   <Pagination page={page} totalPages={totalPages} base={`/category/${slug}`} />
 </Base>

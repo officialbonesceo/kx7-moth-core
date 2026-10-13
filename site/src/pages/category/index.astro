@@ -1,0 +1,30 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const cats = [
+  { slug: 'scams', title: 'Scam alerts', blurb: 'Fee traps, fake jobs, investment apps that need “one more deposit.”' },
+  { slug: 'money', title: 'Money habits', blurb: 'Wallet rules, airtime loans, and keeping hustle money separate.' },
+  { slug: 'guides', title: 'Practical guides', blurb: 'Campus side work, clear pricing, POS questions before you sign up.' },
+];
+---
+<Base
+  title="Categories — LaneCash"
+  description="Browse LaneCash by topic: scams, money habits, and practical guides."
+>
+  <section class="hero">
+    <h1>Categories</h1>
+    <p>Pick a lane. Every post is educational only — not financial advice.</p>
+  </section>
+  <section class="feed">
+    {cats.map((c) => (
+      <a class="card" href={`/category/${c.slug}`}>
+        <div class="card-main">
+          <span class={`pill ${c.slug}`}>{c.slug}</span>
+          <h3>{c.title}</h3>
+          <p>{c.blurb}</p>
+        </div>
+      </a>
+    ))}
+  </section>
+  <p style="margin:1rem 0"><a class="chip" href="/">← Latest on home</a></p>
+</Base>
