@@ -1,0 +1,32 @@
+name: daily-publish-one
+on:
+  workflow_dispatch:
+  schedule:
+    # ~09:00 WAT — publish one scheduled article per day
+    - cron: "0 8 * * *"
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install wrangler
+        run: npm i -g wrangler@3
+      - name: Publish oldest scheduled article
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          cat > /tmp/publish-one.sql <<'SQL'
+          UPDATE articles
+          SET status = 'published',
+              published_at = datetime('now'),
+              updated_at = datetime('now')
+          WHERE id = (
+            SELECT id FROM articles
+            WHERE status = 'scheduled'
+            ORDER BY created_at ASC, id ASC
+            LIMIT 1
+          );
+          SQL
+          wrangler d1 execute lanecash-db --remote --file=/tmp/publish-one.sql
