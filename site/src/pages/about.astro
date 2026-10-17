@@ -5,14 +5,14 @@ import { DESK_BLURB } from '../lib/socials';
 ---
 <Base
   title="About — LaneCash"
-  description="Who publishes LaneCash and how to use the guides."
+  description="Who publishes LaneCash, contact email, and how to use the guides. Educational only — not financial advice."
 >
   <section class="page-hero">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
       <img src="/logo.svg" alt="LaneCash" width="48" height="48" style="border-radius:12px" />
       <div>
         <h1 style="margin:0">About LaneCash</h1>
-        <p style="margin:4px 0 0;opacity:.75">Practical money and scam-awareness guides for phones in Nigeria</p>
+        <p style="margin:4px 0 0;opacity:.75">Practical money, personal finance habits, and scam-awareness for phones in Nigeria</p>
       </div>
     </div>
   </section>
@@ -21,28 +21,39 @@ import { DESK_BLURB } from '../lib/socials';
     <h3>Who writes here</h3>
     <p class="muted">{DESK_BLURB}</p>
     <p class="muted" style="margin-top:0.75rem">
-      You will see bylines like <strong>LaneCash Editorial</strong>, <strong>Scam Desk</strong>, or <strong>Campus Desk</strong>.
-      Those are team labels for this brand — not individual licensed professionals, and not personal identity claims.
+      Bylines like <strong>LaneCash Editorial</strong>, <strong>Scam Desk</strong>, or <strong>Fin Desk</strong> are team labels — not licensed advisers or personal identity claims.
     </p>
   </div>
 
   <div class="calc-card" style="margin-bottom:12px">
-    <h3>How to use the site</h3>
+    <h3>What we cover</h3>
     <ul class="muted" style="margin:0;padding-left:1.1rem;line-height:1.55">
-      <li>Read a guide, then verify money moves on official apps and bank channels.</li>
-      <li>Never pay “activation”, “slot”, or “upgrade” fees to strangers.</li>
-      <li>Use Search for a keyword (title/summary only — light load).</li>
-      <li>Save articles on this device from Profile / Saved.</li>
+      <li>Student and beginner money habits (saving, weekly budgets, emergency buffers)</li>
+      <li>Campus hustles and phone skills — practical, not get-rich claims</li>
+      <li>Scam alerts and payment safety</li>
+      <li>Simple tools (FX helpers) with clear limits</li>
     </ul>
+  </div>
+
+  <div class="calc-card" style="margin-bottom:12px">
+    <h3>Contact</h3>
+    <p class="muted">
+      Site and content questions:
+      <a href="mailto:officialbonesceo@gmail.com">officialbonesceo@gmail.com</a>
+    </p>
+    <p class="muted" style="margin-top:0.5rem">
+      We do not provide personalised financial, legal, or investment advice by email.
+    </p>
   </div>
 
   <div class="calc-card" style="margin-bottom:12px">
     <h3>Studio</h3>
     <p class="muted">
-      Studio mark: <strong>Meziem</strong>. Links and assets use the current domain
-      (<code>window.location.origin</code>) so a domain change does not break the site.
+      Studio mark: <strong>Meziem</strong>. Links use the current domain so a custom domain change does not break the site.
     </p>
   </div>
+
+  <p class="muted" style="font-size:0.85rem"><a href="/disclaimer">Read the full disclaimer →</a></p>
 
   <SocialBar />
 </Base>

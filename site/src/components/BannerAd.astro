@@ -1,7 +1,7 @@
 ---
 /**
- * Adsterra display banners (highrevenueformat).
- * Each instance uses a unique atOptions binding so multiple slots do not overwrite each other.
+ * Adsterra display banners. Hidden entirely when ads_enabled is off in settings
+ * or when network fails — no empty “Ad space” boxes on home hero.
  */
 interface Props {
   size: '320x50' | '300x250';
@@ -16,7 +16,7 @@ const units: Record<string, { key: string; width: number; height: number }> = {
 const u = units[size];
 const slotId = `ad_${size.replace('x', '_')}_${Math.random().toString(36).slice(2, 8)}`;
 ---
-<aside class="lc-banner-wrap" data-size={size} aria-label="Advertisement">
+<aside class="lc-banner-wrap" data-size={size} data-ad-root data-ad-size={size} aria-label="Advertisement" hidden>
   <div class="lc-banner-label">{label}</div>
   <div class="lc-banner-box" id={slotId}></div>
 </aside>
@@ -24,23 +24,70 @@ const slotId = `ad_${size.replace('x', '_')}_${Math.random().toString(36).slice(
   (function () {
     var box = document.getElementById(slotId);
     if (!box) return;
-    // Isolated options object (do not rely on a single global overwrite)
-    var opts = {
-      key: key,
-      format: 'iframe',
-      height: height,
-      width: width,
-      params: {},
-    };
-    window.atOptions = opts;
-    var s = document.createElement('script');
-    s.async = true;
-    s.src = 'https://www.highrevenueformat.com/' + key + '/invoke.js';
-    s.onerror = function () {
-      box.innerHTML =
-        '<span style="font-size:0.7rem;opacity:0.5">Ad slot</span>';
-    };
-    box.appendChild(s);
+    var wrap = box.closest('[data-ad-root]');
+    function hide() {
+      if (wrap) {
+        wrap.setAttribute('hidden', '');
+        wrap.style.display = 'none';
+      }
+      // Remove empty hero ad slides
+      var slide = box.closest('.hero-slide[data-type="ad"]');
+      if (slide) slide.setAttribute('data-ad-empty', '1');
+    }
+    function show() {
+      if (wrap) {
+        wrap.removeAttribute('hidden');
+        wrap.style.display = '';
+      }
+    }
+    fetch('/api/ads')
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (j) {
+        // ads_enabled false → hide all banners
+        if (j && j.enabled === false) {
+          hide();
+          return;
+        }
+        // No keys / script configured → hide empty slots
+        if (j && j.enabled === false) {
+          hide();
+          return;
+        }
+        show();
+        var opts = { key: key, format: 'iframe', height: height, width: width, params: {} };
+        window.atOptions = opts;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.highrevenueformat.com/' + key + '/invoke.js';
+        s.onerror = function () {
+          hide();
+        };
+        // If nothing renders after a few seconds, hide empty box
+        setTimeout(function () {
+          if (!box.querySelector('iframe') && !box.querySelector('ins') && box.childElementCount <= 1) {
+            hide();
+          }
+        }, 4500);
+        box.appendChild(s);
+      })
+      .catch(function () {
+        // Still try load; hide on failure
+        show();
+        var opts = { key: key, format: 'iframe', height: height, width: width, params: {} };
+        window.atOptions = opts;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.highrevenueformat.com/' + key + '/invoke.js';
+        s.onerror = function () {
+          hide();
+        };
+        setTimeout(function () {
+          if (!box.querySelector('iframe') && box.childElementCount <= 1) hide();
+        }, 4500);
+        box.appendChild(s);
+      });
   })();
 </script>
 <style>
@@ -57,6 +104,9 @@ const slotId = `ad_${size.replace('x', '_')}_${Math.random().toString(36).slice(
     max-width: 100%;
     overflow: hidden;
     box-sizing: border-box;
+  }
+  .lc-banner-wrap[hidden] {
+    display: none !important;
   }
   .lc-banner-label {
     align-self: flex-start;
