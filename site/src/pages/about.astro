@@ -2,20 +2,63 @@
 import Base from '../layouts/Base.astro';
 import SocialBar from '../components/SocialBar.astro';
 import { DESK_BLURB } from '../lib/socials';
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Is LaneCash a bank or investment app?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. LaneCash publishes educational guides about money habits, scam patterns, and phone skills for people in Nigeria. It is not a bank, broker, or lender.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Do you give personal financial advice?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. Articles are general education only. They are not personalised advice. Confirm numbers and rules with official sources before you pay or invest.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Who can use these guides?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Students, beginners, and anyone checking offers on their phone. We write for real Nigeria context: small allowances, POS payments, WhatsApp groups, and common scam scripts.',
+      },
+    },
+  ],
+};
 ---
 <Base
-  title="About — LaneCash"
-  description="Who publishes LaneCash, contact email, and how to use the guides. Educational only — not financial advice."
+  title="About LaneCash — student money guides & scam checks (Nigeria)"
+  description="LaneCash is an independent education site for Nigerian students and beginners: safe payment habits, campus money tips, and scam red flags. Not a bank. Not financial advice."
+  canonical="https://lanecash.name.ng/about"
+  jsonLd={faqLd}
 >
   <section class="page-hero">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
       <img src="/logo.svg" alt="LaneCash" width="48" height="48" style="border-radius:12px" />
       <div>
         <h1 style="margin:0">About LaneCash</h1>
-        <p style="margin:4px 0 0;opacity:.75">Practical money, personal finance habits, and scam-awareness for phones in Nigeria</p>
+        <p style="margin:4px 0 0;opacity:.75">Check the offer before you pay — practical money and scam literacy for phones in Nigeria</p>
       </div>
     </div>
   </section>
+
+  <div class="calc-card" style="margin-bottom:12px">
+    <h3>What LaneCash is</h3>
+    <p class="muted">
+      LaneCash is a small independent guide site. We publish short, clear articles so students and beginners can spot risky offers, keep a simple budget on a tight allowance, and avoid common WhatsApp and POS traps.
+    </p>
+    <p class="muted" style="margin-top:0.75rem">
+      We are <strong>not</strong> a bank, fintech app, broker, or government office. We do not hold money, process payments, or promise returns.
+    </p>
+  </div>
 
   <div class="calc-card" style="margin-bottom:12px">
     <h3>Who writes here</h3>
@@ -29,10 +72,20 @@ import { DESK_BLURB } from '../lib/socials';
     <h3>What we cover</h3>
     <ul class="muted" style="margin:0;padding-left:1.1rem;line-height:1.55">
       <li>Student and beginner money habits (saving, weekly budgets, emergency buffers)</li>
-      <li>Campus hustles and phone skills — practical, not get-rich claims</li>
-      <li>Scam alerts and payment safety</li>
-      <li>Simple tools (FX helpers) with clear limits</li>
+      <li>Campus hustles and phone skills — practical steps, not get-rich claims</li>
+      <li>Scam alerts and payment safety (POS, “send to this account”, job agents)</li>
+      <li>Simple tools (FX helpers) with clear limits and disclaimers</li>
     </ul>
+  </div>
+
+  <div class="calc-card" style="margin-bottom:12px">
+    <h3>How to use the site</h3>
+    <ol class="muted" style="margin:0;padding-left:1.1rem;line-height:1.55">
+      <li>Read the guide fully before you act on any offer you saw in chat.</li>
+      <li>Type official domains yourself — do not trust shortened links from strangers.</li>
+      <li>Never pay “placement fees”, “activation fees”, or “upgrade fees” into a personal account.</li>
+      <li>Use the tools only as rough helpers; bank and official rates can differ.</li>
+    </ol>
   </div>
 
   <div class="calc-card" style="margin-bottom:12px">
@@ -49,7 +102,7 @@ import { DESK_BLURB } from '../lib/socials';
   <div class="calc-card" style="margin-bottom:12px">
     <h3>Studio</h3>
     <p class="muted">
-      Studio mark: <strong>Meziem</strong>. Links use the current domain so a custom domain change does not break the site.
+      Studio mark: <strong>Meziem</strong>. Public domain: <strong>lanecash.name.ng</strong>. Links use the current domain so a custom domain change does not break the site.
     </p>
   </div>
 
