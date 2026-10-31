@@ -3,18 +3,18 @@ import { getArticles } from '../lib/db';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ locals, url }) => {
-  const origin = url.origin;
+export const GET: APIRoute = async ({ locals }) => {
+  const origin = 'https://lanecash.name.ng';
   const staticPaths = [
-    '/',
-    '/about',
-    '/disclaimer',
-    '/tools',
-    '/tools/usd-ngn',
-    '/tools/currency',
-    '/search',
+    { path: '/', priority: '1.0' },
+    { path: '/about', priority: '0.6' },
+    { path: '/disclaimer', priority: '0.3' },
+    { path: '/tools', priority: '0.85' },
+    { path: '/tools/usd-ngn', priority: '0.8' },
+    { path: '/tools/currency', priority: '0.8' },
+    { path: '/search', priority: '0.4' },
   ];
-  let articlePaths: { loc: string; lastmod?: string }[] = [];
+  let articlePaths: { loc: string; lastmod?: string; priority: string }[] = [];
 
   try {
     const db = (locals as any).runtime?.env?.DB;
@@ -24,14 +24,16 @@ export const GET: APIRoute = async ({ locals, url }) => {
       articlePaths = rows.map((a: any) => ({
         loc: `${origin}/article/${a.slug}`,
         lastmod: (a.updated_at || a.published_at || '').slice(0, 10) || undefined,
+        priority: '0.75',
       }));
     }
   } catch {}
 
   const urls = [
     ...staticPaths.map((p) => ({
-      loc: `${origin}${p === '/' ? '/' : p}`,
+      loc: `${origin}${p.path === '/' ? '/' : p.path}`,
       lastmod: undefined as string | undefined,
+      priority: p.priority,
     })),
     ...articlePaths,
   ];
@@ -44,6 +46,7 @@ ${urls
     <loc>${escapeXml(u.loc)}</loc>
     ${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}
     <changefreq>weekly</changefreq>
+    <priority>${u.priority}</priority>
   </url>`
   )
   .join('\n')}
