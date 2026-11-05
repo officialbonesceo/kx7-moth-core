@@ -6,3 +6,10 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "lanecash-db"
 database_id = "f54a94b8-7473-4d25-8031-595f1d3da73e"
+
+# Non-secret IDs (safe in repo). CLOUDFLARE_API_TOKEN stays in Pages/GitHub secrets only.
+[vars]
+CLOUDFLARE_ACCOUNT_ID = "0e41e6b5d65256a952a96bc52f26ea8d"
+CF_ZONE_ID = "306141694536db519e91880ba0dbe816"
+CF_D1_DATABASE_ID = "f54a94b8-7473-4d25-8031-595f1d3da73e"
+SITE_HOST = "lanecash.name.ng"
