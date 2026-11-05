@@ -27,3 +27,13 @@ jobs:
           POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
           PULSE_BATCH: "1"
         run: npm run pulse-a
+      - name: IndexNow (Bing)
+        if: success()
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          SITE_HOST: lanecash.name.ng
+        run: |
+          KEY="${INDEXNOW_KEY:-70f499f3fc3c41878432eab0610cb2cf}"
+          export INDEXNOW_KEY="$KEY"
+          node ops/indexnow/ping.mjs \
+            "https://lanecash.name.ng/" || true
