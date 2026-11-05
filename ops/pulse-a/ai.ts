@@ -1,6 +1,6 @@
 /**
  * AI rewrite: text chat models only.
- * Order: Groq → Gemini → Pollinations → Cloudflare (max 2, stop on 429) → OpenRouter free
+ * Order: Groq → Gemini → Pollinations (if key) → Cloudflare (max 2, stop on 429) → OpenRouter free
  * FAIL CLOSED: never publish leak/planning text.
  */
 import { markdownToHtml, stripMetaLines } from './format';
@@ -31,11 +31,18 @@ HARD RULES:
 - Target 600–1100 words of real guidance. Short paragraphs.
 - Prefer practical steps useful in Nigeria / Africa when relevant without inventing laws.
 - TITLE must be specific (at least 6 words). Never single-word titles like "Google".
+- Never mention AI, models, rewrites, or automation in the article.
 - End once with: <h2>Disclaimer</h2><p>Educational only — not financial advice.</p>`;
 
 const CF_CHAT_MODELS = ['@cf/meta/llama-3.1-8b-instruct', '@cf/meta/llama-3.2-3b-instruct'];
-const GROQ_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it'];
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
+const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
+/** Current Gemini model ids (old 2.0-flash can 404). */
+const GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash',
+];
 const POLLINATIONS_MODELS = ['openai', 'openai-fast', 'mistral'];
 
 const OR_FALLBACK = [
@@ -145,7 +152,6 @@ async function openRouterRun(model: string, prompt: string, maxTokens = 2000): P
       signal: AbortSignal.timeout(90000),
     });
     const text = await r.text();
-    // Do not kill whole OR chain on one model 429 — caller may try next model
     if (r.status === 429) {
       console.warn('[ai] OR rate limited', model);
       return { text: null, quota: true };
@@ -209,7 +215,7 @@ async function geminiRun(model: string, prompt: string): Promise<string | null> 
     });
     const text = await r.text();
     if (!r.ok) {
-      console.warn('[ai] Gemini fail', model, r.status, text.slice(0, 120));
+      console.warn('[ai] Gemini fail', model, r.status, text.slice(0, 160));
       return null;
     }
     const j = JSON.parse(text);
@@ -220,11 +226,14 @@ async function geminiRun(model: string, prompt: string): Promise<string | null> 
   }
 }
 
-/** Pollinations OpenAI-compatible gateway (optional key). */
+/** Pollinations OpenAI-compatible gateway — only when API key is set. */
 async function pollinationsRun(model: string, prompt: string, maxTokens = 2000): Promise<string | null> {
+  if (!POLLINATIONS_API_KEY) return null;
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (POLLINATIONS_API_KEY) headers.Authorization = `Bearer ${POLLINATIONS_API_KEY}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${POLLINATIONS_API_KEY}`,
+    };
     const r = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
       method: 'POST',
       headers,
@@ -357,6 +366,14 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
   let usedModel = '';
   const promptFresh = buildPrompt(context);
 
+  console.log('[ai] keys', {
+    groq: !!GROQ_API_KEY,
+    gemini: !!GEMINI_API_KEY,
+    pollinations: !!POLLINATIONS_API_KEY,
+    openrouter: !!OPENROUTER_API_KEY,
+    cf: !!(CF_ACCOUNT_ID && CF_API_TOKEN),
+  });
+
   for (const model of GROQ_MODELS) {
     if (!GROQ_API_KEY) break;
     console.log('[ai] trying Groq', model);
@@ -379,7 +396,7 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
     }
   }
 
-  if (!goodEnough(partial)) {
+  if (!goodEnough(partial) && POLLINATIONS_API_KEY) {
     for (const model of POLLINATIONS_MODELS) {
       console.log('[ai] trying Pollinations', model);
       const out = await pollinationsRun(model, partial ? buildPrompt(context, partial) : promptFresh);
@@ -388,6 +405,8 @@ export async function rewriteWithAi(context: string, seedTitle: string): Promise
       usedModel = `pollinations:${model}`;
       if (goodEnough(partial)) break;
     }
+  } else if (!POLLINATIONS_API_KEY) {
+    console.log('[ai] skip Pollinations (no POLLINATIONS_API_KEY)');
   }
 
   if (!goodEnough(partial)) {
