@@ -57,17 +57,34 @@ async function safeFirst<T = any>(db: D1Database, sql: string, binds: any[] = []
 export async function getArticles(db: D1Database, limit = 12, category?: string, offset = 0) {
   const lim = Math.min(24, Math.max(1, limit));
   const off = Math.max(0, offset);
+  // Newest first — do not bury pulse articles under a long featured backlog
   if (category) {
     return safeAll<Article>(
       db,
-      `SELECT ${LIST_COLS} FROM articles WHERE ${QUALITY_WHERE} AND category = ? ORDER BY COALESCE(is_featured,0) DESC, published_at DESC LIMIT ? OFFSET ?`,
+      `SELECT ${LIST_COLS} FROM articles WHERE ${QUALITY_WHERE} AND category = ? ORDER BY published_at DESC LIMIT ? OFFSET ?`,
       [category, lim, off]
     );
   }
   return safeAll<Article>(
     db,
-    `SELECT ${LIST_COLS} FROM articles WHERE ${QUALITY_WHERE} ORDER BY COALESCE(is_featured,0) DESC, published_at DESC LIMIT ? OFFSET ?`,
+    `SELECT ${LIST_COLS} FROM articles WHERE ${QUALITY_WHERE} ORDER BY published_at DESC LIMIT ? OFFSET ?`,
     [lim, off]
+  );
+}
+
+/** Featured picks for hero only (max a few) */
+export async function getFeaturedArticles(db: D1Database, limit = 3) {
+  const lim = Math.min(6, Math.max(1, limit));
+  const featured = await safeAll<Article>(
+    db,
+    `SELECT ${LIST_COLS} FROM articles WHERE ${QUALITY_WHERE} AND COALESCE(is_featured,0) = 1 ORDER BY published_at DESC LIMIT ?`,
+    [lim]
+  );
+  if ((featured.results || []).length >= lim) return featured;
+  return safeAll<Article>(
+    db,
+    `SELECT ${LIST_COLS} FROM articles WHERE ${QUALITY_WHERE} ORDER BY published_at DESC LIMIT ?`,
+    [lim]
   );
 }
 
@@ -143,7 +160,6 @@ export async function searchArticles(db: D1Database, q: string, limit = 12) {
 
 export async function bumpViews(db: D1Database, id: string) {
   try {
-    // Throttle-friendly single write; no reads
     await db.prepare(`UPDATE articles SET views = COALESCE(views, 0) + 1 WHERE id = ?`).bind(id).run();
   } catch (e) {
     console.error('[db] bumpViews', e);
