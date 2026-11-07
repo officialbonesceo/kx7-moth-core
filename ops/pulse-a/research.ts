@@ -1,5 +1,5 @@
 /**
- * Research helpers — niche focused: scam defence, naira money habits, phone skills.
+ * Research helpers — balanced niche: scam defence, naira money habits, earning skills, trending grants.
  */
 
 export type ResearchHit = {
@@ -15,25 +15,43 @@ export type ResearchPack = {
   tools: ResearchHit[];
 };
 
-/** Narrow LaneCash niche — scam defence + safe money + practical phone skills */
+/**
+ * Rotating seeds. Scams + money + earning — not only app-testing.
+ * Trending: FG consumer credit / ₦50k grant scams, student side income, wallet habits.
+ */
 const SEED_QUERIES = [
+  // Trending grants / FG programmes (scam angle + official caution)
+  'FG 50000 consumer credit grant scam Nigeria how to verify official channel',
+  'Federal Government 50k grant WhatsApp registration fee scams Nigeria',
+  'Nigeria Conditional Grant Scheme or MSME grant fake portal checklist',
+  'how to check official FG youth grant or loan without paying agent',
+  // Earning / side income (non-scam)
+  'seven realistic ways Nigerian students earn online without paying upfront',
+  'phone-only freelancing Canva CapCut first paid client Nigeria',
+  'how to price a small service offer on WhatsApp Nigeria',
+  'student side income without inventory Nigeria realistic weekly plan',
+  'online tutoring one subject WAEC JAMB phone setup Nigeria',
+  'market run personal shopping side income fees and trust Nigeria',
+  'airtime and data resale margins risks for beginners Nigeria',
+  'how to earn 3000 to 10000 naira weekly under 5000 capital Nigeria',
+  // Money habits
+  'weekly budget in naira irregular income beginner system',
+  'seven habits that drain student savings Nigeria',
+  'Opay Moniepoint Kuda fees for receiving payments Nigeria',
+  'build emergency 5k buffer on campus allowance Nigeria',
+  'how to separate hustle money from food money wallet discipline',
+  // Scam defence (broader than app testing)
   'WhatsApp Telegram remote job activation fee scams Nigeria how to verify',
-  'fake FIRS NRS recruitment messages Nigeria how to spot',
   'fake investment apps deposit ladder trap Nigeria walk away',
+  'POS agent school fee send to this account scams Nigeria',
+  'pay small small campus loan traps daily interest Nigeria',
+  'fake FIRS NRS recruitment messages Nigeria how to spot',
   'crypto recovery agent scams after a loss what to do',
   'BVN OTP sharing risks job offer Nigeria',
-  'P2P crypto escrow pressure plays beginner safety Nigeria',
-  'fake airdrop comment your wallet traps educational',
-  'weekly budget in naira irregular income beginner system',
-  'Opay Moniepoint Kuda fees for receiving payments Nigeria',
   'how to verify employer before sharing ID documents Nigeria',
+  // Skills / tools
   'Canva phone flyer service pricing for beginners Nigeria',
-  'online tutoring one subject WAEC JAMB phone setup',
   'ghostwriting first paid job Nigeria portfolio outreach',
-  'market run personal shopping side income fees trust Nigeria',
-  'paid app testing microtasks vs course access fee scams',
-  'student side income without inventory Nigeria realistic',
-  'how to mute scam recruiters on social media practical',
   'POS agent float costs and hidden charges Nigeria educational',
 ];
 
@@ -50,11 +68,29 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
+/** Prefer a mix: force at least one non-scam query in the first picks */
 export function pickQueries(n: number): string[] {
   const salt = daySalt();
   const hour = new Date().getUTCHours();
   const ranked = [...SEED_QUERIES].sort((a, b) => hash(a + salt + hour) - hash(b + salt + hour));
-  return ranked.slice(0, n);
+
+  const isEarnOrMoney = (q: string) =>
+    /earn|income|budget|habit|freelance|tutor|Canva|pricing|wallet|Opay|buffer|service offer|grant/i.test(
+      q
+    ) && !/scam|fake|trap|OTP|activation fee/i.test(q);
+
+  const earnFirst = ranked.filter(isEarnOrMoney);
+  const rest = ranked.filter((q) => !isEarnOrMoney(q));
+  // Interleave: start with earn/money/grant, then rest
+  const mixed: string[] = [];
+  let i = 0;
+  let j = 0;
+  while (mixed.length < n && (i < earnFirst.length || j < rest.length)) {
+    if (i < earnFirst.length) mixed.push(earnFirst[i++]);
+    if (mixed.length >= n) break;
+    if (j < rest.length) mixed.push(rest[j++]);
+  }
+  return mixed.slice(0, n);
 }
 
 async function fetchJson(url: string, timeoutMs = 12000): Promise<any | null> {
@@ -196,7 +232,8 @@ export function packToContext(pack: ResearchPack): string {
   const lines: string[] = [
     `Primary topic / query: ${pack.query}`,
     'Write ONLY about this topic. Educational content. Not financial advice.',
-    'LaneCash niche: Nigeria scam defence, safe money habits, practical phone skills.',
+    'LaneCash niche: Nigeria scam defence, safe money habits, practical earning skills, phone hustles.',
+    'If the topic is a government grant or FG 50k credit, stress: never pay an agent for registration, use only official government domains, scammers ride trending headlines.',
     'Do not invent unrelated get-rich schemes. Prefer checklists and red/green flags.',
     'Use Nigeria-relevant examples when natural (WhatsApp, BVN, naira, Opay) without inventing laws.',
     '',
