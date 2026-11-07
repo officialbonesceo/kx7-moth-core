@@ -36,12 +36,12 @@ HARD RULES:
 
 const CF_CHAT_MODELS = ['@cf/meta/llama-3.1-8b-instruct', '@cf/meta/llama-3.2-3b-instruct'];
 const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
-/** Current Gemini model ids (old 2.0-flash can 404). */
+/** Gemini model ids — prefer 3.x (2.x flash often 404 for new API keys). */
 const GEMINI_MODELS = [
+  'gemini-3.5-flash',
+  'gemini-3-flash-preview',
   'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash',
+  'gemini-flash-latest',
 ];
 const POLLINATIONS_MODELS = ['openai', 'openai-fast', 'mistral'];
 
