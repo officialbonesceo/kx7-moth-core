@@ -1,6 +1,7 @@
 /**
  * pulse-a — research → rewrite → publish 1 post (quality gated, fail-closed).
  * Slugs are clean: /article/how-to-verify-remote-jobs — never random tails.
+ * Ranks candidate topics by multi-source interest signal; skips near-duplicates.
  */
 import { pickQueries, researchTopic, packToContext } from './research';
 import { rewriteWithAi, looksLikeLeak, isWeakTitle, isWeakSummary } from './ai';
@@ -41,6 +42,19 @@ function slugify(t: string) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 80);
+}
+
+function stemKey(title: string) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\b(how|to|the|a|an|in|and|or|for|with|without|from|your|nigeria|nigerian)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 6)
+    .join(' ');
 }
 
 function polishContent(content: string) {
@@ -142,6 +156,23 @@ async function loadTitles(): Promise<Set<string>> {
   return new Set((rows || []).map((r: any) => String(r.title || '')));
 }
 
+function titleTooClose(candidate: string, existing: Set<string>) {
+  const key = stemKey(candidate);
+  if (key.length < 8) return false;
+  for (const t of existing) {
+    const k2 = stemKey(t);
+    if (!k2) continue;
+    if (key === k2) return true;
+    // shared 4+ significant tokens
+    const a = new Set(key.split(' '));
+    const b = k2.split(' ');
+    let shared = 0;
+    for (const w of b) if (a.has(w)) shared++;
+    if (shared >= 4) return true;
+  }
+  return false;
+}
+
 async function existsTitle(title: string) {
   const data = await d1(`SELECT id FROM articles WHERE title = ? LIMIT 1`, [title]);
   const rows = data?.result?.[0]?.results || data?.results || [];
@@ -154,7 +185,6 @@ async function existsSlug(slug: string) {
   return Array.isArray(rows) && rows.length > 0;
 }
 
-/** Clean slug only — never random tails like -le318 or -293gh */
 async function uniqueSlug(title: string) {
   const base = slugify(title) || 'guide';
   if (!(await existsSlug(base))) return base;
@@ -213,13 +243,29 @@ async function publish(draft: ArticleDraft) {
 }
 
 async function publishOne(titles: Set<string>): Promise<boolean> {
-  const queries = pickQueries(8);
-  for (const q of queries) {
+  const queries = pickQueries(12);
+  // Research several topics, rank by signal, then write the best one that is not a near-duplicate
+  const packs: { query: string; pack: Awaited<ReturnType<typeof researchTopic>> }[] = [];
+  for (const q of queries.slice(0, 6)) {
     try {
-      console.log('[pulse-a] topic', q);
+      console.log('[pulse-a] research', q.slice(0, 60));
       const pack = await researchTopic(q);
+      packs.push({ query: q, pack });
+    } catch (e) {
+      console.warn('[pulse-a] research fail', e);
+    }
+  }
+  packs.sort((a, b) => (b.pack.signalScore || 0) - (a.pack.signalScore || 0));
+  console.log(
+    '[pulse-a] ranked topics',
+    packs.map((p) => `${p.pack.signalScore}:${p.query.slice(0, 40)}`).join(' | ')
+  );
+
+  for (const { query, pack } of packs) {
+    try {
+      console.log('[pulse-a] try write', query.slice(0, 60), 'signal', pack.signalScore);
       const ctx = packToContext(pack);
-      const seedTitle = pack.hits[0]?.title || q;
+      const seedTitle = pack.hits[0]?.title || query;
       const ai = await rewriteWithAi(ctx, seedTitle);
       if (!ai) {
         console.warn('[pulse-a] AI returned null — skip (fail closed)');
@@ -237,8 +283,8 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
       }
 
       let title = ai.title.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim();
-      if ((await existsTitle(title)) || titles.has(title)) {
-        console.warn('[pulse-a] skip duplicate title');
+      if ((await existsTitle(title)) || titles.has(title) || titleTooClose(title, titles)) {
+        console.warn('[pulse-a] skip duplicate / near-duplicate title', title.slice(0, 70));
         continue;
       }
 
@@ -265,7 +311,7 @@ async function publishOne(titles: Set<string>): Promise<boolean> {
 }
 
 async function main() {
-  console.log('[pulse-a] 1 post/run · fail-closed · clean slugs · min body', MIN_BODY_CHARS);
+  console.log('[pulse-a] 1 post/run · signal-ranked · clean slugs · min body', MIN_BODY_CHARS);
   if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !CF_D1_DATABASE_ID) {
     console.error('[pulse-a] FATAL missing Cloudflare credentials');
     process.exit(1);
