@@ -1,59 +1,56 @@
 /**
- * Research helpers — balanced niche: scam defence, naira money habits, earning skills, trending grants.
+ * Research helpers — long-tail Nigeria money topics, multi-source interest signals.
+ * Prefer less competitive phrases; score queries before writing.
  */
 
 export type ResearchHit = {
   title: string;
   snippet: string;
   url: string;
-  source: 'duckduckgo' | 'wikipedia' | 'tools' | 'rss';
+  source: 'duckduckgo' | 'wikipedia' | 'tools' | 'rss' | 'suggest';
 };
 
 export type ResearchPack = {
   query: string;
   hits: ResearchHit[];
   tools: ResearchHit[];
+  signalScore?: number;
 };
 
-/**
- * Rotating seeds. Scams + money + earning — not only app-testing.
- * Trending: FG consumer credit / ₦50k grant scams, student side income, wallet habits.
- */
+/** Long-tail, student/Nigeria-specific — avoid one-word competitive head terms */
 const SEED_QUERIES = [
-  // Trending grants / FG programmes (scam angle + official caution)
-  'FG 50000 consumer credit grant scam Nigeria how to verify official channel',
-  'Federal Government 50k grant WhatsApp registration fee scams Nigeria',
-  'Nigeria Conditional Grant Scheme or MSME grant fake portal checklist',
-  'how to check official FG youth grant or loan without paying agent',
-  // Earning / side income (non-scam)
-  'seven realistic ways Nigerian students earn online without paying upfront',
-  'phone-only freelancing Canva CapCut first paid client Nigeria',
-  'how to price a small service offer on WhatsApp Nigeria',
-  'student side income without inventory Nigeria realistic weekly plan',
-  'online tutoring one subject WAEC JAMB phone setup Nigeria',
-  'market run personal shopping side income fees and trust Nigeria',
-  'airtime and data resale margins risks for beginners Nigeria',
-  'how to earn 3000 to 10000 naira weekly under 5000 capital Nigeria',
-  // Money habits
-  'weekly budget in naira irregular income beginner system',
-  'seven habits that drain student savings Nigeria',
-  'Opay Moniepoint Kuda fees for receiving payments Nigeria',
-  'build emergency 5k buffer on campus allowance Nigeria',
-  'how to separate hustle money from food money wallet discipline',
-  // Scam defence (broader than app testing)
-  'WhatsApp Telegram remote job activation fee scams Nigeria how to verify',
-  'fake investment apps deposit ladder trap Nigeria walk away',
-  'POS agent school fee send to this account scams Nigeria',
-  'pay small small campus loan traps daily interest Nigeria',
-  'fake FIRS NRS recruitment messages Nigeria how to spot',
-  'crypto recovery agent scams after a loss what to do',
-  'BVN OTP sharing risks job offer Nigeria',
-  'how to verify employer before sharing ID documents Nigeria',
-  // Skills / tools
-  'Canva phone flyer service pricing for beginners Nigeria',
-  'ghostwriting first paid job Nigeria portfolio outreach',
-  'POS agent float costs and hidden charges Nigeria educational',
+  // Money habits (long-tail)
+  'how Nigerian students budget irregular allowance weekly without an app',
+  'seven small habits that quietly drain campus savings in Nigeria',
+  'how to build a five thousand naira emergency buffer on campus',
+  'Opay vs Moniepoint fees when friends send you school money',
+  'how to keep hustle money separate from food money on one phone',
+  // Earning (specific offers, not generic "make money online")
+  'how to sell one-page Canva flyers for church and campus events Nigeria',
+  'pricing a CapCut short video edit for local business WhatsApp clients',
+  'online tutoring one WAEC subject from phone realistic first week plan',
+  'personal shopping market run side income Lagos or campus city fees trust',
+  'ghostwriting short bio for small business first paid order Nigeria',
+  'airtime data resale for beginners margins and common losses Nigeria',
+  'how students earn three to ten thousand naira weekly under five thousand capital',
+  // Scam defence (specific situations, not only FG grant)
+  'POS agent says send school fees to this account red flags Nigeria',
+  'pay small small campus loan daily interest traps what to refuse',
+  'WhatsApp remote job asks activation fee before first task Nigeria',
+  'fake investment app shows profit then demands withdrawal tax Nigeria',
+  'how to refuse BVN OTP requests from job offer chats Nigeria',
+  'how to verify a hiring manager before sending ID photos Nigeria',
+  'crypto recovery agent after a loss never send more money Nigeria',
+  // Grants — only occasional long-tail variants (not every run)
+  'how to read an official FG youth support page without paying a WhatsApp agent',
+  // Skills
+  'first paid Canva design job portfolio on phone only Nigeria',
+  'student side income without buying inventory realistic Nigeria plan',
 ];
+
+/** Phrases already over-published — soft-ban in ranking */
+const OVERUSED =
+  /\bfg\b.*grant|youth grant|50\s*k|50000|firs\s*recruit|activation fee scam|app testing/i;
 
 const BLOCK =
   /\b(forex signal|binary options|prop firm challenge|guaranteed pips|get rich in 7 days)\b/i;
@@ -68,36 +65,32 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
-/** Prefer a mix: force at least one non-scam query in the first picks */
+function longTailBonus(q: string) {
+  const words = q.trim().split(/\s+/).length;
+  // Prefer 8–16 word queries (lower competition long-tail)
+  if (words >= 8 && words <= 18) return 25;
+  if (words >= 6) return 12;
+  return 0;
+}
+
 export function pickQueries(n: number): string[] {
   const salt = daySalt();
   const hour = new Date().getUTCHours();
-  const ranked = [...SEED_QUERIES].sort((a, b) => hash(a + salt + hour) - hash(b + salt + hour));
+  const scored = SEED_QUERIES.map((q) => {
+    let s = (hash(q + salt + hour) % 40) + longTailBonus(q);
+    if (OVERUSED.test(q)) s -= 35; // deprioritize overused grant/FIRS style
+    if (/budget|habit|buffer|Canva|CapCut|tutoring|POS agent|pay small/i.test(q)) s += 15;
+    return { q, s };
+  }).sort((a, b) => b.s - a.s);
 
-  const isEarnOrMoney = (q: string) =>
-    /earn|income|budget|habit|freelance|tutor|Canva|pricing|wallet|Opay|buffer|service offer|grant/i.test(
-      q
-    ) && !/scam|fake|trap|OTP|activation fee/i.test(q);
-
-  const earnFirst = ranked.filter(isEarnOrMoney);
-  const rest = ranked.filter((q) => !isEarnOrMoney(q));
-  // Interleave: start with earn/money/grant, then rest
-  const mixed: string[] = [];
-  let i = 0;
-  let j = 0;
-  while (mixed.length < n && (i < earnFirst.length || j < rest.length)) {
-    if (i < earnFirst.length) mixed.push(earnFirst[i++]);
-    if (mixed.length >= n) break;
-    if (j < rest.length) mixed.push(rest[j++]);
-  }
-  return mixed.slice(0, n);
+  return scored.slice(0, Math.max(n, 10)).map((x) => x.q);
 }
 
 async function fetchJson(url: string, timeoutMs = 12000): Promise<any | null> {
   try {
     const r = await fetch(url, {
       headers: {
-        'User-Agent': 'LaneCashBot/1.0 (educational)',
+        'User-Agent': 'LaneCashBot/1.1 (educational)',
         Accept: 'application/json',
       },
       signal: AbortSignal.timeout(timeoutMs),
@@ -113,6 +106,7 @@ function cleanHits(hits: ResearchHit[]): ResearchHit[] {
   return hits.filter((h) => h.title && !BLOCK.test(`${h.title} ${h.snippet}`));
 }
 
+/** DuckDuckGo Instant Answer + related topics (proxy for interest breadth) */
 export async function searchDuckDuckGo(query: string, limit = 5): Promise<ResearchHit[]> {
   const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
   const data = await fetchJson(url);
@@ -155,6 +149,7 @@ export async function searchDuckDuckGo(query: string, limit = 5): Promise<Resear
   return cleanHits(hits).slice(0, limit);
 }
 
+/** Free autocomplete-style signal via DuckDuckGo related searches HTML is blocked; use Wikipedia + DDG only */
 export async function searchWikipedia(query: string, limit = 4): Promise<ResearchHit[]> {
   try {
     const openUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(
@@ -204,44 +199,78 @@ async function searchWikipediaFulltext(query: string, limit = 3): Promise<Resear
   );
 }
 
+/** Wikimedia search as extra signal (count of hits ≈ topic exists in public knowledge) */
+async function searchWikimediaSuggest(query: string): Promise<ResearchHit[]> {
+  const url = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(
+    query.split(' ').slice(0, 6).join(' ')
+  )}&limit=5&namespace=0&format=json&origin=*`;
+  const data = await fetchJson(url);
+  if (!data) return [];
+  const titles: string[] = data[1] || [];
+  const urls: string[] = data[3] || [];
+  return titles.map((t, i) => ({
+    title: t,
+    snippet: 'suggest',
+    url: urls[i] || '',
+    source: 'suggest' as const,
+  }));
+}
+
+/** Rough multi-source interest score: more independent hits = safer educational topic */
+export function scoreTopicInterest(hits: ResearchHit[], tools: ResearchHit[]): number {
+  let score = 0;
+  score += Math.min(hits.length, 8) * 8;
+  score += Math.min(tools.length, 4) * 3;
+  const sources = new Set(hits.map((h) => h.source));
+  score += sources.size * 10;
+  // Prefer topics with at least some public text, not empty research
+  if (hits.length === 0) score -= 20;
+  return score;
+}
+
 export async function researchTopic(query: string): Promise<ResearchPack> {
-  const toolQuery = `free tools ${query}`.slice(0, 100);
-  const [ddg, wiki, wiki2, tools] = await Promise.all([
-    searchDuckDuckGo(query, 5),
+  const toolQuery = `Nigeria ${query}`.slice(0, 100);
+  const [ddg, wiki, wiki2, tools, suggest] = await Promise.all([
+    searchDuckDuckGo(query, 6),
     searchWikipedia(query, 3),
     searchWikipediaFulltext(query, 3),
     searchDuckDuckGo(toolQuery, 4),
+    searchWikimediaSuggest(query),
   ]);
 
   const seen = new Set<string>();
   const hits: ResearchHit[] = [];
-  for (const h of [...ddg, ...wiki, ...wiki2]) {
+  for (const h of [...ddg, ...wiki, ...wiki2, ...suggest]) {
     const k = h.title.toLowerCase();
     if (seen.has(k)) continue;
     seen.add(k);
     hits.push(h);
-    if (hits.length >= 8) break;
+    if (hits.length >= 10) break;
   }
 
   const toolHits = cleanHits(tools).map((t) => ({ ...t, source: 'tools' as const }));
-  console.log(`[research] q="${query.slice(0, 50)}" hits=${hits.length} tools=${toolHits.length}`);
-  return { query, hits, tools: toolHits };
+  const signalScore = scoreTopicInterest(hits, toolHits) + longTailBonus(query);
+  console.log(
+    `[research] q="${query.slice(0, 55)}" hits=${hits.length} tools=${toolHits.length} signal=${signalScore}`
+  );
+  return { query, hits, tools: toolHits, signalScore };
 }
 
 export function packToContext(pack: ResearchPack): string {
   const lines: string[] = [
     `Primary topic / query: ${pack.query}`,
     'Write ONLY about this topic. Educational content. Not financial advice.',
-    'LaneCash niche: Nigeria scam defence, safe money habits, practical earning skills, phone hustles.',
-    'If the topic is a government grant or FG 50k credit, stress: never pay an agent for registration, use only official government domains, scammers ride trending headlines.',
-    'Do not invent unrelated get-rich schemes. Prefer checklists and red/green flags.',
-    'Use Nigeria-relevant examples when natural (WhatsApp, BVN, naira, Opay) without inventing laws.',
+    'LaneCash niche: Nigeria money habits, practical phone skills, scam defence, student earning.',
+    'Target long-tail phrasing in the title (specific situation, not generic "make money online").',
+    'If research is thin, still write a practical checklist from general safe practice — do not invent laws or fees.',
+    'Do not invent get-rich schemes. Prefer steps, red flags, and realistic naira ranges when you give examples.',
+    `Interest signal (internal): ${pack.signalScore ?? 0}`,
     '',
   ];
   if (pack.hits.length) {
-    lines.push('Research sources:');
+    lines.push('Research sources (paraphrase only):');
     for (const h of pack.hits.slice(0, 6)) {
-      lines.push(`- (${h.source}) ${h.title}: ${h.snippet.slice(0, 240)} [${h.url}]`);
+      lines.push(`- (${h.source}) ${h.title}: ${h.snippet.slice(0, 220)} [${h.url}]`);
     }
   } else {
     lines.push(
@@ -251,7 +280,7 @@ export function packToContext(pack: ResearchPack): string {
   if (pack.tools.length) {
     lines.push('', 'Optional tools to mention (reader must verify):');
     for (const t of pack.tools.slice(0, 4)) {
-      lines.push(`- ${t.title}: ${t.snippet.slice(0, 160)} [${t.url}]`);
+      lines.push(`- ${t.title}: ${t.snippet.slice(0, 140)} [${t.url}]`);
     }
   }
   return lines.join('\n');
