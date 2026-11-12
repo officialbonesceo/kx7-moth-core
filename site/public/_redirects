@@ -1,0 +1,11 @@
+# LaneCash trailing-slash + clean paths
+# www → apex handled at Cloudflare zone
+
+/tools /tools/ 301
+/about /about/ 301
+/search /search/ 301
+/disclaimer /disclaimer/ 301
+/saved /saved/ 301
+/profile /profile/ 301
+/notifications /notifications/ 301
+/category /category/ 301
