@@ -1,22 +1,19 @@
 ---
 import Base from '../layouts/Base.astro';
-import Pagination from '../components/Pagination.astro';
 import BannerAd from '../components/BannerAd.astro';
 import { getArticles } from '../lib/db';
 import { coverFor, svgCover } from '../lib/images';
-import { teamFor } from '../lib/socials';
 
 export const prerender = false;
 
-const db = Astro.locals.runtime?.env?.DB;
-const tab = Astro.url.searchParams.get('tab') || 'all';
-const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
-const perPage = 10;
-const offset = (page - 1) * perPage;
+// Any legacy ?tab= / ?page= homepage URL must 301 to clean /
+const q = Astro.url.search || '';
+if (q && q.length > 1) {
+  return Astro.redirect('/', 301);
+}
 
-const isFilterView = tab !== 'all' || page > 1;
-const origin = Astro.url.origin;
-const cleanHome = `${origin}/`;
+const db = Astro.locals.runtime?.env?.DB;
+const SITE = 'https://lanecash.name.ng';
 
 function fmtTime(iso?: string) {
   if (!iso) return '';
@@ -30,7 +27,6 @@ function fmtTime(iso?: string) {
 }
 
 let articles: any[] = [];
-let total = 0;
 let dbError = '';
 let heroPool: any[] = [];
 
@@ -55,38 +51,24 @@ try {
     const byViews = [...all].sort((a, b) => Number(b.views || 0) - Number(a.views || 0));
     heroPool = (featured.length >= 3 ? featured : [...featured, ...byViews]).slice(0, 3);
     if (heroPool.length < 3) heroPool = all.slice(0, 3);
-
-    if (tab !== 'all') {
-      all = all.filter((a) => {
-        const c = (a.category || '').toLowerCase();
-        const t = `${a.title} ${a.summary}`.toLowerCase();
-        if (tab === 'scams') return c === 'scams' || /scam|fraud|phish|telegram|fake|bvn|activation fee/.test(t);
-        if (tab === 'money') return c === 'money' || /budget|naira|fee|bank|wallet|payment|fx|convert/.test(t);
-        if (tab === 'skills') return c === 'guides' || c === 'opportunities' || /canva|tutor|freelance|ghostwrit|design|phone|client|student|job/.test(t);
-        return true;
-      });
-    }
-    total = all.length;
-    articles = all.slice(offset, offset + perPage);
+    articles = all.slice(0, 40);
   } else {
     dbError = 'Database binding missing';
   }
 } catch (e: any) {
   dbError = e?.message || 'Database error';
 }
-const totalPages = Math.max(1, Math.ceil(total / perPage));
 const mid = Math.min(3, Math.max(1, articles.length - 1));
-const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
+const showHero = heroPool.length > 0;
 ---
 <Base
   title="LaneCash — Check the offer before you pay"
   description="Nigeria-first scam alerts, safe money habits, and practical phone skills for students and beginners. Educational only — not financial advice."
-  canonical={cleanHome}
-  noindex={isFilterView}
+  canonical={`${SITE}/`}
 >
   <div class="disclaimer-banner">
     <strong>Disclaimer:</strong> Educational content only — not financial advice.
-    <a href="/disclaimer">Full disclaimer</a>
+    <a href="/disclaimer/">Full disclaimer</a>
   </div>
 
   {showHero && (
@@ -94,7 +76,7 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
       <div class="hero-track" id="homeHeroTrack">
         {heroPool.map((a) => (
           <div class="hero-slide" data-type="article" data-hold="4500">
-            <a href={`/article/${a.slug}`}>
+            <a href={`/article/${a.slug}/`}>
               <img
                 class="hero-img"
                 src={coverFor(a)}
@@ -125,16 +107,16 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
     </div>
   )}
 
-  <div class="chips">
-    <a class={`chip ${tab==='all'?'active':''}`} href="/">★ Latest</a>
-    <a class={`chip ${tab==='scams'?'active':''}`} href="/?tab=scams" rel="nofollow">Scam alerts</a>
-    <a class={`chip ${tab==='money'?'active':''}`} href="/?tab=money" rel="nofollow">Money habits</a>
-    <a class={`chip ${tab==='skills'?'active':''}`} href="/?tab=skills" rel="nofollow">Phone skills</a>
+  <div class="chips" id="homeChips" role="tablist" aria-label="Filter guides">
+    <button type="button" class="chip active" data-tab="all">★ Latest</button>
+    <button type="button" class="chip" data-tab="scams">Scam alerts</button>
+    <button type="button" class="chip" data-tab="money">Money habits</button>
+    <button type="button" class="chip" data-tab="skills">Phone skills</button>
   </div>
 
   <div class="section-head">
-    <h2>{tab === 'scams' ? 'Scam alerts' : tab === 'money' ? 'Money habits' : tab === 'skills' ? 'Phone skills' : 'Latest guides'}</h2>
-    <a href="/search">Search ›</a>
+    <h2 id="feedTitle">Latest guides</h2>
+    <a href="/search/">Search ›</a>
   </div>
   {dbError && <div class="empty">Temporary issue loading posts. Retry shortly.</div>}
   <section class="feed" id="feed">
@@ -147,9 +129,11 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
         )}
         <a
           class="card"
-          href={`/article/${a.slug}`}
-          data-path={`/article/${a.slug}`}
+          href={`/article/${a.slug}/`}
+          data-path={`/article/${a.slug}/`}
           data-slug={a.slug}
+          data-category={(a.category || '').toLowerCase()}
+          data-text={`${a.title || ''} ${a.summary || ''}`.toLowerCase()}
         >
           <div class="card-main">
             <span class={`pill ${a.category}`}>{a.category}</span>
@@ -178,15 +162,40 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
       </>
     )) : (!dbError && <div class="empty">No articles yet.</div>)}
   </section>
-  <Pagination page={page} totalPages={totalPages} base={tab==='all' ? '/' : `/?tab=${tab}`} />
 
   <div class="tools-foot">
-    <p><strong>Currency & fee tools</strong>Convert rates and estimate transfer costs on the Tools tab.</p>
-    <a class="tools-cta" href="/tools">Open tools →</a>
+    <p><strong>Currency & fee tools</strong> Convert rates and estimate transfer costs on the Tools tab.</p>
+    <a class="tools-cta" href="/tools/">Open tools →</a>
   </div>
 
   <script is:inline>
     (function(){
+      var titles = { all: 'Latest guides', scams: 'Scam alerts', money: 'Money habits', skills: 'Phone skills' };
+      function matchTab(card, tab) {
+        if (tab === 'all') return true;
+        var c = card.getAttribute('data-category') || '';
+        var t = card.getAttribute('data-text') || '';
+        if (tab === 'scams') return c === 'scams' || /scam|fraud|phish|telegram|fake|bvn|activation fee/.test(t);
+        if (tab === 'money') return c === 'money' || /budget|naira|fee|bank|wallet|payment|fx|convert/.test(t);
+        if (tab === 'skills') return c === 'guides' || c === 'opportunities' || /canva|tutor|freelance|ghostwrit|design|phone|client|student|job/.test(t);
+        return true;
+      }
+      function applyTab(tab) {
+        document.querySelectorAll('#homeChips .chip').forEach(function (b) {
+          b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+        });
+        var title = document.getElementById('feedTitle');
+        if (title) title.textContent = titles[tab] || titles.all;
+        document.querySelectorAll('#feed .card').forEach(function (card) {
+          card.style.display = matchTab(card, tab) ? '' : 'none';
+        });
+      }
+      document.querySelectorAll('#homeChips .chip').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          applyTab(btn.getAttribute('data-tab') || 'all');
+        });
+      });
+
       var root = document.getElementById('homeHero');
       if (root) {
         var track = document.getElementById('homeHeroTrack');
@@ -226,23 +235,7 @@ const showHero = page === 1 && tab === 'all' && heroPool.length > 0;
         }
         document.getElementById('heroNext')?.addEventListener('click', function(){ go(i + 1); });
         document.getElementById('heroPrev')?.addEventListener('click', function(){ go(i - 1); });
-        var startX = 0, dx = 0;
-        root.addEventListener('touchstart', function(e){
-          startX = e.changedTouches[0].clientX; dx = 0;
-          if (timer) clearTimeout(timer);
-        }, {passive:true});
-        root.addEventListener('touchmove', function(e){
-          dx = e.changedTouches[0].clientX - startX;
-        }, {passive:true});
-        root.addEventListener('touchend', function(){
-          if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1));
-          else schedule();
-        });
         schedule();
-        document.addEventListener('visibilitychange', function(){
-          if (document.hidden) { if (timer) clearTimeout(timer); }
-          else schedule();
-        });
       }
 
       document.querySelectorAll('.card').forEach(function(c){
