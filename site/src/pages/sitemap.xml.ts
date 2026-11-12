@@ -7,12 +7,12 @@ export const GET: APIRoute = async ({ locals }) => {
   const origin = 'https://lanecash.name.ng';
   const staticPaths = [
     { path: '/', priority: '1.0' },
-    { path: '/about', priority: '0.6' },
-    { path: '/disclaimer', priority: '0.3' },
-    { path: '/tools', priority: '0.85' },
-    { path: '/tools/usd-ngn', priority: '0.8' },
-    { path: '/tools/currency', priority: '0.8' },
-    { path: '/search', priority: '0.4' },
+    { path: '/about/', priority: '0.6' },
+    { path: '/disclaimer/', priority: '0.3' },
+    { path: '/tools/', priority: '0.85' },
+    { path: '/tools/usd-ngn/', priority: '0.8' },
+    { path: '/tools/currency/', priority: '0.8' },
+    { path: '/search/', priority: '0.4' },
   ];
   let articlePaths: { loc: string; lastmod?: string; priority: string }[] = [];
 
@@ -21,11 +21,23 @@ export const GET: APIRoute = async ({ locals }) => {
     if (db) {
       const res = await getArticles(db, 200);
       const rows = res.results || [];
-      articlePaths = rows.map((a: any) => ({
-        loc: `${origin}/article/${a.slug}`,
-        lastmod: (a.updated_at || a.published_at || '').slice(0, 10) || undefined,
-        priority: '0.75',
-      }));
+      // Prefer unique titles — near-duplicate guides hurt indexing
+      const seen = new Set<string>();
+      articlePaths = rows
+        .filter((a: any) => {
+          const k = String(a.title || '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+          if (!k || seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        })
+        .map((a: any) => ({
+          loc: `${origin}/article/${a.slug}/`,
+          lastmod: (a.updated_at || a.published_at || '').slice(0, 10) || undefined,
+          priority: '0.75',
+        }));
     }
   } catch {}
 
@@ -61,5 +73,5 @@ ${urls
 };
 
 function escapeXml(s: string) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"');
 }
