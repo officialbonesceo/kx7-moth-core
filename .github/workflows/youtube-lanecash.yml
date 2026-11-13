@@ -1,17 +1,21 @@
 name: youtube-lanecash
 
+# Manual only — do not run on push (was producing empty failed runs on every commit)
 on:
   workflow_dispatch:
     inputs:
       title:
         description: Video title
         required: true
+        type: string
       script:
         description: Spoken script (plain text)
         required: true
+        type: string
       privacy:
         description: public | unlisted | private
         default: unlisted
+        type: string
 
 jobs:
   render-upload:
